@@ -23,32 +23,48 @@ const BG_BODY = `
   </g>
   <rect width="108" height="108" fill="url(#glow)"/>`;
 
-const CAP = 'M24 55 C24 35 37 22 54 22 S84 35 84 55 C72 60.500 36 60.500 24 55Z';
-const STEM = 'M41.500 54 C42 67 49 78 54 90 C59 78 66 67 66.500 54Z';
-const SPOTS = [[46, 40, 1.500], [58, 36, 1.200], [66, 44, 1.400], [52, 47, 1.100], [38, 46, 1.200], [62, 51, 1]];
-const spots = (fill) => SPOTS.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
+const CAP = 'M21 52 C19 33 34 21 53 21 C71 21 87 32 87 49 C87 54.500 83 57 78 57.500 C66 60.500 40 60.500 28 57.500 C23.500 56.500 21.200 55 21 52Z';
+const STEM = 'M41 57 C39.500 67 36.500 77 37.500 86 C39 92.500 68 92.500 70 86 C71.500 77 68.500 67 66.500 57Z';
+const PORES = 'M26 56.500 C38 61.500 68 61.500 81 56.500 C79 60.500 70 64.500 53 64.500 C37 64.500 28 60.500 26 56.500Z';
+const SMALL = (g) => `<g transform="translate(66 50) scale(.46)">${g}</g>`;
 
 const DEFS = `<defs>
-  <linearGradient id="cap" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#f2a64e"/><stop offset=".5" stop-color="#c4682a"/><stop offset="1" stop-color="#7a3414"/></linearGradient>
-  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#eadcb6"/><stop offset=".5" stop-color="#fff7e0"/><stop offset="1" stop-color="#d9c79a"/></linearGradient>
-  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108"><rect width="108" height="108" fill="#fff"/><g fill="#000">${spots('#000')}<path d="M24 60.500 C36 66 72 66 84 60.500 L84 62 C72 67.500 36 67.500 24 62Z"/></g></mask>
+  <linearGradient id="cap" x1="0.15" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#a8662f"/><stop offset=".45" stop-color="#8a4a22"/><stop offset="1" stop-color="#5f2f13"/></linearGradient>
+  <radialGradient id="capHi" cx="38%" cy="28%" r="55%"><stop offset="0" stop-color="#e0a566" stop-opacity=".85"/><stop offset="1" stop-color="#e0a566" stop-opacity="0"/></radialGradient>
+  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdb888"/><stop offset=".4" stop-color="#f6ead0"/><stop offset=".75" stop-color="#e5d3a8"/><stop offset="1" stop-color="#b79f6c"/></linearGradient>
+  <pattern id="net" width="3.600" height="3.600" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H3.600M0 0V3.600" stroke="#fffaf0" stroke-width=".6" stroke-opacity=".7" fill="none"/></pattern>
+  <linearGradient id="netfade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="netmask"><rect x="30" y="55" width="50" height="40" fill="url(#netfade)"/></mask>
+  <linearGradient id="pores" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9c77a"/><stop offset="1" stop-color="#f0e4b0"/></linearGradient>
+  <clipPath id="capclip"><path d="${CAP}"/></clipPath>
   <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.400"/></filter>
 </defs>`;
 
-const FG_BODY = `
-  <ellipse cx="54" cy="90.500" rx="22" ry="4.600" fill="none" stroke="#ffcf7a" stroke-opacity=".35" stroke-width="1"/>
-  <ellipse cx="54" cy="90.500" rx="12" ry="2.700" fill="none" stroke="#ffcf7a" stroke-opacity=".7" stroke-width="1.200"/>
-  <g filter="url(#blur)" opacity=".5" transform="translate(0 3)"><path d="${CAP}" fill="#020c08"/><path d="${STEM}" fill="#020c08"/></g>
+const MUSH = `
   <path d="${STEM}" fill="url(#stem)"/>
-  <path d="M41.500 54 C42 67 49 78 54 90 C48 76 45 66 44.500 54Z" fill="#c4ad7a" opacity=".45"/>
+  <path d="${STEM}" fill="url(#net)" mask="url(#netmask)"/>
+  <path d="M66.500 57 C68.500 67 71.500 77 70 86 C69 89 66 90.500 62 91 C66 86 66 70 63 57Z" fill="#9d8450" opacity=".35"/>
+  <path d="${PORES}" fill="url(#pores)"/>
   <path d="${CAP}" fill="url(#cap)"/>
-  <path d="M30 47 C32 35 41 27 53 26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2.600" stroke-linecap="round"/>
-  ${spots('#ffe2b0')}
-  <path d="M24 55 C36 60.500 72 60.500 84 55" fill="none" stroke="#7a2e08" stroke-opacity=".5" stroke-width="1.400"/>`;
+  <g clip-path="url(#capclip)">
+    <rect width="108" height="108" fill="url(#capHi)"/>
+    <ellipse cx="62" cy="31" rx="7" ry="3.600" fill="#5a2a10" opacity=".25" transform="rotate(20 62 31)"/>
+    <ellipse cx="46" cy="42" rx="5" ry="2.800" fill="#5a2a10" opacity=".18" transform="rotate(-15 46 42)"/>
+    <ellipse cx="72" cy="44" rx="6" ry="3" fill="#4a2209" opacity=".2" transform="rotate(30 72 44)"/>
+    <path d="M20 53 C34 59.500 72 59.500 88 53 L88 62 L20 62Z" fill="#f4e6c6" opacity=".9"/>
+  </g>
+  <path d="M30 40 C32 30 41 25 52 24.500" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2.800" stroke-linecap="round"/>`;
+
+const FG_BODY = `
+  <ellipse cx="54" cy="92" rx="26" ry="5" fill="none" stroke="#ffcf7a" stroke-opacity=".3" stroke-width="1"/>
+  <ellipse cx="54" cy="92" rx="16" ry="3.200" fill="none" stroke="#ffcf7a" stroke-opacity=".6" stroke-width="1.200"/>
+  <g filter="url(#blur)" opacity=".5" transform="translate(0 3)"><path d="${CAP}" fill="#020c08"/><path d="${STEM}" fill="#020c08"/></g>
+  ${MUSH}
+  <path d="M30 91 C38 94.500 70 94.500 78 91 C74 96 34 96 30 91Z" fill="#1a0f08" opacity=".55"/>`;
 
 const svg = (inner, size = 108, vb = '0 0 108 108') => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${vb}">${inner}</svg>`;
 const FG = svg(`${DEFS}${FG_BODY}`);
-const FG_MONO = svg(`${DEFS}<path d="${CAP}" fill="#fff" mask="url(#cut)"/><path d="${STEM}" fill="#fff"/>`);
+const FG_MONO = svg(`${DEFS}<path d="${CAP}" fill="#fff"/><path d="${STEM}" fill="#fff"/><path d="${PORES}" fill="#fff"/>`);
 const BG = svg(BG_BODY);
 const FULL = svg(`${BG_BODY}${DEFS}${FG_BODY}`);
 
@@ -103,7 +119,11 @@ for (const f of splashFiles) {
   const s = Math.round(Math.min(m.width, m.height) * 0.42);
   const bg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><defs><radialGradient id="g" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#2a6b50"/><stop offset=".6" stop-color="#14402f"/><stop offset="1" stop-color="#0a281d"/></radialGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`);
   const logo = await sharp(fgBuf).resize(s, s).toBuffer();
-  const out = await sharp(bg).composite([{ input: logo, left: Math.round((m.width - s) / 2), top: Math.round((m.height - s) / 2) }]).png().toBuffer();
+  const top = Math.round((m.height - s) / 2) - Math.round(s * 0.12);
+  const fs1 = Math.round(m.width * 0.1), fs2 = Math.round(m.width * 0.034);
+  const ty = top + s + Math.round(fs1 * 0.9);
+  const txt = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><text x="50%" y="${ty}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-weight="bold" font-size="${fs1}" fill="#f8f1dc">Footprint</text><text x="50%" y="${ty + Math.round(fs2 * 2)}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-style="italic" font-size="${fs2}" fill="#cfe4d6">Traccia il cammino, rispetta il bosco.</text></svg>`);
+  const out = await sharp(bg).composite([{ input: logo, left: Math.round((m.width - s) / 2), top }, { input: txt, left: 0, top: 0 }]).png().toBuffer();
   fs.writeFileSync(f, out);
 }
 // colore tema splash Android 12+

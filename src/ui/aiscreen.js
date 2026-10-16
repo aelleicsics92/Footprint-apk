@@ -7,7 +7,7 @@ const mounted = {};
 
 export function mountAI(el) {
   root = el;
-  el.innerHTML = `<div class="seg" style="position:sticky;top:0;z-index:5;margin:0;padding:calc(var(--sat) + 8px) 14px 8px;background:var(--paper);border-radius:0">
+  el.innerHTML = `<div class="seg" style="position:sticky;top:0;z-index:5;margin:0;padding:8px 14px 8px;background:var(--paper);border-radius:0">
       <div style="display:flex;width:100%;background:var(--paper2);border-radius:14px;padding:4px">
         <button data-t="id" class="sel" style="flex:1;border:0;background:none;border-radius:11px;padding:9px 6px;font-weight:600;font-size:.88rem;color:var(--muted)">Identifica</button>
         <button data-t="chat" style="flex:1;border:0;background:none;border-radius:11px;padding:9px 6px;font-weight:600;font-size:.88rem;color:var(--muted)">Chiedi</button>

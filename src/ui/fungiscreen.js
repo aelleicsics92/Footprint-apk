@@ -53,7 +53,14 @@ function renderProfiles() {
 let shown = false;
 function onShow() {
   if (!fmap) initMap();
-  setTimeout(() => fmap && fmap.invalidateSize(), 80);
+  setTimeout(() => {
+    if (!fmap) return;
+    fmap.invalidateSize();
+    if (!state.fitted) {
+      state.fitted = true;
+      fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
+    }
+  }, 120);
   if (!shown) {
     shown = true;
     load(false);
@@ -63,7 +70,7 @@ function onShow() {
 function initMap() {
   fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, attributionControl: true, minZoom: 5, maxZoom: 10 });
   fmap.attributionControl.setPrefix(false);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO', maxZoom: 10 }).addTo(fmap);
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, HERE, Garmin', maxZoom: 10, maxNativeZoom: 10 }).addTo(fmap);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
   zoneLayer = L.layerGroup().addTo(fmap);
   fmap.on('click', async (e) => {

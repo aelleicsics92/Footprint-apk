@@ -209,7 +209,11 @@ async function exportAll() {
 function openSettings() {
   openPage('Impostazioni', (pg) => {
     const s = getSettings();
-    const keyHint = (n) => (apiKey(n) && !s[n + 'Key'] ? 'Chiave integrata nell\'app' : 'Incolla la chiave API');
+    const keyHint = (n) => {
+      const k = apiKey(n);
+      if (!k) return 'Incolla la chiave API';
+      return s[n + 'Key'] ? 'Chiave personale in uso' : `Chiave integrata attiva (${k.slice(0, 4)}…${k.slice(-3)})`;
+    };
     pg.body.innerHTML = `
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Registra traccia</b><small>Registra il percorso anche a schermo spento</small></div><label class="switch"><input type="checkbox" data-k="recordTrack" ${s.recordTrack ? 'checked' : ''}><i></i></label></div>

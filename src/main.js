@@ -30,6 +30,7 @@ function showTab(id) {
   if (!TABS.some((t) => t[0] === id)) return;
   current = id;
   TABS.forEach(([k]) => $('#screen-' + k).classList.toggle('active', k === id));
+  $('#app').classList.toggle('on-map', id === 'map');
   $('#nav')
     .querySelectorAll('button')
     .forEach((b) => b.classList.toggle('active', b.dataset.t === id));

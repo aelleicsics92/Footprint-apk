@@ -19,9 +19,9 @@ export function mountGuide(el) {
 
 function render() {
   root.innerHTML = `
-    <div class="chips">${TABS.map(([k, l]) => `<button class="chip ${k === tab ? 'sel' : ''}" data-t="${k}">${l}</button>`).join('')}</div>
+    <div class="chips">${TABS.map(([k, l]) => `<button class="chip ${k === tab ? 'sel' : ''}" data-gt="${k}">${l}</button>`).join('')}</div>
     ${tab === 'regole' ? rules() : `<div style="margin:0 14px"><input id="g-q" type="search" placeholder="Cerca…" value="${esc(q)}"></div><div class="list" id="g-list"></div>`}`;
-  root.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => ((tab = b.dataset.t), (q = ''), render())));
+  root.querySelectorAll('[data-gt]').forEach((b) => (b.onclick = () => ((tab = b.dataset.gt), (q = ''), render())));
   if (tab !== 'regole') {
     const inp = root.querySelector('#g-q');
     inp.oninput = () => {

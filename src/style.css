@@ -110,10 +110,10 @@ textarea{resize:none}
 
 /* ---------- pagine ---------- */
 #page{position:fixed;inset:0;z-index:40;pointer-events:none}
-.page-layer{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease;pointer-events:auto;padding-top:var(--sat)}
+.page-layer{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease;pointer-events:auto}
 .page-layer.in{transform:none}
 .page-layer.out{transform:translateX(100%)}
-.page-head{display:flex;align-items:center;gap:4px;padding:8px 8px;background:var(--forest);color:#fff;flex:none}
+.page-head{display:flex;align-items:center;gap:4px;padding:calc(var(--sat) + 8px) 8px 8px;background:var(--forest);color:#fff;flex:none}
 .page-head h2{flex:1;font-size:1.2rem;font-weight:600}
 .page-actions{display:flex}
 .page-body{flex:1;overflow-y:auto;padding-bottom:calc(20px + var(--sab));-webkit-overflow-scrolling:touch}
@@ -262,3 +262,9 @@ textarea{resize:none}
 .hero{padding:calc(var(--sat) + 22px) 20px 20px;background:linear-gradient(170deg,var(--forest2),var(--forest));color:#fff;border-radius:0 0 28px 28px}
 .hero h1{font-size:2rem}
 .hero p{margin:4px 0 0;color:#bcd3c4;font-size:.92rem}
+
+/* barra di stato: sfondo scuro fuori dalla mappa, così l'orologio resta leggibile */
+#app{padding-top:var(--sat);background:var(--paper)}
+#app::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);background:var(--forest);z-index:30}
+#app.on-map{padding-top:0}
+#app.on-map::before{display:none}

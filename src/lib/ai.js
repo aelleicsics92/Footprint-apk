@@ -25,6 +25,8 @@ async function post(url, headers, body) {
   return r.json();
 }
 
+const vertexModel = (m) => (/latest/.test(m) ? 'gemini-2.5-flash' : m);
+
 async function callGemini(p, { system, user, images, audio, json }) {
   const parts = [{ text: user }];
   for (const i of images || []) parts.push({ inline_data: { mime_type: i.mime, data: i.data } });
@@ -34,10 +36,34 @@ async function callGemini(p, { system, user, images, audio, json }) {
     contents: [{ role: 'user', parts }],
     generationConfig: { temperature: 0.2, ...(json ? { responseMimeType: 'application/json' } : {}) },
   };
-  const j = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`, { 'x-goog-api-key': p.key }, body);
+  // Chiavi classiche "AIza…" -> Gemini API; chiavi "AQ.…" -> Vertex AI (modalità express). Se la prima via fallisce prova l'altra.
+  const gen = () => post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`, { 'x-goog-api-key': p.key }, body);
+  const vtx = () => post(`https://aiplatform.googleapis.com/v1/publishers/google/models/${encodeURIComponent(vertexModel(p.model))}:generateContent?key=${encodeURIComponent(p.key)}`, {}, body);
+  const order = p.key.startsWith('AIza') ? [gen, vtx] : [vtx, gen];
+  let j;
+  try {
+    j = await order[0]();
+  } catch (e) {
+    if (![400, 401, 403, 404].includes(e.status)) throw e;
+    try {
+      j = await order[1]();
+    } catch (e2) {
+      throw e;
+    }
+  }
   const t = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('');
   if (!t) throw new Error('Risposta vuota');
   return t;
+}
+
+async function pickGroqModel(key, vision, bad) {
+  const r = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+  if (!r.ok) return null;
+  const ids = ((await r.json()).data || []).map((x) => x.id).filter((id) => id !== bad && !/whisper|tts|guard|playai|orpheus|prompt/i.test(id));
+  const pick = (re) => ids.find((id) => re.test(id));
+  return vision
+    ? pick(/llama-4-maverick/) || pick(/llama-4-scout/) || pick(/vision/) || pick(/llama-4/)
+    : pick(/llama-3\.3-70b/) || pick(/llama-4/) || pick(/70b/) || ids[0];
 }
 
 async function callOpenAI(p, url, extraHeaders, { system, user, images, json }) {
@@ -52,7 +78,17 @@ async function callOpenAI(p, url, extraHeaders, { system, user, images, json }) 
     ],
   };
   if (json) body.response_format = { type: 'json_object' };
-  const j = await post(url, { Authorization: `Bearer ${p.key}`, ...extraHeaders }, body);
+  let j;
+  try {
+    j = await post(url, { Authorization: `Bearer ${p.key}`, ...extraHeaders }, body);
+  } catch (e) {
+    // modello ritirato o non disponibile: scegli automaticamente uno valido dall'elenco del provider
+    if (p.id !== 'groq' || ![400, 404].includes(e.status)) throw e;
+    const m = await pickGroqModel(p.key, !!(images && images.length), p.model);
+    if (!m) throw e;
+    body.model = m;
+    j = await post(url, { Authorization: `Bearer ${p.key}`, ...extraHeaders }, body);
+  }
   const t = j.choices?.[0]?.message?.content;
   if (!t) throw new Error('Risposta vuota');
   return typeof t === 'string' ? t : t.map((x) => x.text || '').join('');
@@ -67,6 +103,7 @@ export async function askModel(opts) {
     if (!order.length) throw new Error('AUDIO_NEEDS_GEMINI');
   }
   let lastErr;
+  const errs = [];
   for (const p of order) {
     try {
       let text;
@@ -76,10 +113,13 @@ export async function askModel(opts) {
       return { text, provider: p.name };
     } catch (e) {
       lastErr = e;
+      errs.push(`${p.name}: ${String(e.message).slice(0, 90)}`);
       console.warn('AI provider fallito', p.id, e.message);
     }
   }
-  throw lastErr || new Error('AI non disponibile');
+  const out = new Error(errs.length ? errs.join(' | ') : 'AI non disponibile');
+  out.status = lastErr && lastErr.status;
+  throw out;
 }
 
 export function parseJSON(text) {
@@ -96,6 +136,7 @@ export function aiErrorMessage(e) {
   const m = String(e && e.message);
   if (m === 'NO_KEY') return 'Nessuna chiave AI configurata. Inseriscila in Impostazioni → Intelligenza artificiale.';
   if (m === 'AUDIO_NEEDS_GEMINI') return 'Il riconoscimento dei suoni richiede una chiave Gemini (Impostazioni).';
+  if (/^(Gemini|OpenRouter|Groq):/.test(m)) return 'AI non disponibile. ' + m.slice(0, 260);
   if (m.includes('429')) return 'Limite di richieste raggiunto. Riprova tra poco.';
   if (m.includes('401') || m.includes('403')) return 'Chiave AI non valida o non autorizzata.';
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Nessuna connessione. L\'AI richiede internet.';
