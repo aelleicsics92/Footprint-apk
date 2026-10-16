@@ -1,15 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="38%" r="80%"><stop offset="0" stop-color="#2f8a63"/><stop offset=".48" stop-color="#17503a"/><stop offset="1" stop-color="#06201a"/></radialGradient>
-    <radialGradient id="glow" cx="50%" cy="46%" r="42%"><stop offset="0" stop-color="#ffe2a8" stop-opacity=".38"/><stop offset="1" stop-color="#ffe2a8" stop-opacity="0"/></radialGradient>
-  </defs>
-  <rect width="108" height="108" fill="url(#bg)"/>
-  <g>
-    <path d="M54 10 C80 6 100 24 98 50 C96 78 74 100 50 98 C24 96 8 76 10 52 C12 28 30 12 54 10Z" stroke="#a8ecc4" stroke-opacity="0.16" stroke-width="0.9" fill="none"/>
-    <path d="M54 20 C72 18 88 31 86 50 C84 70 68 88 50 86 C32 84 20 68 22 52 C24 34 38 22 54 20Z" stroke="#a8ecc4" stroke-opacity="0.2" stroke-width="0.9" fill="none"/>
-    <path d="M54 30 C65 29 76 38 75 50 C74 62 63 76 51 75 C40 74 32 63 33 53 C34 41 43 31 54 30Z" stroke="#a8ecc4" stroke-opacity="0.26" stroke-width="0.9" fill="none"/>
-    <path d="M-10 30 C12 20 30 30 28 48 C26 66 4 70 -10 62" stroke="#a8ecc4" stroke-opacity="0.14" stroke-width="0.9" fill="none"/>
-    <path d="M118 70 C96 62 84 74 88 90 C92 104 108 108 118 104" stroke="#a8ecc4" stroke-opacity="0.14" stroke-width="0.9" fill="none"/>
-    <path d="M-10 14 C20 4 50 -4 80 -2" stroke="#a8ecc4" stroke-opacity="0.1" stroke-width="0.9" fill="none"/>
-  </g>
-  <rect width="108" height="108" fill="url(#glow)"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108"><rect width="108" height="108" fill="#f6f0d4"/></svg>

@@ -1,4 +1,5 @@
-import { DB, statoBadge, openScheda } from './db.js';
+import { DB, statoBadge, openScheda, findByKey } from './db.js';
+import { hydratePhotos } from '../lib/photos.js';
 import { esc } from '../lib/util.js';
 import { ico } from '../lib/icons.js';
 
@@ -39,10 +40,11 @@ function fill() {
   list.innerHTML = items.length
     ? items
         .map(
-          (x) => `<button class="item" data-id="${x.id}"><div class="ti"><b>${esc(x.nome)}</b><small><i>${esc(x.sci)}</i></small></div>${x.stato ? statoBadge(x.stato) : `<small class="muted">${esc(x.gruppo)}</small>`}</button>`
+          (x) => `<button class="item" data-id="${x.id}"><span class="thumb" data-ph="${tab}|${x.id}">${ico(tab === 'animali' ? 'paw' : tab === 'erbe' ? 'leaf' : 'mushroom', 20)}</span><div class="ti"><b>${esc(x.nome)}</b><small><i>${esc(x.sci)}</i></small></div>${x.stato ? statoBadge(x.stato) : `<small class="muted">${esc(x.gruppo)}</small>`}</button>`
         )
         .join('')
     : '<div class="empty">Nessun risultato</div>';
+  hydratePhotos(list, findByKey);
   list.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => openScheda(DB[tab].find((x) => x.id === b.dataset.id))));
 }
 

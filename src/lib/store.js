@@ -19,7 +19,7 @@ const DEFAULTS = {
   groqKey: '',
   geminiModel: 'gemini-flash-latest',
   openrouterModel: 'google/gemma-3-27b-it:free',
-  groqModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
+  groqModel: 'openai/gpt-oss-120b',
   baseLayer: 'sat',
   overlayTrails: true,
   showWaypoints: true,
@@ -30,6 +30,8 @@ const DEFAULTS = {
 let settings = { ...DEFAULTS };
 try {
   settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('fp.settings') || '{}') };
+  // migrazione: il vecchio modello Groq predefinito non esiste più
+  if (/llama-4-scout/.test(settings.groqModel || '')) settings.groqModel = DEFAULTS.groqModel;
 } catch {}
 
 export const getSettings = () => settings;

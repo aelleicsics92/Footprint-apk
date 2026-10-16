@@ -72,6 +72,7 @@ textarea{resize:none}
 .item .lead{width:40px;height:40px;border-radius:12px;background:var(--paper2);color:var(--forest);display:flex;align-items:center;justify-content:center;flex:none}
 .item .lead .ic{width:32px;height:32px;display:block}
 .item .lead .ic svg{width:100%;height:100%}
+.wpimg{width:100%;height:100%;display:block;object-fit:contain;border-radius:22%;user-select:none;pointer-events:none}
 .chev{color:#b6ae98}
 .empty{text-align:center;color:var(--muted);padding:34px 24px}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 8px;scrollbar-width:none}
@@ -151,8 +152,8 @@ textarea{resize:none}
 .me .cone{position:absolute;left:0;top:0;width:34px;height:34px;transition:transform .1s linear}
 .me .cone::before{content:"";position:absolute;left:7px;top:-12px;width:20px;height:24px;background:linear-gradient(to top,rgba(47,140,255,.55),rgba(47,140,255,0));clip-path:polygon(50% 0,100% 100%,0 100%)}
 .wp-marker .pin{width:42px;height:50px;position:relative;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
-.wp-marker .pin .bd{position:absolute;left:1px;top:0;width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid var(--c,#8a4b21);padding:3px}
-.wp-marker .pin .bd svg{width:100%;height:100%;display:block}
+.wp-marker .pin .bd{position:absolute;left:1px;top:0;width:40px;height:40px;border-radius:13px;background:#fff;border:3px solid var(--c,#8a4b21);padding:0;overflow:hidden}
+.wp-marker .pin .bd svg,.wp-marker .pin .bd img{width:100%;height:100%;display:block;border-radius:0}
 .wp-marker .pin::after{content:"";position:absolute;left:14px;top:35px;width:14px;height:14px;background:#fff;border-right:3px solid var(--c,#8a4b21);border-bottom:3px solid var(--c,#8a4b21);transform:rotate(45deg);z-index:-1}
 .wp-marker.target .bd{box-shadow:0 0 0 4px rgba(210,138,44,.55)}
 .zone-dot{border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
@@ -268,3 +269,9 @@ textarea{resize:none}
 #app::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);background:var(--forest);z-index:30}
 #app.on-map{padding-top:0}
 #app.on-map::before{display:none}
+
+/* foto specie */
+.thumb{width:52px;height:52px;border-radius:12px;background:var(--paper2);color:#9aa58f;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+.thumb img,.sc-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.sc-photo{width:100%;height:210px;border-radius:16px;background:var(--paper2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+.ph-credit{display:block;margin:3px 0 10px;font-size:.66rem}

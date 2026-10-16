@@ -1,9 +1,152 @@
 [
-{"id":"magnatum","nome":"Tartufo bianco pregiato","sci":"Tuber magnatum","stato":"commestibile","periodo":"1 ottobre - 31 dicembre","habitat":"Terreni argillosi umidi, con pioppi, salici, tigli, querce","riconoscimento":"Superficie liscia ocra-giallastra, gleba chiara con venature bianche; profumo intenso.","attenzione":"Il più pregiato. Raccolta con cane addestrato e tesserino regionale di idoneità."},
-{"id":"melanosporum","nome":"Tartufo nero pregiato","sci":"Tuber melanosporum","stato":"commestibile","periodo":"1 dicembre - 15 marzo (alcune regioni dal 15 novembre)","habitat":"Querce, noccioli, carpini in terreni calcarei ben drenati","riconoscimento":"Verruche piccole nere o bruno-rossastre, gleba nera con venature bianche sottili; profumo fine.","attenzione":"Il calendario varia per regione: verifica."},
-{"id":"aestivum","nome":"Tartufo scorzone","sci":"Tuber aestivum","stato":"commestibile","periodo":"1 maggio - 30 novembre","habitat":"Boschi di latifoglie e conifere, suoli calcarei","riconoscimento":"Verruche piramidali nere grosse, gleba nocciola con venature chiare.","attenzione":"Il più diffuso in estate-autunno."},
-{"id":"uncinatum","nome":"Scorzone uncinato","sci":"Tuber uncinatum","stato":"commestibile","periodo":"1 ottobre - 31 dicembre","habitat":"Latifoglie e conifere, terreni calcarei","riconoscimento":"Simile allo scorzone ma gleba più scura e aroma più intenso.","attenzione":"Spesso considerato varietà dello scorzone."},
-{"id":"borchii","nome":"Bianchetto (marzuolo)","sci":"Tuber borchii","stato":"commestibile","periodo":"15 gennaio - 30 aprile","habitat":"Pinete, boschi misti, terreni sabbiosi","riconoscimento":"Piccolo, liscio, color camoscio-rossastro, gleba bruna con venature chiare.","attenzione":"Profumo forte, a volte agliaceo."},
-{"id":"brumale","nome":"Tartufo nero invernale (moscato)","sci":"Tuber brumale","stato":"commestibile","periodo":"1 gennaio - 15 marzo","habitat":"Boschi di latifoglie","riconoscimento":"Verruche piccole nere, gleba grigio-scura con venature chiare.","attenzione":"Meno pregiato del nero pregiato."},
-{"id":"macrosporum","nome":"Tartufo nero liscio","sci":"Tuber macrosporum","stato":"commestibile","periodo":"1 settembre - 31 dicembre","habitat":"Latifoglie, terreni sciolti","riconoscimento":"Superficie quasi liscia bruno-scura, gleba bruna con venature chiare.","attenzione":"Profumo aglio-formaggio."}
+{
+"id": "magnatum",
+"nome": "Tartufo bianco pregiato",
+"sci": "Tuber magnatum",
+"stato": "commestibile",
+"periodo": "1 ottobre - 31 dicembre",
+"habitat": "Terreni argillosi umidi, con pioppi, salici, tigli, querce",
+"riconoscimento": "Superficie liscia ocra-giallastra, gleba chiara con venature bianche; profumo intenso.",
+"attenzione": "Il più pregiato. Raccolta con cane addestrato e tesserino regionale di idoneità."
+},
+{
+"id": "melanosporum",
+"nome": "Tartufo nero pregiato",
+"sci": "Tuber melanosporum",
+"stato": "commestibile",
+"periodo": "1 dicembre - 15 marzo (alcune regioni dal 15 novembre)",
+"habitat": "Querce, noccioli, carpini in terreni calcarei ben drenati",
+"riconoscimento": "Verruche piccole nere o bruno-rossastre, gleba nera con venature bianche sottili; profumo fine.",
+"attenzione": "Il calendario varia per regione: verifica."
+},
+{
+"id": "aestivum",
+"nome": "Tartufo scorzone",
+"sci": "Tuber aestivum",
+"stato": "commestibile",
+"periodo": "1 maggio - 30 novembre",
+"habitat": "Boschi di latifoglie e conifere, suoli calcarei",
+"riconoscimento": "Verruche piramidali nere grosse, gleba nocciola con venature chiare.",
+"attenzione": "Il più diffuso in estate-autunno."
+},
+{
+"id": "uncinatum",
+"nome": "Scorzone uncinato",
+"sci": "Tuber uncinatum",
+"stato": "commestibile",
+"periodo": "1 ottobre - 31 dicembre",
+"habitat": "Latifoglie e conifere, terreni calcarei",
+"riconoscimento": "Simile allo scorzone ma gleba più scura e aroma più intenso.",
+"attenzione": "Spesso considerato varietà dello scorzone."
+},
+{
+"id": "borchii",
+"nome": "Bianchetto (marzuolo)",
+"sci": "Tuber borchii",
+"stato": "commestibile",
+"periodo": "15 gennaio - 30 aprile",
+"habitat": "Pinete, boschi misti, terreni sabbiosi",
+"riconoscimento": "Piccolo, liscio, color camoscio-rossastro, gleba bruna con venature chiare.",
+"attenzione": "Profumo forte, a volte agliaceo."
+},
+{
+"id": "brumale",
+"nome": "Tartufo nero invernale (moscato)",
+"sci": "Tuber brumale",
+"stato": "commestibile",
+"periodo": "1 gennaio - 15 marzo",
+"habitat": "Boschi di latifoglie",
+"riconoscimento": "Verruche piccole nere, gleba grigio-scura con venature chiare.",
+"attenzione": "Meno pregiato del nero pregiato."
+},
+{
+"id": "macrosporum",
+"nome": "Tartufo nero liscio",
+"sci": "Tuber macrosporum",
+"stato": "commestibile",
+"periodo": "1 settembre - 31 dicembre",
+"habitat": "Latifoglie, terreni sciolti",
+"riconoscimento": "Superficie quasi liscia bruno-scura, gleba bruna con venature chiare.",
+"attenzione": "Profumo aglio-formaggio."
+},
+{
+"id": "mesentericum",
+"nome": "Tartufo nero ordinario",
+"sci": "Tuber mesentericum",
+"stato": "commestibile",
+"periodo": "1 settembre - 31 gennaio",
+"habitat": "Boschi di latifoglie e conifere, terreni calcarei",
+"riconoscimento": "Superficie nero-bruna con verruche piramidali, gleba bruno-scura con venature chiare, odore intenso (catrame/bitume).",
+"attenzione": "Aroma particolare apprezzato da alcuni; raccolta con tesserino e cane."
+},
+{
+"id": "moschatum",
+"nome": "Tartufo moscato",
+"sci": "Tuber brumale var. moschatum",
+"stato": "commestibile",
+"periodo": "1 gennaio - 15 marzo",
+"habitat": "Boschi di latifoglie, terreni sciolti",
+"riconoscimento": "Simile al brumale ma con verruche più piccole e odore di muschio.",
+"attenzione": "Più comune e meno pregiato del nero pregiato."
+},
+{
+"id": "rufum",
+"nome": "Tartufo rossastro",
+"sci": "Tuber rufum",
+"stato": "commestibile",
+"periodo": "Autunno-inverno",
+"habitat": "Boschi di conifere e latifoglie",
+"riconoscimento": "Superficie liscia rosso-bruna, gleba bruna con venature chiare, odore di terra.",
+"attenzione": "Poco pregiato e non incluso nelle specie commerciabili: verifica le norme regionali."
+},
+{
+"id": "excavatum",
+"nome": "Tartufo cavo",
+"sci": "Tuber excavatum",
+"stato": "commestibile",
+"periodo": "Autunno",
+"habitat": "Boschi su terreni calcarei",
+"riconoscimento": "Piccolo tubero giallo-bruno con cavità alla base, gleba bruno-giallastra.",
+"attenzione": "Poco pregiato; non inserito nell'elenco commerciabile."
+},
+{
+"id": "maculatum",
+"nome": "Tartufo maculato",
+"sci": "Tuber maculatum",
+"stato": "commestibile",
+"periodo": "Autunno",
+"habitat": "Boschi di latifoglie",
+"riconoscimento": "Piccolo tubero giallastro-bruno con superficie liscia o poco rugosa, gleba macchiata.",
+"attenzione": "Non commerciabile: raccogli solo se previsto dalle norme."
+},
+{
+"id": "choiromyces",
+"nome": "Tartufo bianco falso (Choiromyces)",
+"sci": "Choiromyces meandriformis",
+"stato": "commestibile",
+"periodo": "Autunno",
+"habitat": "Boschi montani, suolo fresco",
+"riconoscimento": "Tubero irregolare giallo-ocra, gleba chiara con venature, odore leggero.",
+"attenzione": "Spesso confuso con tartufo bianco, di qualità inferiore."
+},
+{
+"id": "puberulum",
+"nome": "Tartufo peloso (puberulum)",
+"sci": "Tuber puberulum",
+"stato": "commestibile",
+"periodo": "Estate-autunno",
+"habitat": "Boschi di latifoglie",
+"riconoscimento": "Piccolo tubero rotondo con superficie vellutata ocra-brunastra.",
+"attenzione": "Sapore mediocre."
+},
+{
+"id": "indicum",
+"nome": "Tartufo cinese",
+"sci": "Tuber indicum",
+"stato": "commestibile",
+"periodo": "Inverno (importato)",
+"habitat": "Importato dall'Asia",
+"riconoscimento": "Simile al nero pregiato ma con odore e sapore più deboli.",
+"attenzione": "Specie importata, usata spesso per frodi: non è tartufo italiano."
+}
 ]

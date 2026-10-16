@@ -229,6 +229,7 @@ function openSettings() {
         <div class="set-row"><div class="ti"><b>OpenRouter</b><small>${keyHint('openrouter')} (riserva)</small></div><input type="password" data-k="openrouterKey" value="${esc(s.openrouterKey)}" autocomplete="off"></div>
         <div class="set-row"><div class="ti"><b>Groq</b><small>${keyHint('groq')} (riserva)</small></div><input type="password" data-k="groqKey" value="${esc(s.groqKey)}" autocomplete="off"></div>
       </div>
+      <div style="padding:6px 16px 0"><button class="btn ghost big" id="ai-test">${ico('sparkle', 18)} Prova connessione AI</button><div id="ai-test-out" style="margin-top:8px;font-size:.82rem;line-height:1.45"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Modelli (avanzate)</div>
       <div class="list">
         <div class="set-row"><div class="ti"><b>Gemini</b></div><input type="text" data-k="geminiModel" value="${esc(s.geminiModel)}"></div>
@@ -236,6 +237,19 @@ function openSettings() {
         <div class="set-row"><div class="ti"><b>Groq</b></div><input type="text" data-k="groqModel" value="${esc(s.groqModel)}"></div>
       </div>
       <p class="muted" style="margin:10px 18px;font-size:.8rem">Se Gemini non risponde o ha esaurito la quota, l'app prova automaticamente OpenRouter e poi Groq. Il riconoscimento dei suoni usa solo Gemini.</p>`;
+    pg.body.querySelector('#ai-test').onclick = async (e) => {
+      const b = e.currentTarget, o = pg.body.querySelector('#ai-test-out');
+      b.disabled = true;
+      o.textContent = 'Provo…';
+      try {
+        const { testProviders, providers } = await import('../lib/ai.js');
+        const r = await testProviders();
+        o.innerHTML = r.length ? r.map((x) => `<div><b>${x.name}</b>: <span style="color:${x.ok ? 'var(--ok)' : 'var(--danger)'}">${esc(x.msg)}</span></div>`).join('') : 'Nessuna chiave configurata.';
+      } catch (err) {
+        o.textContent = String(err.message);
+      }
+      b.disabled = false;
+    };
     pg.body.querySelectorAll('[data-k]').forEach((inp) => {
       inp.addEventListener('change', async () => {
         const k = inp.dataset.k;
@@ -259,7 +273,7 @@ function openSettings() {
 function openAbout() {
   openPage('Info', (pg) => {
     pg.body.innerHTML = `<div class="hero" style="border-radius:0"><h1>Footprint</h1><p>Traccia il cammino, rispetta il bosco.</p></div>
-      <div class="card"><h3>Crediti dati</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Mappe: Esri World Imagery, © OpenStreetMap contributors, OpenTopoMap (CC-BY-SA), sentieri waymarkedtrails.org (CC-BY-SA). Meteo: Open-Meteo.com. Schede naturalistiche indicative.</p></div>
+      <div class="card"><h3>Crediti dati</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Mappe: Esri World Imagery, © OpenStreetMap contributors, OpenTopoMap (CC-BY-SA), sentieri waymarkedtrails.org (CC-BY-SA). Meteo: Open-Meteo.com. Foto delle specie: Wikipedia / Wikimedia Commons (licenze libere). Schede naturalistiche indicative.</p></div>
       <div class="card"><h3>Avvertenza</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Il riconoscimento tramite AI e l'indice di crescita funghi sono stime. Non consumare mai funghi o erbe senza il controllo di un esperto. In montagna porta sempre una mappa di riserva e informa qualcuno del percorso.</p></div>
       <p class="muted" style="text-align:center;font-size:.8rem">Versione 1.0</p>`;
   });

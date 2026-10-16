@@ -4,6 +4,7 @@ import mushrooms from '../data/mushrooms.json';
 import truffles from '../data/truffles.json';
 import { esc } from '../lib/util.js';
 import { openSheet } from '../lib/ui.js';
+import { hydratePhotos } from '../lib/photos.js';
 
 export const DB = {
   animali: animals.map((x) => ({ ...x, _k: 'animali' })),
@@ -23,9 +24,12 @@ export function statoBadge(stato) {
 
 const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '');
 
+const photoBox = (x) => `<div class="sc-photo" data-ph="${x._k}|${x.id}"><span class="muted">Carico la foto…</span></div><small class="muted ph-credit">Foto: Wikipedia / Wikimedia Commons (licenze libere)</small>`;
+export const findByKey = (k) => { const [kind, id] = k.split('|'); return (DB[kind] || []).find((y) => y.id === id); };
+
 export function schedaHTML(x) {
   if (x._k === 'animali') {
-    return `<div><h3 style="font-size:1.4rem">${esc(x.nome)}</h3><small class="muted"><i>${esc(x.sci)}</i> · ${esc(x.gruppo)}</small>
+    return `<div>${photoBox(x)}<h3 style="font-size:1.4rem">${esc(x.nome)}</h3><small class="muted"><i>${esc(x.sci)}</i> · ${esc(x.gruppo)}</small>
       <dl class="kv" style="margin-top:12px">${row('Habitat', x.habitat)}${row('Impronta', x.orma)}${row('Escrementi', x.escrementi)}${row('Verso', x.verso)}${row('Note', x.nota)}</dl></div>`;
   }
   const extra = x._k === 'erbe' ? row('Parte usata', x.parte) + row('Periodo', x.periodo) + row('Ambiente', x.ambiente) : row('Periodo', x.periodo) + row('Habitat', x.habitat);
@@ -33,10 +37,11 @@ export function schedaHTML(x) {
     x._k === 'erbe' || x._k === 'funghi'
       ? `<div class="warnbox"><b>Non consumare nulla in base a un'app.</b> Fai sempre verificare funghi ed erbe da un esperto (ispettorato micologico ASL per i funghi).</div>`
       : '';
-  return `<div><h3 style="font-size:1.4rem">${esc(x.nome)}</h3><div style="margin:4px 0 8px">${statoBadge(x.stato)} <small class="muted"><i>${esc(x.sci)}</i></small></div>
+  return `<div>${photoBox(x)}<h3 style="font-size:1.4rem">${esc(x.nome)}</h3><div style="margin:4px 0 8px">${statoBadge(x.stato)} <small class="muted"><i>${esc(x.sci)}</i></small></div>
     <dl class="kv">${extra}${row('Come riconoscerlo', x.riconoscimento)}${row('Attenzione', x.attenzione)}</dl>${warn}</div>`;
 }
 
 export function openScheda(x) {
-  openSheet({ body: schedaHTML(x), full: false });
+  const sh = openSheet({ body: schedaHTML(x), full: false });
+  hydratePhotos(sh.body, findByKey);
 }

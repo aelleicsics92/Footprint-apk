@@ -1,104 +1,50 @@
-// Genera icona adattiva, icone legacy, splash e grafiche per il Play Store.
-// Uso: npm run icons  (richiede sharp)
+// Genera icona adattiva, icone legacy, splash e grafiche per il Play Store a partire da assets/icon-fg.png
+// (impronta di scarpone con fungo, felce e bussola). Uso: npm run icons  (richiede sharp)
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
 const RES = 'android/app/src/main/res';
-
-const contour = (o, w = 0.9) => `stroke="#a8ecc4" stroke-opacity="${o}" stroke-width="${w}" fill="none"`;
-const BG_BODY = `
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="38%" r="80%"><stop offset="0" stop-color="#2f8a63"/><stop offset=".48" stop-color="#17503a"/><stop offset="1" stop-color="#06201a"/></radialGradient>
-    <radialGradient id="glow" cx="50%" cy="46%" r="42%"><stop offset="0" stop-color="#ffe2a8" stop-opacity=".38"/><stop offset="1" stop-color="#ffe2a8" stop-opacity="0"/></radialGradient>
-  </defs>
-  <rect width="108" height="108" fill="url(#bg)"/>
-  <g>
-    <path d="M54 10 C80 6 100 24 98 50 C96 78 74 100 50 98 C24 96 8 76 10 52 C12 28 30 12 54 10Z" ${contour(0.16)}/>
-    <path d="M54 20 C72 18 88 31 86 50 C84 70 68 88 50 86 C32 84 20 68 22 52 C24 34 38 22 54 20Z" ${contour(0.2)}/>
-    <path d="M54 30 C65 29 76 38 75 50 C74 62 63 76 51 75 C40 74 32 63 33 53 C34 41 43 31 54 30Z" ${contour(0.26)}/>
-    <path d="M-10 30 C12 20 30 30 28 48 C26 66 4 70 -10 62" ${contour(0.14)}/>
-    <path d="M118 70 C96 62 84 74 88 90 C92 104 108 108 118 104" ${contour(0.14)}/>
-    <path d="M-10 14 C20 4 50 -4 80 -2" ${contour(0.1)}/>
-  </g>
-  <rect width="108" height="108" fill="url(#glow)"/>`;
-
-const CAP = 'M21 52 C19 33 34 21 53 21 C71 21 87 32 87 49 C87 54.500 83 57 78 57.500 C66 60.500 40 60.500 28 57.500 C23.500 56.500 21.200 55 21 52Z';
-const STEM = 'M41 57 C39.500 67 36.500 77 37.500 86 C39 92.500 68 92.500 70 86 C71.500 77 68.500 67 66.500 57Z';
-const PORES = 'M26 56.500 C38 61.500 68 61.500 81 56.500 C79 60.500 70 64.500 53 64.500 C37 64.500 28 60.500 26 56.500Z';
-const SMALL = (g) => `<g transform="translate(66 50) scale(.46)">${g}</g>`;
-
-const DEFS = `<defs>
-  <linearGradient id="cap" x1="0.15" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#a8662f"/><stop offset=".45" stop-color="#8a4a22"/><stop offset="1" stop-color="#5f2f13"/></linearGradient>
-  <radialGradient id="capHi" cx="38%" cy="28%" r="55%"><stop offset="0" stop-color="#e0a566" stop-opacity=".85"/><stop offset="1" stop-color="#e0a566" stop-opacity="0"/></radialGradient>
-  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdb888"/><stop offset=".4" stop-color="#f6ead0"/><stop offset=".75" stop-color="#e5d3a8"/><stop offset="1" stop-color="#b79f6c"/></linearGradient>
-  <pattern id="net" width="3.600" height="3.600" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H3.600M0 0V3.600" stroke="#fffaf0" stroke-width=".6" stroke-opacity=".7" fill="none"/></pattern>
-  <linearGradient id="netfade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <mask id="netmask"><rect x="30" y="55" width="50" height="40" fill="url(#netfade)"/></mask>
-  <linearGradient id="pores" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9c77a"/><stop offset="1" stop-color="#f0e4b0"/></linearGradient>
-  <clipPath id="capclip"><path d="${CAP}"/></clipPath>
-  <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.400"/></filter>
-</defs>`;
-
-const MUSH = `
-  <path d="${STEM}" fill="url(#stem)"/>
-  <path d="${STEM}" fill="url(#net)" mask="url(#netmask)"/>
-  <path d="M66.500 57 C68.500 67 71.500 77 70 86 C69 89 66 90.500 62 91 C66 86 66 70 63 57Z" fill="#9d8450" opacity=".35"/>
-  <path d="${PORES}" fill="url(#pores)"/>
-  <path d="${CAP}" fill="url(#cap)"/>
-  <g clip-path="url(#capclip)">
-    <rect width="108" height="108" fill="url(#capHi)"/>
-    <ellipse cx="62" cy="31" rx="7" ry="3.600" fill="#5a2a10" opacity=".25" transform="rotate(20 62 31)"/>
-    <ellipse cx="46" cy="42" rx="5" ry="2.800" fill="#5a2a10" opacity=".18" transform="rotate(-15 46 42)"/>
-    <ellipse cx="72" cy="44" rx="6" ry="3" fill="#4a2209" opacity=".2" transform="rotate(30 72 44)"/>
-    <path d="M20 53 C34 59.500 72 59.500 88 53 L88 62 L20 62Z" fill="#f4e6c6" opacity=".9"/>
-  </g>
-  <path d="M30 40 C32 30 41 25 52 24.500" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2.800" stroke-linecap="round"/>`;
-
-const FG_BODY = `
-  <ellipse cx="54" cy="92" rx="26" ry="5" fill="none" stroke="#ffcf7a" stroke-opacity=".3" stroke-width="1"/>
-  <ellipse cx="54" cy="92" rx="16" ry="3.200" fill="none" stroke="#ffcf7a" stroke-opacity=".6" stroke-width="1.200"/>
-  <g filter="url(#blur)" opacity=".5" transform="translate(0 3)"><path d="${CAP}" fill="#020c08"/><path d="${STEM}" fill="#020c08"/></g>
-  ${MUSH}
-  <path d="M30 91 C38 94.500 70 94.500 78 91 C74 96 34 96 30 91Z" fill="#1a0f08" opacity=".55"/>`;
-
+const CREAM = '#f6f0d4';
+const FG_PNG = fs.readFileSync('assets/icon-fg.png');
 const svg = (inner, size = 108, vb = '0 0 108 108') => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${vb}">${inner}</svg>`;
-const FG = svg(`${DEFS}${FG_BODY}`);
-const FG_MONO = svg(`${DEFS}<path d="${CAP}" fill="#fff"/><path d="${STEM}" fill="#fff"/><path d="${PORES}" fill="#fff"/>`);
-const BG = svg(BG_BODY);
-const FULL = svg(`${BG_BODY}${DEFS}${FG_BODY}`);
-
-const png = (s, size) => sharp(Buffer.from(s), { density: 300 }).resize(size, size).png().toBuffer();
+const BG = svg(`<rect width="108" height="108" fill="${CREAM}"/>`);
+const solid = (size, color) => sharp({ create: { width: size, height: size, channels: 4, background: color } }).png().toBuffer();
+const fgAt = (size) => sharp(FG_PNG).resize(size, size, { kernel: 'lanczos3' }).png().toBuffer();
+const monoAt = async (size) => {
+  const { data, info } = await sharp(FG_PNG).resize(size, size).raw().toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; }
+  return sharp(data, { raw: info }).png().toBuffer();
+};
+const fullAt = async (size) => sharp(await solid(size, CREAM)).composite([{ input: await fgAt(size) }]).png().toBuffer();
 const write = (p, buf) => (fs.mkdirSync(path.dirname(p), { recursive: true }), fs.writeFileSync(p, buf));
 
 fs.mkdirSync('assets', { recursive: true });
 fs.writeFileSync('assets/icon-background.svg', BG);
-fs.writeFileSync('assets/icon-foreground.svg', FG);
-fs.writeFileSync('assets/icon-full.svg', FULL);
 
 const dens = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 for (const [d, k] of Object.entries(dens)) {
   const dir = `${RES}/mipmap-${d}`;
   const layer = Math.round(108 * k);
-  write(`${dir}/ic_launcher_foreground.png`, await png(FG, layer));
-  write(`${dir}/ic_launcher_background.png`, await png(BG, layer));
-  write(`${dir}/ic_launcher_monochrome.png`, await png(FG_MONO, layer));
+  write(`${dir}/ic_launcher_foreground.png`, await fgAt(layer));
+  write(`${dir}/ic_launcher_background.png`, await solid(layer, CREAM));
+  write(`${dir}/ic_launcher_monochrome.png`, await monoAt(layer));
   // legacy: l'area visibile 72/108 della tela riempie 48dp
   const leg = Math.round(48 * k);
   const big = Math.round((leg * 108) / 72);
-  const full = await sharp(Buffer.from(FULL), { density: 300 }).resize(big, big).png().toBuffer();
+  const full = await fullAt(big);
   const off = Math.round((big - leg) / 2);
   const square = await sharp(full).extract({ left: off, top: off, width: leg, height: leg }).png().toBuffer();
   const r = leg / 2;
   const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${leg}" height="${leg}"><circle cx="${r}" cy="${r}" r="${r}"/></svg>`);
   const round = await sharp(square).composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
-  const rs = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${leg}" height="${leg}"><rect width="${leg}" height="${leg}" rx="${leg * 0.18}"/></svg>`);
+  const rs = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${leg}" height="${leg}"><rect width="${leg}" height="${leg}" rx="${leg * 0.22}"/></svg>`);
   const rounded = await sharp(square).composite([{ input: rs, blend: 'dest-in' }]).png().toBuffer();
   write(`${dir}/ic_launcher.png`, rounded);
   write(`${dir}/ic_launcher_round.png`, round);
 }
 
-const adaptive = (extra = '') => `<?xml version="1.0" encoding="utf-8"?>
+const adaptive = () => `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@mipmap/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
@@ -109,24 +55,23 @@ write(`${RES}/mipmap-anydpi-v26/ic_launcher.xml`, adaptive());
 write(`${RES}/mipmap-anydpi-v26/ic_launcher_round.xml`, adaptive());
 for (const f of [`${RES}/drawable/ic_launcher_background.xml`, `${RES}/drawable-v24/ic_launcher_foreground.xml`, `${RES}/values/ic_launcher_background.xml`]) if (fs.existsSync(f)) fs.rmSync(f);
 
-// Splash (stessa dimensione dei file esistenti)
+// Splash: sfondo crema, impronta, nome e sottotitolo
 const splashFiles = [];
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : e.name === 'splash.png' && splashFiles.push(path.join(d, e.name))));
 walk(RES);
-const fgBuf = await png(FG, 1024);
+const fgBuf = await fgAt(1024);
 for (const f of splashFiles) {
   const m = await sharp(f).metadata();
-  const s = Math.round(Math.min(m.width, m.height) * 0.42);
-  const bg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><defs><radialGradient id="g" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#2a6b50"/><stop offset=".6" stop-color="#14402f"/><stop offset="1" stop-color="#0a281d"/></radialGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`);
+  const s = Math.round(Math.min(m.width, m.height) * 0.46);
+  const bg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><rect width="100%" height="100%" fill="${CREAM}"/></svg>`);
   const logo = await sharp(fgBuf).resize(s, s).toBuffer();
-  const top = Math.round((m.height - s) / 2) - Math.round(s * 0.12);
-  const fs1 = Math.round(m.width * 0.1), fs2 = Math.round(m.width * 0.034);
-  const ty = top + s + Math.round(fs1 * 0.9);
-  const txt = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><text x="50%" y="${ty}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-weight="bold" font-size="${fs1}" fill="#f8f1dc">Footprint</text><text x="50%" y="${ty + Math.round(fs2 * 2)}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-style="italic" font-size="${fs2}" fill="#cfe4d6">Traccia il cammino, rispetta il bosco.</text></svg>`);
+  const top = Math.round((m.height - s) / 2) - Math.round(s * 0.14);
+  const fs1 = Math.round(m.width * 0.1), fs2 = Math.round(m.width * 0.032);
+  const ty = top + s + Math.round(fs1 * 0.5);
+  const txt = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${m.width}" height="${m.height}"><text x="50%" y="${ty}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-weight="bold" font-size="${fs1}" fill="#2f3b12">Footprint</text><text x="50%" y="${ty + Math.round(fs2 * 2.1)}" text-anchor="middle" font-family="DejaVu Serif, Georgia, serif" font-style="italic" font-size="${fs2}" fill="#5a6a2a">Traccia il cammino, rispetta il bosco.</text></svg>`);
   const out = await sharp(bg).composite([{ input: logo, left: Math.round((m.width - s) / 2), top }, { input: txt, left: 0, top: 0 }]).png().toBuffer();
   fs.writeFileSync(f, out);
 }
-// colore tema splash Android 12+
 write(`${RES}/values/colors.xml`, `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="colorPrimary">#12372A</color>
@@ -136,14 +81,13 @@ write(`${RES}/values/colors.xml`, `<?xml version="1.0" encoding="utf-8"?>
 `);
 
 // Play Store
-write('store/icon-512.png', await png(FULL, 512));
-const fgFull = await png(FG, 420);
+write('store/icon-512.png', await fullAt(512));
+const tile = await sharp(await fullAt(380)).composite([{ input: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="380" height="380"><rect width="380" height="380" rx="84"/></svg>'), blend: 'dest-in' }]).png().toBuffer();
 const feature = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500"><defs><radialGradient id="g" cx="30%" cy="40%" r="90%"><stop offset="0" stop-color="#34815f"/><stop offset=".55" stop-color="#1b4d3a"/><stop offset="1" stop-color="#0a281d"/></radialGradient></defs><rect width="1024" height="500" fill="url(#g)"/>
 <g fill="none" stroke="#9fe0b8" stroke-opacity=".14" stroke-width="2"><path d="M520 120 C560 20 760 0 860 80 C960 160 940 330 820 380 C690 430 480 340 520 120Z"/><path d="M600 150 C630 90 740 70 800 120 C860 170 840 270 770 300 C690 330 580 260 600 150Z"/><path d="M460 60 C520 -40 800 -60 920 40 C1040 140 1020 400 860 460 C680 520 380 400 460 60Z"/></g>
-<path d="M-10 470 C200 440 320 400 520 430 S860 470 1040 400" fill="none" stroke="#f3b45a" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 14" opacity=".85"/>
 <text x="470" y="235" font-family="DejaVu Serif, Georgia, serif" font-size="96" font-weight="bold" fill="#f8f1dc">Footprint</text>
 <text x="474" y="300" font-family="DejaVu Serif, Georgia, serif" font-size="26" fill="#cfe4d6" font-style="italic">Traccia il cammino, rispetta il bosco.</text>
 <text x="474" y="360" font-family="Poppins, DejaVu Sans, sans-serif" font-size="24" fill="#f3b45a" letter-spacing="2">GPS · MAPPE OFFLINE · FUNGHI · AI</text></svg>`;
-const ft = await sharp(Buffer.from(feature)).composite([{ input: fgFull, left: 30, top: 40 }]).png().toBuffer();
+const ft = await sharp(Buffer.from(feature)).composite([{ input: tile, left: 50, top: 60 }]).png().toBuffer();
 write('store/feature-graphic-1024x500.png', ft);
 console.log('Icone generate');

@@ -62,11 +62,23 @@ async function pickGroqModel(key, vision, bad) {
   const ids = ((await r.json()).data || []).map((x) => x.id).filter((id) => id !== bad && !/whisper|tts|guard|playai|orpheus|prompt/i.test(id));
   const pick = (re) => ids.find((id) => re.test(id));
   return vision
-    ? pick(/llama-4-maverick/) || pick(/llama-4-scout/) || pick(/vision/) || pick(/llama-4/)
-    : pick(/llama-3\.3-70b/) || pick(/llama-4/) || pick(/70b/) || ids[0];
+    ? pick(/llama-4-maverick/) || pick(/llama-4-scout/) || pick(/vision/) || pick(/llama-4/) || pick(/qwen/)
+    : pick(/gpt-oss-120b/) || pick(/llama-3\.3-70b/) || pick(/llama-4/) || pick(/70b|120b/) || ids[0];
 }
 
+const clip = (t, n) => (t.length > n ? t.slice(0, n * 0.7) + '\n[…]\n' + t.slice(-n * 0.3) : t);
+
 async function callOpenAI(p, url, extraHeaders, { system, user, images, json }) {
+  if (p.id === 'groq') {
+    // i piani gratuiti hanno limiti di token al minuto: riduci il contesto
+    user = clip(user, 9000);
+    system = clip(system, 3000);
+    if (images && images.length) {
+      const m = await pickGroqModel(p.key, true, '');
+      if (!m) throw new Error('nessun modello con visione disponibile');
+      p = { ...p, model: m };
+    }
+  }
   const content = [{ type: 'text', text: user }];
   for (const i of images || []) content.push({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } });
   const body = {
@@ -130,6 +142,23 @@ export function parseJSON(text) {
   const a = t.indexOf('{'), b = t.lastIndexOf('}');
   if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
   throw new Error('Risposta AI non valida');
+}
+
+// Prova rapida di ogni provider configurato (per la diagnosi in Impostazioni)
+export async function testProviders() {
+  const out = [];
+  for (const p of providers()) {
+    try {
+      const opts = { system: 'Rispondi solo: ok', user: 'ping' };
+      if (p.id === 'gemini') await callGemini(p, opts);
+      else if (p.id === 'openrouter') await callOpenAI(p, 'https://openrouter.ai/api/v1/chat/completions', { 'HTTP-Referer': 'https://footprint.app', 'X-Title': 'Footprint' }, opts);
+      else await callOpenAI(p, 'https://api.groq.com/openai/v1/chat/completions', {}, opts);
+      out.push({ name: p.name, ok: true, msg: 'funziona' });
+    } catch (e) {
+      out.push({ name: p.name, ok: false, msg: String(e.message).replace(/\s+/g, ' ').slice(0, 140) });
+    }
+  }
+  return out;
 }
 
 export function aiErrorMessage(e) {
