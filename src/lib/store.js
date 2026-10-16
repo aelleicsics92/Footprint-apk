@@ -33,6 +33,8 @@ const DEFAULTS = {
   sunsetAlert: true,
   showHeat: false,
   showExplored: false,
+  showNoSignal: false,
+  statusNotif: false,
   dogName: '',
   iceBlood: '',
   iceAllergies: '',

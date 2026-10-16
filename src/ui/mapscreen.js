@@ -15,11 +15,13 @@ import { openSOS } from './sos.js';
 import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
 import { sunTimes } from '../lib/sun.js';
 import { notifyNow } from '../lib/notify.js';
+import { getCoverage } from '../lib/coverage.js';
+import { openTerrain } from './extras.js';
 
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
 let followPts = null, offTrack = null, lastAlert = 0;
-let backtrack = false, btLast = null, btAt = 0, sunDay = '', heatGroup, exploredGroup;
+let covGroup, backtrack = false, btLast = null, btAt = 0, sunDay = '', heatGroup, exploredGroup;
 let root;
 
 export const getMap = () => map;
@@ -340,6 +342,8 @@ function openLayers() {
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Evidenzia le zone dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>In rosso i punti dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Terreno e sole</b><small>Pendenza ed esposizione al centro della mappa</small></div><button class="btn ghost small" id="ly-terrain">Apri</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Colora il bosco dove sei già passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
@@ -362,6 +366,8 @@ function openLayers() {
     setSetting('wpMonth', Number(sh.body.querySelector('#ly-month').value) || 0);
     renderWaypoints();
   };
+  sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
+  sh.body.querySelector('#ly-terrain').onclick = () => { const c = map.getCenter(); sh.close(); openTerrain({ lat: c.lat, lon: c.lng }); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-year').onchange = filt;
@@ -618,10 +624,14 @@ function drawOverlays() {
   const s = getSettings();
   if (!heatGroup) {
     heatGroup = L.layerGroup();
+    covGroup = L.layerGroup();
     exploredGroup = L.layerGroup();
   }
   heatGroup.clearLayers();
   exploredGroup.clearLayers();
+  covGroup.clearLayers();
+  map.removeLayer(covGroup);
+  if (s.showNoSignal) getCoverage().then((pts) => { pts.filter((q) => !q[2]).forEach((q) => L.circle([q[0], q[1]], { radius: 70, stroke: false, fillColor: '#d33', fillOpacity: 0.3, interactive: false }).addTo(covGroup)); covGroup.addTo(map); });
   map.removeLayer(heatGroup);
   map.removeLayer(exploredGroup);
   if (s.showHeat) {
@@ -647,4 +657,4 @@ function drawOverlays() {
     })();
   }
 }
-bus.on('rec:point', () => {});
+bus.on('cov:changed', () => { if (map && getSettings().showNoSignal) drawOverlays(); });

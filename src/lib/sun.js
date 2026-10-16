@@ -28,3 +28,18 @@ export function moonPhase(date = new Date()) {
   const [em, name] = names[Math.round(frac * 8) % 8];
   return { em, name, illum, waxing: frac < 0.5 };
 }
+
+export function sunPos(date, lat, lon) {
+  const dayMs = 86400000, J1970 = 2440588, J2000 = 2451545;
+  const d = date.valueOf() / dayMs - 0.5 + J1970 - J2000;
+  const M = rad * (357.5291 + 0.98560028 * d);
+  const C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+  const L = M + C + rad * 102.9372 + Math.PI;
+  const dec = Math.asin(Math.sin(L) * Math.sin(rad * 23.4397));
+  const ra = Math.atan2(Math.sin(L) * Math.cos(rad * 23.4397), Math.cos(L));
+  const H = rad * (280.16 + 360.9856235 * d) - rad * -lon - ra;
+  const phi = rad * lat;
+  const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) + Math.PI; // da Nord, orario
+  return { alt, az };
+}

@@ -16,7 +16,8 @@ import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
 import { mountMore } from './ui/more.js';
-import { initNotifications } from './lib/notify.js';
+import { initNotifications, initPinned } from './lib/notify.js';
+import { initCoverage } from './lib/coverage.js';
 
 const TABS = [
   ['map', 'Mappa', 'map'],
@@ -74,6 +75,8 @@ async function boot() {
   mountFungi($('#screen-fungi'));
   mountMore($('#screen-more'));
   initNotifications();
+  initPinned();
+  initCoverage();
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); } catch {}
   showTab('map');
 

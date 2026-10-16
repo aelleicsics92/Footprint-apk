@@ -10,10 +10,13 @@ import { listAreas, deleteArea, fmtMB } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
+import { openRadar, openTerrain } from './extras.js';
 
 export function mountMore(el) {
   const items = [
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
+    ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
+    ['layers', 'Terreno e sole', 'Pendenza, esposizione e ore di sole qui', () => openTerrain()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
@@ -284,6 +287,7 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Sfondo nero e rosso, per alba e buio (anche meno batteria su OLED)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Nome del cane</b><small>Associato ai nuovi ritrovamenti (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
@@ -335,6 +339,11 @@ function openSettings() {
         }
         if (k === 'keepAwake') setWakeLock(v);
         if (k === 'nightMode') document.documentElement.classList.toggle('night', !!v);
+        if (k === 'statusNotif' && v && !(await askNotifPermission())) {
+          setSetting(k, false);
+          inp.checked = false;
+          toast('Permesso notifiche negato');
+        }
         if (k === 'notifFungi' && v && !(await askNotifPermission())) {
           setSetting(k, false);
           inp.checked = false;

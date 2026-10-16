@@ -9,6 +9,7 @@ import { nearestZone } from '../lib/fungi.js';
 import { DB, ALL, byId, schedaHTML, openScheda, statoBadge, findByKey } from './db.js';
 import { hydratePhotos } from '../lib/photos.js';
 import { openSheet } from '../lib/ui.js';
+import { openRuler } from './extras.js';
 import { lsGet, lsSet } from '../lib/store.js';
 
 const CATS = [
@@ -52,7 +53,7 @@ function render() {
         ${
           isAudio
             ? `<button class="btn ghost" id="idf-rec">${ico('mic', 18)} Registra</button><button class="btn ghost" id="idf-file">${ico('upload', 18)} Carica audio</button>`
-            : `<button class="btn ghost" id="idf-photo">${ico('camera', 18)} Foto / Galleria</button>`
+            : `<button class="btn ghost" id="idf-photo">${ico('camera', 18)} Foto / Galleria</button><button class="btn ghost" id="idf-ruler">${ico('sliders', 18)} Foto con righello</button>`
         }
       </div>
     </div>
@@ -74,6 +75,7 @@ function render() {
     root.querySelector('#idf-input').onchange = onAudioFile;
   } else {
     root.querySelector('#idf-photo').onclick = takePhoto;
+    root.querySelector('#idf-ruler').onclick = () => openRuler((img) => { state.image = img; state.ruler = true; render(); });
   }
   root.querySelector('#idf-go').onclick = analyze;
 }
@@ -81,6 +83,7 @@ function render() {
 async function takePhoto() {
   try {
     const p = await Camera.getPhoto({ quality: 82, width: 1400, height: 1400, correctOrientation: true, resultType: CameraResultType.Base64, source: CameraSource.Prompt, promptLabelHeader: 'Foto', promptLabelPhoto: 'Galleria', promptLabelPicture: 'Scatta foto' });
+    state.ruler = false;
     state.image = { mime: 'image/' + (p.format === 'jpg' ? 'jpeg' : p.format || 'jpeg'), data: p.base64String };
     render();
   } catch (e) {
@@ -215,7 +218,7 @@ async function analyze() {
     const z = nearestZone(p.lat, p.lon);
     zone = `${p.lat.toFixed(3)},${p.lon.toFixed(3)} (zona: ${z.zone.name})`;
   }
-  const note = root.querySelector('#idf-note').value.trim();
+  const note = (root.querySelector('#idf-note').value.trim() + (state.ruler ? ' La foto contiene un righello giallo graduato in millimetri/centimetri (tacca lunga = 1 cm) e un cerchio giallo di 25,75 mm come riferimento: stima le dimensioni reali.' : '')).trim();
   const system =
     'Sei un naturalista italiano esperto di tracce di fauna, flora spontanea e micologia. Rispondi SOLO con JSON valido, in italiano. Non inventare: se l\'immagine o il suono non bastano, dillo e abbassa la confidenza. Per funghi ed erbe non dare mai conferma certa di commestibilità e indica sempre le specie simili pericolose.';
   const user = `Categoria: ${cat.prompt}. Data: ${new Date().toLocaleDateString('it-IT')}. Posizione approssimativa: ${zone || 'non nota'}. ${note ? 'Note dell\'utente: ' + note + '. ' : ''}
