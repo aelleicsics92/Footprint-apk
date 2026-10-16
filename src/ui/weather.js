@@ -3,6 +3,19 @@ import { openPage, toast } from '../lib/ui.js';
 import { esc } from '../lib/util.js';
 import { ico } from '../lib/icons.js';
 import { lastPos, getOnce } from '../lib/geo.js';
+import { moonPhase } from '../lib/sun.js';
+
+// calo di pressione nelle prossime 6 ore (hPa), positivo = in calo
+export function pressureDrop(d) {
+  try {
+    const h = d.hourly, now = Date.now();
+    const i = h.time.findIndex((t) => new Date(t).getTime() >= now - 3600000);
+    if (i < 0 || h.pressure_msl[i + 6] == null) return 0;
+    return h.pressure_msl[i] - h.pressure_msl[i + 6];
+  } catch {
+    return 0;
+  }
+}
 
 const WMO = {
   0: ['☀️', 'Sereno'], 1: ['🌤️', 'Prevalentemente sereno'], 2: ['⛅', 'Parzialmente nuvoloso'], 3: ['☁️', 'Coperto'],
@@ -15,7 +28,7 @@ const WMO = {
 export const wmo = (c) => WMO[c] || ['🌡️', '—'];
 
 export async function fetchWx(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=7&wind_speed_unit=kmh`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,precipitation_probability,weather_code,pressure_msl,soil_temperature_0cm,soil_moisture_0_to_1cm&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=7&wind_speed_unit=kmh`;
   const r = await fetch(url);
   if (!r.ok) throw new Error('meteo ' + r.status);
   return r.json();
@@ -85,6 +98,13 @@ function render(body, d, name, stale) {
       <div class="row" style="justify-content:space-between;align-items:flex-start"><div><div style="color:#bcd3c4;font-size:.9rem">${esc(name || 'La tua posizione')}</div><div class="big">${Math.round(c.temperature_2m)}°</div><div>${esc(txt)} · percepita ${Math.round(c.apparent_temperature)}°</div></div><div class="em">${em}</div></div>
       <div class="stats" style="margin-top:14px"><div><span>Vento</span>${Math.round(c.wind_speed_10m)} km/h (raffiche ${Math.round(c.wind_gusts_10m)})</div><div><span>Umidità</span>${c.relative_humidity_2m}%</div><div><span>Pressione</span>${Math.round(c.pressure_msl)} hPa</div><div><span>Alba / tramonto</span>${d.daily.sunrise[0].slice(11)} / ${d.daily.sunset[0].slice(11)}</div></div>
     </div>
+    ${(() => {
+      const mo = moonPhase(), drop = pressureDrop(d), h = d.hourly;
+      const i = Math.max(0, h.time.findIndex((t) => new Date(t).getTime() >= Date.now() - 3600000));
+      const st = h.soil_temperature_0cm?.[i], sm = h.soil_moisture_0_to_1cm?.[i];
+      const frost = Math.min(d.daily.temperature_2m_min[0], d.daily.temperature_2m_min[1] ?? 99) <= 0;
+      return `<div class="stats" style="margin:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px"><div><span>Luna</span>${mo.em} ${mo.name} (${mo.illum}%)</div><div><span>Pressione</span>${Math.round(c.pressure_msl)} hPa ${drop >= 3 ? '<b style="color:var(--danger)">⚠ in calo ' + drop.toFixed(1) + '</b>' : drop <= -3 ? '↑ in aumento' : '· stabile'}</div>${st != null ? `<div><span>Temperatura suolo</span>${Math.round(st)}°C</div>` : ''}${sm != null ? `<div><span>Umidità suolo</span>${Math.round(sm * 100)}%</div>` : ''}<div><span>Gelo notturno</span>${frost ? 'SÌ (prossime 48 h)' : 'No'}</div></div>`;
+    })()}
     ${stale ? `<div class="infobox" style="margin:0 14px">Dati salvati (offline), aggiornati il ${new Date(stale).toLocaleString('it-IT')}</div>` : ''}
     <div class="sec-title" style="font-size:1.1rem">Prossime ore</div>
     <div class="wx-hours">${hours

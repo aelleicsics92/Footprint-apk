@@ -74,6 +74,7 @@ async function boot() {
   mountFungi($('#screen-fungi'));
   mountMore($('#screen-more'));
   initNotifications();
+  try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); } catch {}
   showTab('map');
 
   startWatch();

@@ -296,3 +296,17 @@ textarea{resize:none}
 @keyframes recp{50%{opacity:.25}}
 .rec-bars{display:flex;align-items:center;gap:3px;height:44px}
 .rec-bars i{display:block;width:4px;height:6px;border-radius:2px;background:var(--moss,#3d6b4f);transition:height .08s}
+
+.tool-layer{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.3rem;font-weight:700}
+.tool-x{position:absolute;top:calc(var(--sat) + 14px);right:14px;width:48px;height:48px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center}
+.tool-msg{padding:20px;opacity:.7}
+html.night{--forest:#000;--forest2:#0b0b0b;--moss:#b3261e;--leaf:#ff8a3d;--paper:#0a0a0a;--paper2:#161616;--card:#101010;--ink:#ff9a6a;--muted:#b0603f;--line:#2a1a14;--amber:#ff8a3d;--ok:#ff8a3d}
+html.night #map .leaflet-tile-pane{filter:brightness(.5) sepia(1) hue-rotate(-35deg) saturate(2.5)}
+html.night img{filter:brightness(.75) sepia(.6) hue-rotate(-20deg)}
+.diary-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 14px}
+.diary-stat div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+.diary-stat b{display:block;font-size:1.4rem;font-family:var(--serif)}
+.diary-stat span{font-size:.72rem;color:var(--muted)}
+.mbars{display:flex;align-items:flex-end;gap:4px;height:70px;margin:8px 14px}
+.mbars div{flex:1;background:var(--moss);border-radius:4px 4px 0 0;min-height:2px;position:relative}
+.mbars div small{position:absolute;bottom:-16px;left:0;right:0;text-align:center;font-size:.6rem;color:var(--muted)}

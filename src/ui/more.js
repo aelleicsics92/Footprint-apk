@@ -9,10 +9,12 @@ import { toGPX, shareFile, safeName, parseGpsText } from '../lib/gpsio.js';
 import { listAreas, deleteArea, fmtMB } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
+import { openDiary } from './diary.js';
 
 export function mountMore(el) {
   const items = [
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
+    ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
@@ -54,6 +56,7 @@ function trackSheet(t, pg) {
     title: t.name,
     body: `<div data-enter-scope>
       <div class="stat-row"><div><b>${fmtDist(t.dist)}</b><span>Distanza</span></div><div><b>${fmtDur(t.dur)}</b><span>Durata</span></div><div><b>+${Math.round(t.up)} m</b><span>Salita</span></div><div><b>-${Math.round(t.down)} m</b><span>Discesa</span></div></div>
+      <div id="t-prof"></div>
       <p class="muted" style="margin:4px 0 8px;font-size:.88rem">${fmtDate(t.start)}${t.maxAlt != null ? ` · quota ${Math.round(t.minAlt)}–${Math.round(t.maxAlt)} m` : ''}</p>
       <div class="row gap wrap"><button class="btn primary grow" id="t-show">${ico('map', 18)} Mostra sulla mappa</button><button class="btn ghost grow" id="t-share">${ico('share', 18)} Condividi GPX</button></div>
       <div class="row gap wrap" style="margin-top:8px"><button class="btn ghost grow" id="t-follow">${ico('route', 18)} Segui con avviso fuori traccia</button></div>
@@ -61,6 +64,14 @@ function trackSheet(t, pg) {
       <div class="row gap"><button class="btn ghost grow danger-t" id="t-del">${ico('trash', 18)} Elimina</button><button class="btn primary grow" data-primary id="t-save">${ico('check', 18)} Salva nome</button></div></div>`,
   });
   const q = (x) => s.body.querySelector(x);
+  loadTrackPoints(t.id).then((pts) => {
+    const al = pts.map((x) => x[2]).filter((v) => v != null && !isNaN(v));
+    const el = q('#t-prof');
+    if (!el || al.length < 5) return;
+    const mn = Math.min(...al), mx = Math.max(...al), W = 300, H = 70, rg = Math.max(mx - mn, 10);
+    const path = al.map((v, i) => `${i ? 'L' : 'M'}${(i / (al.length - 1) * W).toFixed(1)},${(H - ((v - mn) / rg) * (H - 8) - 4).toFixed(1)}`).join('');
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:80px;background:var(--paper2);border-radius:10px"><path d="${path}L${W},${H}L0,${H}Z" fill="rgba(63,122,74,.25)"/><path d="${path}" fill="none" stroke="#3f7a4a" stroke-width="2"/></svg><div class="row" style="justify-content:space-between;font-size:.75rem;color:var(--muted)"><span>Profilo altimetrico</span><span>${Math.round(mn)}–${Math.round(mx)} m</span></div>`;
+  });
   q('#t-show').onclick = () => {
     s.close();
     pg && pg.close();
@@ -271,6 +282,13 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Sfondo nero e rosso, per alba e buio (anche meno batteria su OLED)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Nome del cane</b><small>Associato ai nuovi ritrovamenti (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
+      <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
+      <div class="set-row"><div class="ti"><b>Allergie</b></div><input type="text" data-k="iceAllergies" value="${esc(s.iceAllergies)}" maxlength="80" onfocus="this.select()"></div>
+      <div class="set-row"><div class="ti"><b>Contatto ICE</b><small>Salvati solo sul telefono, mostrati e inviati nel messaggio SOS</small></div><input type="tel" data-k="icePhone" value="${esc(s.icePhone)}" maxlength="20" onfocus="this.select()"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Emergenza</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Nome contatto</b></div><input type="text" data-k="sosName" value="${esc(s.sosName)}" maxlength="30"></div>
       <div class="set-row"><div class="ti"><b>Numero da chiamare</b><small>Pulsante SOS sulla mappa</small></div><input type="tel" data-k="sosNumber" value="${esc(s.sosNumber)}" maxlength="20"></div></div>
@@ -316,6 +334,7 @@ function openSettings() {
           }
         }
         if (k === 'keepAwake') setWakeLock(v);
+        if (k === 'nightMode') document.documentElement.classList.toggle('night', !!v);
         if (k === 'notifFungi' && v && !(await askNotifPermission())) {
           setSetting(k, false);
           inp.checked = false;

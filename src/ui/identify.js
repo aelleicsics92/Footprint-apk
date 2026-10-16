@@ -16,6 +16,7 @@ const CATS = [
   { id: 'cacca', label: 'Escrementi', icon: 'search', kinds: ['animali'], filter: (x) => x.escrementi, prompt: 'escrementi di animale selvatico o domestico' },
   { id: 'erba', label: 'Erba spontanea', icon: 'leaf', kinds: ['erbe'], filter: () => true, prompt: 'pianta spontanea / erba' },
   { id: 'fungo', label: 'Fungo', icon: 'mushroom', kinds: ['funghi', 'tartufi'], filter: () => true, prompt: 'fungo o tartufo' },
+  { id: 'albero', label: 'Albero / foglia', icon: 'leaf', kinds: [], filter: () => false, prompt: 'albero o foglia (indica anche con quali funghi e tartufi vive in simbiosi)' },
   { id: 'verso', label: 'Verso', icon: 'mic', kinds: ['animali'], filter: (x) => x.verso, prompt: 'verso/suono di animale (audio)' },
 ];
 
@@ -34,7 +35,7 @@ function render() {
     <div class="cat-grid">${CATS.slice(0, 3)
       .map((c) => `<button class="cat ${c.id === state.cat ? 'sel' : ''}" data-cat="${c.id}">${ico(c.icon, 26)}${c.label}</button>`)
       .join('')}</div>
-    <div class="cat-grid" style="grid-template-columns:repeat(2,1fr);margin-top:0">${CATS.slice(3)
+    <div class="cat-grid" style="grid-template-columns:repeat(3,1fr);margin-top:0">${CATS.slice(3)
       .map((c) => `<button class="cat ${c.id === state.cat ? 'sel' : ''}" data-cat="${c.id}">${ico(c.icon, 26)}${c.label}</button>`)
       .join('')}</div>
     <div class="drop" id="idf-drop">
@@ -220,7 +221,7 @@ async function analyze() {
   const user = `Categoria: ${cat.prompt}. Data: ${new Date().toLocaleDateString('it-IT')}. Posizione approssimativa: ${zone || 'non nota'}. ${note ? 'Note dell\'utente: ' + note + '. ' : ''}
 Database locale (id|nome): ${dbList(cat)}.
 Se il soggetto corrisponde a una voce del database usa il suo id in "id_db", altrimenti null.
-Rispondi con questo JSON: {"identificabile":true|false,"candidati":[{"id_db":"...|null","nome":"","scientifico":"","confidenza":0-100,"motivo":"elementi visibili o udibili che lo supportano","da_verificare":"cosa controllare per confermare"}],"simili_pericolose":"specie simili, soprattutto tossiche, con come distinguerle (solo funghi/erbe)","avvertenze":"","consigli":"come migliorare foto/registrazione se serve"} con al massimo 3 candidati ordinati per confidenza.`;
+Rispondi con questo JSON: {"identificabile":true|false,"candidati":[{"id_db":"...|null","nome":"","scientifico":"","confidenza":0-100,"motivo":"elementi visibili o udibili che lo supportano","da_verificare":"cosa controllare per confermare"}],"simbiosi":"solo per alberi: funghi e tartufi commestibili associati a questa specie","simili_pericolose":"specie simili, soprattutto tossiche, con come distinguerle (solo funghi/erbe)","avvertenze":"","consigli":"come migliorare foto/registrazione se serve"} con al massimo 3 candidati ordinati per confidenza.`;
   try {
     const r = await askModel({ system, user, json: true, images: state.image ? [state.image] : [], audio: state.audio });
     showResult(out, parseJSON(r.text), cat, r.provider);
@@ -252,6 +253,7 @@ function showResult(out, j, cat, provider) {
         </div>`;
       })
       .join('') +
+    (j.simbiosi ? `<div class="infobox" style="margin:0 14px 8px"><b>Albero simbiotico</b><br>${esc(typeof j.simbiosi === 'string' ? j.simbiosi : JSON.stringify(j.simbiosi))}</div>` : '') +
     (risky && j.simili_pericolose ? `<div class="warnbox" style="margin:0 14px 8px;background:#fff3e0"><b>Specie simili da non confondere</b><br>${esc(typeof j.simili_pericolose === 'string' ? j.simili_pericolose : JSON.stringify(j.simili_pericolose))}</div>` : '') +
     (j.avvertenze ? `<div class="infobox" style="margin:0 14px 8px">${esc(j.avvertenze)}</div>` : '') +
     (j.consigli ? `<p class="muted" style="margin:0 18px 8px;font-size:.85rem">${esc(j.consigli)}</p>` : '') +

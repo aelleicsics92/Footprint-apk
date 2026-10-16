@@ -12,11 +12,14 @@ import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopR
 import { getTarget, setTarget } from '../lib/state.js';
 import { toGPX, shareFile, safeName } from '../lib/gpsio.js';
 import { openSOS } from './sos.js';
-import { fetchWx, wmo, openWeather } from './weather.js';
+import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
+import { sunTimes } from '../lib/sun.js';
+import { notifyNow } from '../lib/notify.js';
 
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
 let followPts = null, offTrack = null, lastAlert = 0;
+let backtrack = false, btLast = null, btAt = 0, sunDay = '', heatGroup, exploredGroup;
 let root;
 
 export const getMap = () => map;
@@ -86,7 +89,8 @@ export function mountMap(el) {
 
   bus.on('pos', onPos);
   bus.on('heading', onHeading);
-  bus.on('wp:changed', renderWaypoints);
+  bus.on('wp:changed', () => { renderWaypoints(); if (map && getSettings().showHeat) drawOverlays(); });
+  setTimeout(drawOverlays, 800);
   bus.on('wp:target', (id) => {
     setTarget(id);
     bus.emit('nav:tab', 'map');
@@ -104,7 +108,8 @@ export function mountMap(el) {
       map.setView([w.lat, w.lon], Math.max(map.getZoom(), 16));
     }
   });
-  bus.on('target:changed', () => {
+  bus.on('target:changed', (id) => {
+    if (!id) backtrack = false;
     renderWaypoints();
     updateTargetLine();
     updateHud();
@@ -177,6 +182,8 @@ function onPos(p) {
   if (!compassAlive() && p.heading != null && p.speed > 1) onHeading(p.heading);
   updateTargetLine();
   checkOffTrack(p);
+  checkBacktrack(p);
+  checkSunset(p);
   updateHud();
 }
 
@@ -332,6 +339,8 @@ function openLayers() {
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Evidenzia le zone dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Colora il bosco dove sei già passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
     </div>`,
@@ -353,6 +362,8 @@ function openLayers() {
     setSetting('wpMonth', Number(sh.body.querySelector('#ly-month').value) || 0);
     renderWaypoints();
   };
+  sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
+  sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-year').onchange = filt;
   sh.body.querySelector('#ly-month').onchange = filt;
   sh.body.querySelector('#ly-wp').onchange = (e) => {
@@ -493,6 +504,9 @@ function setupCar(btn) {
     }
     toast(`Ti guido a: ${ps[0].title} (tieni premuto per salvare un nuovo parcheggio)`, 3200);
     bus.emit('wp:target', ps[0].id);
+    backtrack = true;
+    btLast = null;
+    toast('Modalità rientro: vibrazione breve = direzione giusta, doppia = ti allontani', 4500);
   });
 }
 
@@ -531,7 +545,7 @@ function setupWeatherChip(chip) {
     chip.classList.toggle('open', !!open);
     chip.innerHTML = open
       ? `<span class="wx-main">${em} <b>${Math.round(c.temperature_2m)}°</b></span><span class="wx-more">Vento ${Math.round(c.wind_speed_10m)} km/h · Umidità ${c.relative_humidity_2m}%<br>Percepita ${Math.round(c.apparent_temperature)}° · Pioggia ${c.precipitation} mm</span><span class="wx-link" data-wx="open">Dettagli ›</span>`
-      : `<span class="wx-main">${em} <b>${Math.round(c.temperature_2m)}°</b> <small>${Math.round(c.wind_speed_10m)} km/h</small></span>`;
+      : `<span class="wx-main">${em} <b>${Math.round(c.temperature_2m)}°</b> <small>${Math.round(c.wind_speed_10m)} km/h</small>${data.drop >= 3 ? ' ⚠' : ''}</span>`;
   };
   const load = async () => {
     const p = lastPos();
@@ -540,7 +554,14 @@ function setupWeatherChip(chip) {
     fetching = true;
     try {
       const d = await fetchWx(p.lat, p.lon);
-      data = { t: Date.now(), current: d.current };
+      data = { t: Date.now(), current: d.current, drop: pressureDrop(d) };
+      if (data.drop >= 3 && lsGet('fp.pdrop') !== new Date().toDateString()) {
+        lsSet('fp.pdrop', new Date().toDateString());
+        navigator.vibrate && navigator.vibrate([200, 100, 200]);
+        const m = 'Pressione in rapido calo: possibile temporale o cambio meteo nelle prossime ore.';
+        toast(m, 5000);
+        notifyNow('Meteo in peggioramento', m);
+      }
       lsSet('fp.wxchip', data);
       paint();
     } catch {}
@@ -556,3 +577,74 @@ function setupWeatherChip(chip) {
   setInterval(load, 5 * 60000);
   paint();
 }
+
+// ---------- rientro con vibrazione ----------
+function checkBacktrack(p) {
+  if (!backtrack || Date.now() - btAt < 12000) return;
+  const t = getTarget() && getWaypoint(getTarget());
+  if (!t) return;
+  const d = haversine(p, t);
+  btAt = Date.now();
+  if (d < 25) {
+    backtrack = false;
+    navigator.vibrate && navigator.vibrate([200, 100, 200, 100, 400]);
+    return toast('Sei arrivato all\'auto');
+  }
+  if (btLast != null) navigator.vibrate && navigator.vibrate(btLast - d > 3 ? 70 : [90, 70, 90]);
+  btLast = d;
+}
+
+// ---------- avviso tramonto ----------
+function checkSunset(p) {
+  const s = getSettings();
+  if (!s.sunsetAlert) return;
+  const day = new Date().toDateString();
+  if (sunDay === day) return;
+  const st = sunTimes(new Date(), p.lat, p.lon);
+  if (!st) return;
+  const mins = (st.sunset.getTime() - Date.now()) / 60000;
+  if (mins > 45 || mins < 0) return;
+  sunDay = day;
+  const car = getWaypoints().filter((w) => w.icon === 'parcheggio').sort((a, b) => b.ts - a.ts)[0];
+  const dist = car ? ` e sei a ${fmtDist(haversine(p, car))} dall'auto` : '';
+  const msg = `Mancano ${Math.round(mins)} minuti al tramonto${dist}. È il momento di iniziare il rientro.`;
+  navigator.vibrate && navigator.vibrate([250, 120, 250]);
+  toast(msg, 6000);
+  notifyNow('Tramonto vicino', msg);
+}
+
+// ---------- heatmap personale e zone battute ----------
+function drawOverlays() {
+  const s = getSettings();
+  if (!heatGroup) {
+    heatGroup = L.layerGroup();
+    exploredGroup = L.layerGroup();
+  }
+  heatGroup.clearLayers();
+  exploredGroup.clearLayers();
+  map.removeLayer(heatGroup);
+  map.removeLayer(exploredGroup);
+  if (s.showHeat) {
+    for (const w of getWaypoints()) {
+      if (['parcheggio', 'acqua', 'pericolo', 'panorama'].includes(w.icon)) continue;
+      L.circle([w.lat, w.lon], { radius: 150, stroke: false, fillColor: '#e4572e', fillOpacity: 0.13, interactive: false }).addTo(heatGroup);
+    }
+    heatGroup.addTo(map);
+  }
+  if (s.showExplored) {
+    const since = Date.now() - 24 * 3600 * 1000;
+    const add = (pts) => {
+      let last = null;
+      for (const q of pts) {
+        if (last && haversine({ lat: last[0], lon: last[1] }, { lat: q[0], lon: q[1] }) < 12) continue;
+        last = q;
+        L.circle([q[0], q[1]], { radius: 20, stroke: false, fillColor: '#2f9e5a', fillOpacity: 0.28, interactive: false }).addTo(exploredGroup);
+      }
+    };
+    (async () => {
+      for (const t of getTracks().filter((t) => t.start >= since)) add(await loadTrackPoints(t.id));
+      exploredGroup.addTo(map);
+    })();
+  }
+}
+bus.on('rec:point', () => {});

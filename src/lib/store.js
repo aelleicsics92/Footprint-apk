@@ -29,6 +29,14 @@ const DEFAULTS = {
   offTrackM: 80,
   wpYear: '',
   wpMonth: 0,
+  nightMode: false,
+  sunsetAlert: true,
+  showHeat: false,
+  showExplored: false,
+  dogName: '',
+  iceBlood: '',
+  iceAllergies: '',
+  icePhone: '',
 };
 
 let settings = { ...DEFAULTS };

@@ -65,3 +65,14 @@ export function initNotifications() {
     if (k === 'notifFungi' || k === 'fungiProfile') run();
   });
 }
+
+export async function notifyNow(title, body) {
+  try {
+    const c = await LocalNotifications.checkPermissions();
+    if (c.display !== 'granted' && !(await askNotifPermission())) return false;
+    await LocalNotifications.schedule({ notifications: [{ id: 7200 + Math.floor(Math.random() * 90), title, body, schedule: { at: new Date(Date.now() + 500) }, smallIcon: 'ic_stat_footprint' }] });
+    return true;
+  } catch {
+    return false;
+  }
+}

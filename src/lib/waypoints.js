@@ -3,6 +3,7 @@ import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, car
 import { openSheet, toast, confirmBox } from './ui.js';
 import { WP_ICONS, wpIcon, ico } from './icons.js';
 import { lastPos, getOnce } from './geo.js';
+import { apiKey } from './store.js';
 import { toGPX, shareFile, shareText, safeName, mapsLink } from './gpsio.js';
 
 let list = [];
@@ -87,6 +88,8 @@ function formHTML({ wp, pos, title, icon }) {
     <div class="icon-grid">${grid}</div>
     <label class="field"><span>Titolo</span><input id="wp-title" type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
+    <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
+    <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
     <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small></div>
     <button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button>
   </div>`;
@@ -104,10 +107,53 @@ function wireForm(s, { wp, pos, onSave }) {
     s.body.querySelectorAll('.icon-opt').forEach((x) => x.classList.toggle('sel', x === b));
     if (!titleEdited) titleEl.value = nextTitle(icon);
   });
+  let memo = null, rec = null;
+  const vb = s.body.querySelector('#wp-voice'), vo = s.body.querySelector('#wp-voice-out');
+  vb.addEventListener('click', async () => {
+    if (rec) return rec.stop();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        rec = null;
+        vb.innerHTML = `${ico('mic', 18)} Memo vocale (trascrive)`;
+        memo = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
+        vo.textContent = 'Memo salvato. Trascrivo…';
+        try {
+          const key = apiKey('groq');
+          if (!key || !navigator.onLine) throw new Error('offline');
+          const fd = new FormData();
+          fd.append('file', memo, 'memo.webm');
+          fd.append('model', 'whisper-large-v3-turbo');
+          fd.append('language', 'it');
+          const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: fd });
+          if (!r.ok) throw new Error('http ' + r.status);
+          const t = ((await r.json()).text || '').trim();
+          const d = s.body.querySelector('#wp-desc');
+          d.value = (d.value ? d.value + ' ' : '') + t;
+          vo.textContent = 'Memo salvato e trascritto.';
+        } catch {
+          vo.textContent = 'Memo salvato (trascrizione non disponibile: serve internet).';
+        }
+      };
+      rec.start();
+      vb.innerHTML = `${ico('stop', 18)} Stop registrazione`;
+      vo.textContent = 'Parla ora (max 60 s)…';
+      setTimeout(() => rec && rec.stop(), 60000);
+    } catch {
+      rec = null;
+      toast('Microfono non disponibile');
+    }
+  });
   s.body.querySelector('#wp-save').addEventListener('click', async () => {
     const title = titleEl.value.trim() || nextTitle(icon);
     const desc = s.body.querySelector('#wp-desc').value.trim();
-    await onSave({ title, desc, icon });
+    const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
+    const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
+    await onSave({ title, desc, icon, qty, kg, memo });
     s.close();
   });
 }
@@ -129,9 +175,11 @@ export async function openNewWaypoint() {
   s.onClose = off;
   wireForm(s, {
     pos,
-    onSave: async ({ title, desc, icon }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo }) => {
       if (!fix) return;
-      const w = { id: uid(), title, desc, icon, lat: fix.lat, lon: fix.lon, alt: fix.alt, acc: fix.acc, ts: Date.now() };
+      const dog = getSettings().dogName || '';
+      const w = { id: uid(), title, desc, icon, qty, kg, dog, memo: !!memo, lat: fix.lat, lon: fix.lon, alt: fix.alt, acc: fix.acc, ts: Date.now() };
+      if (memo) await kvSet('memo:' + w.id, memo);
       await addWaypoint(w);
       setSetting('wpCounter', (getSettings().wpCounter || 0) + 1);
       toast(`Salvato: ${title}`);
@@ -145,8 +193,9 @@ export function openEditWaypoint(w) {
   wireForm(s, {
     wp: w,
     pos: w,
-    onSave: async ({ title, desc, icon }) => {
-      await updateWaypoint(w.id, { title, desc, icon });
+    onSave: async ({ title, desc, icon, qty, kg, memo }) => {
+      if (memo) await kvSet('memo:' + w.id, memo);
+      await updateWaypoint(w.id, { title, desc, icon, qty, kg, ...(memo ? { memo: true } : {}) });
       toast('Modificato');
     },
   });
@@ -183,6 +232,8 @@ export function openWaypoint(w) {
     body: `<div class="wp-detail">
       <div class="wp-head"><span class="ic big">${ic.svg}</span><div><h3>${esc(w.title)}</h3><small>${esc(ic.label)} · ${fmtDate(w.ts)}</small></div></div>
       ${w.desc ? `<p class="wp-desc">${esc(w.desc)}</p>` : ''}
+      ${w.qty || w.kg || w.dog ? `<p class="muted" style="margin:4px 0">${[w.qty ? w.qty + ' pz' : '', w.kg ? w.kg + ' kg' : '', w.dog ? '🐕 ' + esc(w.dog) : ''].filter(Boolean).join(' · ')}</p>` : ''}
+      ${w.memo ? '<div id="wp-memo"></div>' : ''}
       <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>
       <div class="row gap wrap">
         <button class="btn primary grow" data-a="go">${ico('nav', 18)} Vai</button>
@@ -192,6 +243,10 @@ export function openWaypoint(w) {
         <button class="btn ghost grow" data-a="edit">${ico('edit', 18)} Modifica</button>
         <button class="btn ghost grow danger-t" data-a="del">${ico('trash', 18)} Elimina</button>
       </div></div>`,
+  });
+  if (w.memo) kvGet('memo:' + w.id).then((b) => {
+    const el = s.body.querySelector('#wp-memo');
+    if (b && el) el.innerHTML = `<audio controls style="width:100%" src="${URL.createObjectURL(b)}"></audio>`;
   });
   s.body.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-a]');
