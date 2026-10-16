@@ -260,7 +260,7 @@ textarea{resize:none}
 .stat-row div{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 6px;text-align:center}
 .stat-row b{display:block;font-size:1.05rem;font-variant-numeric:tabular-nums}
 .stat-row span{font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.hero{padding:calc(var(--sat) + 22px) 20px 20px;background:linear-gradient(170deg,var(--forest2),var(--forest));color:#fff;border-radius:0 0 28px 28px}
+.hero{padding:22px 20px 20px;background:linear-gradient(170deg,var(--forest2),var(--forest));color:#fff;border-radius:0 0 28px 28px}
 .hero h1{font-size:2rem}
 .hero p{margin:4px 0 0;color:#bcd3c4;font-size:.92rem}
 
@@ -275,3 +275,24 @@ textarea{resize:none}
 .thumb img,.sc-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .sc-photo{width:100%;height:210px;border-radius:16px;background:var(--paper2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:.85rem}
 .ph-credit{display:block;margin:3px 0 10px;font-size:.66rem}
+
+/* SOS: anello di pressione lunga */
+.sos-btn{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+.sos-btn::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:4px solid transparent}
+.sos-btn.holding::before{border-top-color:#fff;border-right-color:#fff;animation:sosring 2s linear forwards}
+.sos-btn.holding{transform:scale(.94)}
+@keyframes sosring{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.map-top{gap:16px}
+/* meteo sulla mappa */
+.wx-chip{position:absolute;left:10px;top:calc(var(--sat) + 74px);z-index:500;background:rgba(18,55,42,.9);color:#fff;border:0;border-radius:16px;padding:7px 12px;font-size:.82rem;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.3);backdrop-filter:blur(6px);display:block;max-width:230px}
+.wx-chip[hidden]{display:none}
+.wx-chip .wx-main{display:flex;align-items:center;gap:5px;font-size:1rem}
+.wx-chip small{color:#bcd3c4;font-size:.72rem}
+.wx-chip .wx-more{display:block;margin-top:4px;color:#d6e8dc;font-size:.76rem;line-height:1.4}
+.wx-chip .wx-link{display:block;margin-top:4px;color:#ffd9a0;font-size:.76rem;font-weight:600}
+
+.rec-vis{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:10px}
+.rec-dot{width:12px;height:12px;border-radius:50%;background:#d33;animation:recp 1s infinite}
+@keyframes recp{50%{opacity:.25}}
+.rec-bars{display:flex;align-items:center;gap:3px;height:44px}
+.rec-bars i{display:block;width:4px;height:6px;border-radius:2px;background:var(--moss,#3d6b4f);transition:height .08s}

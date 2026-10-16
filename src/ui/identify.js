@@ -6,7 +6,10 @@ import { toast, setBusy } from '../lib/ui.js';
 import { askModel, parseJSON, aiErrorMessage, audioToWav, hasAI } from '../lib/ai.js';
 import { lastPos } from '../lib/geo.js';
 import { nearestZone } from '../lib/fungi.js';
-import { DB, ALL, byId, schedaHTML, openScheda } from './db.js';
+import { DB, ALL, byId, schedaHTML, openScheda, statoBadge, findByKey } from './db.js';
+import { hydratePhotos } from '../lib/photos.js';
+import { openSheet } from '../lib/ui.js';
+import { lsGet, lsSet } from '../lib/store.js';
 
 const CATS = [
   { id: 'orma', label: 'Impronta', icon: 'paw', kinds: ['animali'], filter: (x) => x.orma, prompt: 'impronta di animale' },
@@ -52,6 +55,7 @@ function render() {
         }
       </div>
     </div>
+    <p class="muted" style="margin:-4px 18px 8px;font-size:.74rem;text-align:center">${ico('info', 12)} La foto viene inviata a un servizio AI solo quando premi Analizza. Evita di inquadrare persone.</p>
     <div data-enter-scope><div style="margin:0 14px"><label class="field"><span>${isAudio ? 'Note (facoltative)' : 'Dimensioni o note (facoltative)'}</span><input id="idf-note" type="text" placeholder="${isAudio ? 'es. di notte, vicino a un torrente' : 'es. orma lunga 7 cm, trovata nel fango'}" maxlength="140"></label></div>
     <div style="margin:0 14px 8px"><button class="btn primary big" data-primary id="idf-go" ${state.image || state.audio ? '' : 'disabled'}>${ico('sparkle', 20)} Analizza con AI</button></div></div>
     <div id="idf-out"></div>
@@ -121,6 +125,37 @@ async function recordAudio() {
       render();
     };
     recorder.start();
+    const drop = root.querySelector('#idf-drop');
+    const vis = document.createElement('div');
+    vis.className = 'rec-vis';
+    vis.innerHTML = '<div class="rec-dot"></div><b id="rec-t">0:00</b><div class="rec-bars">' + '<i></i>'.repeat(14) + '</div>';
+    drop.insertBefore(vis, drop.firstChild);
+    let an = null, ctx = null, raf = 0;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream);
+      an = ctx.createAnalyser();
+      an.fftSize = 64;
+      src.connect(an);
+    } catch {}
+    const bars = vis.querySelectorAll('.rec-bars i'), t0 = Date.now(), buf = new Uint8Array(32);
+    const tick = () => {
+      const sec = Math.floor((Date.now() - t0) / 1000);
+      const te = vis.querySelector('#rec-t');
+      if (te) te.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} / 0:30`;
+      if (an) {
+        an.getByteFrequencyData(buf);
+        bars.forEach((b, i) => (b.style.height = 6 + (buf[i + 1] / 255) * 34 + 'px'));
+      } else bars.forEach((b) => (b.style.height = 6 + Math.random() * 26 + 'px'));
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    const prevStop = recorder.onstop;
+    recorder.onstop = (ev) => {
+      cancelAnimationFrame(raf);
+      try { ctx && ctx.close(); } catch {}
+      return prevStop(ev);
+    };
     btn.innerHTML = `${ico('stop', 18)} Stop (max 30 s)`;
     setTimeout(() => recorder && recorder.stop(), 30000);
   } catch {
@@ -135,9 +170,37 @@ function dbList(cat) {
     .join('; ');
 }
 
+function needDisclaimer() {
+  if (lsGet('fp.legal', false)) return Promise.resolve(true);
+  return new Promise((res) => {
+    let done = false;
+    const sh = openSheet({
+      title: 'Prima di usare il riconoscimento',
+      body: `<div class="stack"><div class="warnbox">Il riconoscimento AI di funghi, erbe e tracce è <b>solo indicativo</b> e può sbagliare. <b>Non consumare mai</b> funghi o piante in base a questa app: fai sempre controllare da un esperto (ispettorato micologico ASL). Gli autori non rispondono di danni derivanti dall'uso.</div>
+      <label class="row gap" style="align-items:flex-start;font-size:.92rem"><input type="checkbox" id="lg-ck" style="width:22px;height:22px;flex:none"><span>Ho capito: il risultato non è una garanzia di commestibilità e me ne assumo la responsabilità.</span></label>
+      <button class="btn primary big" id="lg-ok" disabled>Continua</button></div>`,
+    });
+    const ck = sh.body.querySelector('#lg-ck'), ok = sh.body.querySelector('#lg-ok');
+    ck.onchange = () => (ok.disabled = !ck.checked);
+    ok.onclick = () => {
+      done = true;
+      lsSet('fp.legal', true);
+      sh.close();
+      res(true);
+    };
+    const t = setInterval(() => {
+      if (!document.body.contains(sh.body)) {
+        clearInterval(t);
+        if (!done) res(false);
+      }
+    }, 300);
+  });
+}
+
 async function analyze() {
   const cat = CATS.find((c) => c.id === state.cat);
   const out = root.querySelector('#idf-out');
+  if ((cat.id === 'fungo' || cat.id === 'erba') && !(await needDisclaimer())) return;
   if (!hasAI()) {
     out.innerHTML = `<div class="warnbox" style="margin:12px 14px">${esc(aiErrorMessage(new Error('NO_KEY')))}</div>`;
     return;
@@ -157,7 +220,7 @@ async function analyze() {
   const user = `Categoria: ${cat.prompt}. Data: ${new Date().toLocaleDateString('it-IT')}. Posizione approssimativa: ${zone || 'non nota'}. ${note ? 'Note dell\'utente: ' + note + '. ' : ''}
 Database locale (id|nome): ${dbList(cat)}.
 Se il soggetto corrisponde a una voce del database usa il suo id in "id_db", altrimenti null.
-Rispondi con questo JSON: {"identificabile":true|false,"candidati":[{"id_db":"...|null","nome":"","scientifico":"","confidenza":0-100,"motivo":"elementi visibili o udibili che lo supportano","da_verificare":"cosa controllare per confermare"}],"avvertenze":"","consigli":"come migliorare foto/registrazione se serve"} con al massimo 3 candidati ordinati per confidenza.`;
+Rispondi con questo JSON: {"identificabile":true|false,"candidati":[{"id_db":"...|null","nome":"","scientifico":"","confidenza":0-100,"motivo":"elementi visibili o udibili che lo supportano","da_verificare":"cosa controllare per confermare"}],"simili_pericolose":"specie simili, soprattutto tossiche, con come distinguerle (solo funghi/erbe)","avvertenze":"","consigli":"come migliorare foto/registrazione se serve"} con al massimo 3 candidati ordinati per confidenza.`;
   try {
     const r = await askModel({ system, user, json: true, images: state.image ? [state.image] : [], audio: state.audio });
     showResult(out, parseJSON(r.text), cat, r.provider);
@@ -181,7 +244,7 @@ function showResult(out, j, cat, provider) {
         const entry = x.id_db && x.id_db !== 'null' ? byId(x.id_db, cat.kinds) : null;
         const conf = Math.max(0, Math.min(100, Number(x.confidenza) || 0));
         return `<div class="cand"><div class="row" style="justify-content:space-between;align-items:flex-start"><h3>${i === 0 ? '1. ' : i + 1 + '. '}${esc(x.nome || entry?.nome || '—')}</h3><b>${conf}%</b></div>
-          <small class="muted"><i>${esc(x.scientifico || entry?.sci || '')}</i></small>
+          <div style="margin:2px 0">${entry && entry.stato ? statoBadge(entry.stato) + ' ' : ''}<small class="muted"><i>${esc(x.scientifico || entry?.sci || '')}</i></small></div>
           <div class="bar"><i style="width:${conf}%"></i></div>
           ${x.motivo ? `<p style="margin:6px 0">${esc(x.motivo)}</p>` : ''}
           ${x.da_verificare ? `<p class="muted" style="margin:6px 0;font-size:.88rem"><b>Da verificare:</b> ${esc(x.da_verificare)}</p>` : ''}
@@ -189,8 +252,10 @@ function showResult(out, j, cat, provider) {
         </div>`;
       })
       .join('') +
+    (risky && j.simili_pericolose ? `<div class="warnbox" style="margin:0 14px 8px;background:#fff3e0"><b>Specie simili da non confondere</b><br>${esc(typeof j.simili_pericolose === 'string' ? j.simili_pericolose : JSON.stringify(j.simili_pericolose))}</div>` : '') +
     (j.avvertenze ? `<div class="infobox" style="margin:0 14px 8px">${esc(j.avvertenze)}</div>` : '') +
     (j.consigli ? `<p class="muted" style="margin:0 18px 8px;font-size:.85rem">${esc(j.consigli)}</p>` : '') +
     `<p class="muted" style="text-align:center;font-size:.75rem;margin:6px 0 18px">Analisi: ${esc(provider)}</p>`;
+  hydratePhotos(out, findByKey);
   out.querySelectorAll('[data-scheda]').forEach((b) => (b.onclick = () => openScheda(byId(b.dataset.scheda, [b.dataset.k]))));
 }

@@ -66,6 +66,24 @@ async function pickGroqModel(key, vision, bad) {
     : pick(/gpt-oss-120b/) || pick(/llama-3\.3-70b/) || pick(/llama-4/) || pick(/70b|120b/) || ids[0];
 }
 
+async function pickOpenRouter(key, vision, bad) {
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+    if (!r.ok) return null;
+    const ms = ((await r.json()).data || []).filter((m) => m.id !== bad && /:free$/.test(m.id) && (m.pricing ? Number(m.pricing.prompt) === 0 : true));
+    const img = (m) => (m.architecture?.input_modalities || []).includes('image') || /vision|vl|gemma-3|llama-4|pixtral|qwen.*vl|mistral-small/i.test(m.id);
+    const pool = vision ? ms.filter(img) : ms;
+    const pref = [/llama-4-maverick/, /gemma-3-27b/, /llama-4-scout/, /mistral-small/, /qwen.*vl/, /gemma-3/, /gpt-oss-120b/, /llama-3\.3-70b/, /deepseek/];
+    for (const re of pref) {
+      const f = pool.find((m) => re.test(m.id));
+      if (f) return f.id;
+    }
+    return pool[0]?.id || null;
+  } catch {
+    return null;
+  }
+}
+
 const clip = (t, n) => (t.length > n ? t.slice(0, n * 0.7) + '\n[…]\n' + t.slice(-n * 0.3) : t);
 
 async function callOpenAI(p, url, extraHeaders, { system, user, images, json }) {
@@ -95,8 +113,9 @@ async function callOpenAI(p, url, extraHeaders, { system, user, images, json }) 
     j = await post(url, { Authorization: `Bearer ${p.key}`, ...extraHeaders }, body);
   } catch (e) {
     // modello ritirato o non disponibile: scegli automaticamente uno valido dall'elenco del provider
-    if (p.id !== 'groq' || ![400, 404].includes(e.status)) throw e;
-    const m = await pickGroqModel(p.key, !!(images && images.length), p.model);
+    if (!['groq', 'openrouter'].includes(p.id) || ![400, 404, 429].includes(e.status)) throw e;
+    const vis = !!(images && images.length);
+    const m = p.id === 'groq' ? await pickGroqModel(p.key, vis, p.model) : await pickOpenRouter(p.key, vis, p.model);
     if (!m) throw e;
     body.model = m;
     j = await post(url, { Authorization: `Bearer ${p.key}`, ...extraHeaders }, body);

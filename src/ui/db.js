@@ -19,7 +19,8 @@ export function statoBadge(stato) {
   if (!stato) return '';
   const s = stato.toLowerCase();
   const cls = s.includes('mortale') ? 'b-dead' : s.includes('tossic') ? 'b-bad' : s.includes('cautela') || s.includes('cottura') || s.includes('non commestibile') ? 'b-warn' : 'b-ok';
-  return `<span class="badge ${cls}">${esc(stato)}</span>`;
+  const em = cls === 'b-ok' ? '🟢' : cls === 'b-warn' ? '🟡' : '🔴';
+  return `<span class="badge ${cls}">${em} ${esc(stato)}</span>`;
 }
 
 const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '');

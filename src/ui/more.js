@@ -8,6 +8,7 @@ import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startR
 import { toGPX, shareFile, safeName, parseGpsText } from '../lib/gpsio.js';
 import { listAreas, deleteArea, fmtMB } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
+import { askNotifPermission } from '../lib/notify.js';
 
 export function mountMore(el) {
   const items = [
@@ -16,7 +17,7 @@ export function mountMore(el) {
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
     ['upload', 'Importa file GPS', 'GPX, KML, GeoJSON, TCX, LOC (Garmin e altri)', importFiles],
-    ['share', 'Esporta tutto', 'Waypoint e tracce in un file GPX', exportAll],
+    ['share', 'Esporta', 'Tutto o per periodo (es. Ottobre 2026), GPX o KML', exportAll],
     ['sliders', 'Impostazioni', 'Traccia, emergenza, AI, bussola', openSettings],
     ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
   ];
@@ -55,6 +56,7 @@ function trackSheet(t, pg) {
       <div class="stat-row"><div><b>${fmtDist(t.dist)}</b><span>Distanza</span></div><div><b>${fmtDur(t.dur)}</b><span>Durata</span></div><div><b>+${Math.round(t.up)} m</b><span>Salita</span></div><div><b>-${Math.round(t.down)} m</b><span>Discesa</span></div></div>
       <p class="muted" style="margin:4px 0 8px;font-size:.88rem">${fmtDate(t.start)}${t.maxAlt != null ? ` · quota ${Math.round(t.minAlt)}–${Math.round(t.maxAlt)} m` : ''}</p>
       <div class="row gap wrap"><button class="btn primary grow" id="t-show">${ico('map', 18)} Mostra sulla mappa</button><button class="btn ghost grow" id="t-share">${ico('share', 18)} Condividi GPX</button></div>
+      <div class="row gap wrap" style="margin-top:8px"><button class="btn ghost grow" id="t-follow">${ico('route', 18)} Segui con avviso fuori traccia</button></div>
       <label class="field"><span>Rinomina</span><input id="t-name" type="text" value="${esc(t.name)}" maxlength="80"></label>
       <div class="row gap"><button class="btn ghost grow danger-t" id="t-del">${ico('trash', 18)} Elimina</button><button class="btn primary grow" data-primary id="t-save">${ico('check', 18)} Salva nome</button></div></div>`,
   });
@@ -63,6 +65,11 @@ function trackSheet(t, pg) {
     s.close();
     pg && pg.close();
     bus.emit('track:show', { id: t.id, name: t.name });
+  };
+  q('#t-follow').onclick = () => {
+    s.close();
+    pg && pg.close();
+    bus.emit('track:follow', { id: t.id, name: t.name });
   };
   q('#t-share').onclick = async () => {
     const pts = await loadTrackPoints(t.id);
@@ -194,15 +201,59 @@ function importFiles() {
   inp.click();
 }
 
-async function exportAll() {
-  const wps = getWaypoints();
-  const metas = getTracks();
-  if (!wps.length && !metas.length) return toast('Niente da esportare');
-  const tracks = [];
-  for (const m of metas) tracks.push({ ...m, points: await loadTrackPoints(m.id) });
-  try {
-    await shareFile('footprint-tutto.gpx', toGPX({ waypoints: wps, tracks, name: 'Footprint' }), { title: 'Dati Footprint' });
-  } catch {}
+const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+function toKML(wps, tracks, name) {
+  const x = (t) => String(t).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(name)}</name>` +
+    wps.map((w) => `<Placemark><name>${x(w.title || 'Waypoint')}</name><description>${x(w.note || '')}</description><Point><coordinates>${w.lon},${w.lat},${w.alt || 0}</coordinates></Point></Placemark>`).join('') +
+    tracks.map((t) => `<Placemark><name>${x(t.name)}</name><LineString><tessellate>1</tessellate><coordinates>${t.points.map((q) => `${q[1]},${q[0]},${q[2] || 0}`).join(' ')}</coordinates></LineString></Placemark>`).join('') +
+    `</Document></kml>`;
+}
+function exportAll() {
+  const wps0 = getWaypoints(), metas0 = getTracks();
+  if (!wps0.length && !metas0.length) return toast('Niente da esportare');
+  const stamps = [...wps0.map((w) => w.ts), ...metas0.map((t) => t.start)].filter(Boolean).map((t) => new Date(t));
+  const years = [...new Set(stamps.map((d) => d.getFullYear()))].sort((a, b) => b - a);
+  const sh = openSheet({
+    title: 'Esporta',
+    body: `<div class="stack">
+      <div class="row gap"><select id="ex-y" class="grow"><option value="">Tutti gli anni</option>${years.map((y) => `<option>${y}</option>`).join('')}</select><select id="ex-m" class="grow"><option value="0">Tutti i mesi</option>${MESI.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select></div>
+      <label class="field"><span>Contenuto</span><select id="ex-w"><option value="all">Waypoint e tracce</option><option value="wp">Solo waypoint</option><option value="tr">Solo tracce</option></select></label>
+      <p class="muted" id="ex-n" style="margin:0;font-size:.85rem"></p>
+      <div class="row gap"><button class="btn primary grow" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn ghost grow" id="ex-kml">${ico('share', 18)} KML</button></div></div>`,
+  });
+  const q = (i) => sh.body.querySelector(i);
+  const pick = () => {
+    const y = q('#ex-y').value, m = Number(q('#ex-m').value) || 0, w = q('#ex-w').value;
+    const ok = (ts) => {
+      const d = new Date(ts);
+      return (!y || String(d.getFullYear()) === y) && (!m || d.getMonth() + 1 === m);
+    };
+    const wps = w === 'tr' ? [] : wps0.filter((x) => ok(x.ts));
+    const metas = w === 'wp' ? [] : metas0.filter((t) => ok(t.start));
+    const label = `Uscite ${m ? MESI[m - 1] + ' ' : ''}${y || (m ? '' : 'tutte')}`.trim();
+    return { wps, metas, label };
+  };
+  const upd = () => {
+    const { wps, metas } = pick();
+    q('#ex-n').textContent = `${wps.length} waypoint · ${metas.length} tracce`;
+  };
+  ['#ex-y', '#ex-m', '#ex-w'].forEach((i) => (q(i).onchange = upd));
+  upd();
+  const go = async (kml) => {
+    const { wps, metas, label } = pick();
+    if (!wps.length && !metas.length) return toast('Nessun dato nel periodo');
+    const tracks = [];
+    for (const m of metas) tracks.push({ ...m, points: await loadTrackPoints(m.id) });
+    sh.close();
+    try {
+      const base = safeName(label) || 'footprint';
+      if (kml) await shareFile(`${base}.kml`, toKML(wps, tracks, label), { title: label, mime: 'application/vnd.google-earth.kml+xml' });
+      else await shareFile(`${base}.gpx`, toGPX({ waypoints: wps, tracks, name: label }), { title: label });
+    } catch {}
+  };
+  q('#ex-gpx').onclick = () => go(false);
+  q('#ex-kml').onclick = () => go(true);
 }
 
 // ---------- impostazioni ----------
@@ -218,6 +269,8 @@ function openSettings() {
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Registra traccia</b><small>Registra il percorso anche a schermo spento</small></div><label class="switch"><input type="checkbox" data-k="recordTrack" ${s.recordTrack ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
+      <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="sec-title" style="font-size:1.1rem">Emergenza</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Nome contatto</b></div><input type="text" data-k="sosName" value="${esc(s.sosName)}" maxlength="30"></div>
       <div class="set-row"><div class="ti"><b>Numero da chiamare</b><small>Pulsante SOS sulla mappa</small></div><input type="tel" data-k="sosNumber" value="${esc(s.sosNumber)}" maxlength="20"></div></div>
@@ -263,6 +316,11 @@ function openSettings() {
           }
         }
         if (k === 'keepAwake') setWakeLock(v);
+        if (k === 'notifFungi' && v && !(await askNotifPermission())) {
+          setSetting(k, false);
+          inp.checked = false;
+          toast('Permesso notifiche negato');
+        }
         bus.emit('settings:changed', k);
         if (inp.type !== 'checkbox') toast('Salvato', 1200);
       });
@@ -273,8 +331,10 @@ function openSettings() {
 function openAbout() {
   openPage('Info', (pg) => {
     pg.body.innerHTML = `<div class="hero" style="border-radius:0"><h1>Footprint</h1><p>Traccia il cammino, rispetta il bosco.</p></div>
+      <div class="card"><h3>Come funziona</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Mappe, tracce, waypoint, guide e schede funzionano <b>offline</b>. Servono internet solo per scaricare mappe, meteo e riconoscimento AI. SOS: se non c'è campo, prova un punto aperto o invia un SMS (parte appena torna il segnale).</p></div>
+      <div class="card"><h3>Avvertenza sul riconoscimento</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Il riconoscimento tramite intelligenza artificiale (funghi, erbe, tartufi, tracce) e l'indice di crescita funghi sono <b>stime</b> a scopo informativo e <b>non sostituiscono</b> il parere di un micologo o di un esperto (es. ispettorato micologico dell'ASL). <b>Non consumare mai</b> funghi, erbe o altro in base a questa app. Gli autori declinano ogni responsabilità per danni a persone o cose derivanti dall'uso dell'app. In montagna porta una mappa di riserva e avvisa qualcuno del percorso. Rispetta le norme locali su raccolta funghi e tartufi (permessi, limiti, periodi).</p></div>
+      <div class="card"><h3>Privacy</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Posizione, tracce, waypoint e foto restano <b>sul tuo telefono</b>. Per il riconoscimento, la foto (o l'audio) e una posizione approssimativa vengono inviati al servizio AI (Google Gemini, OpenRouter o Groq) solo quando premi "Analizza". Evita di inquadrare persone o dati personali. Non c'è alcun account né tracciamento pubblicitario. Puoi cancellare i tuoi dati dalle impostazioni di Android (Gestisci spazio, Cancella dati).</p></div>
       <div class="card"><h3>Crediti dati</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Mappe: Esri World Imagery, © OpenStreetMap contributors, OpenTopoMap (CC-BY-SA), sentieri waymarkedtrails.org (CC-BY-SA). Meteo: Open-Meteo.com. Foto delle specie: Wikipedia / Wikimedia Commons (licenze libere). Schede naturalistiche indicative.</p></div>
-      <div class="card"><h3>Avvertenza</h3><p style="margin:0;line-height:1.5;font-size:.9rem">Il riconoscimento tramite AI e l'indice di crescita funghi sono stime. Non consumare mai funghi o erbe senza il controllo di un esperto. In montagna porta sempre una mappa di riserva e informa qualcuno del percorso.</p></div>
       <p class="muted" style="text-align:center;font-size:.8rem">Versione 1.0</p>`;
   });
 }

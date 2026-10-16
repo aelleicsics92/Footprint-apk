@@ -16,6 +16,7 @@ import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
 import { mountMore } from './ui/more.js';
+import { initNotifications } from './lib/notify.js';
 
 const TABS = [
   ['map', 'Mappa', 'map'],
@@ -72,6 +73,7 @@ async function boot() {
   mountAI($('#screen-ai'));
   mountFungi($('#screen-fungi'));
   mountMore($('#screen-more'));
+  initNotifications();
   showTab('map');
 
   startWatch();

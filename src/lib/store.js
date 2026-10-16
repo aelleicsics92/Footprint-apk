@@ -25,6 +25,10 @@ const DEFAULTS = {
   showWaypoints: true,
   wpCounter: 0,
   fungiProfile: 'autunnali',
+  notifFungi: false,
+  offTrackM: 80,
+  wpYear: '',
+  wpMonth: 0,
 };
 
 let settings = { ...DEFAULTS };

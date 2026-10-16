@@ -29,6 +29,7 @@ for (const [d, k] of Object.entries(dens)) {
   write(`${dir}/ic_launcher_foreground.png`, await fgAt(layer));
   write(`${dir}/ic_launcher_background.png`, await solid(layer, CREAM));
   write(`${dir}/ic_launcher_monochrome.png`, await monoAt(layer));
+  write(`${RES}/drawable-${d}/ic_stat_footprint.png`, await monoAt(Math.round(24 * k)));
   // legacy: l'area visibile 72/108 della tela riempie 48dp
   const leg = Math.round(48 * k);
   const big = Math.round((leg * 108) / 72);

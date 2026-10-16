@@ -7,14 +7,16 @@ import { ico, wpIcon } from '../lib/icons.js';
 import { openSheet, toast, confirmBox } from '../lib/ui.js';
 import { lastPos } from '../lib/geo.js';
 import { getHeading, compassAlive } from '../lib/compass.js';
-import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint } from '../lib/waypoints.js';
+import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
 import { toGPX, shareFile, safeName } from '../lib/gpsio.js';
 import { openSOS } from './sos.js';
+import { fetchWx, wmo, openWeather } from './weather.js';
 
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
+let followPts = null, offTrack = null, lastAlert = 0;
 let root;
 
 export const getMap = () => map;
@@ -27,9 +29,11 @@ export function mountMap(el) {
       <button class="sos-btn" id="btn-sos" aria-label="Emergenza">SOS</button>
       <div class="hud" id="hud"><div class="row2"><span>In attesa del GPS…</span></div></div>
     </div>
+    <button class="wx-chip" id="wx-chip" aria-label="Meteo" hidden></button>
     <div class="map-tools">
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
+      <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}</button>
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
     <div class="rec-chip hidden" id="rec-chip"></div>
@@ -56,7 +60,9 @@ export function mountMap(el) {
 
   root.querySelector('#btn-layers').onclick = openLayers;
   root.querySelector('#btn-dl').onclick = openDownload;
-  root.querySelector('#btn-sos').onclick = openSOS;
+  setupSosHold(root.querySelector('#btn-sos'));
+  setupCar(root.querySelector('#btn-car'));
+  setupWeatherChip(root.querySelector('#wx-chip'));
   root.querySelector('#btn-locate').onclick = () => {
     const p = lastPos();
     if (!p) return toast('GPS non ancora pronto');
@@ -114,6 +120,14 @@ export function mountMap(el) {
     renderRec();
   });
   bus.on('track:show', showTrack);
+  bus.on('track:follow', async ({ id, name }) => {
+    const pts = await loadTrackPoints(id);
+    followPts = pts.map((q) => [q[0], q[1]]);
+    lastAlert = 0;
+    offTrack = null;
+    await showTrack({ id, name });
+    toast(`Ti avviso se ti allontani oltre ${getSettings().offTrackM || 80} m dalla traccia`, 3500);
+  });
   bus.on('map:fit', (b) => {
     setFollow(false);
     setTimeout(() => map.fitBounds([[b.south, b.west], [b.north, b.east]]), 100);
@@ -162,6 +176,7 @@ function onPos(p) {
   } else if (follow) map.panTo(ll, { animate: true, duration: 0.4 });
   if (!compassAlive() && p.heading != null && p.speed > 1) onHeading(p.heading);
   updateTargetLine();
+  checkOffTrack(p);
   updateHud();
 }
 
@@ -182,7 +197,7 @@ function updateHud() {
     const d = p ? `${fmtDist(haversine(p, w))} · ${Math.round(bearing(p, w))}° ${cardinal(bearing(p, w))}` : '';
     html += `<div class="tgt">${ico('nav', 14)}<span>${esc(w.title)} · ${d}</span><button data-clear="target">Fine</button></div>`;
   }
-  if (shownTrackName) html += `<div class="tgt">${ico('route', 14)}<span>${esc(shownTrackName)}</span><button data-clear="track">Nascondi</button></div>`;
+  if (shownTrackName) html += `<div class="tgt">${ico('route', 14)}<span>${esc(shownTrackName)}${followPts ? (offTrack != null ? (offTrack > (getSettings().offTrackM || 80) ? ` · <b style="color:#ff8a7a">fuori traccia ${Math.round(offTrack)} m</b>` : ' · sulla traccia') : ' · in guida') : ''}</span><button data-clear="track">${followPts ? 'Ferma' : 'Nascondi'}</button></div>`;
   hud.innerHTML = html;
   hud.querySelectorAll('[data-clear]').forEach(
     (b) =>
@@ -191,6 +206,8 @@ function updateHud() {
         else {
           shownGroup.clearLayers();
           shownTrackName = null;
+          followPts = null;
+          offTrack = null;
           updateHud();
         }
       })
@@ -208,7 +225,13 @@ function renderWaypoints() {
   wpGroup.clearLayers();
   if (!getSettings().showWaypoints) return;
   const tid = getTarget();
+  const fy = getSettings().wpYear, fm = Number(getSettings().wpMonth) || 0;
   for (const w of getWaypoints()) {
+    if (fy || fm) {
+      const d = new Date(w.ts);
+      if (fy && String(d.getFullYear()) !== String(fy)) continue;
+      if (fm && d.getMonth() + 1 !== fm) continue;
+    }
     const ic = wpIcon(w.icon);
     const m = L.marker([w.lat, w.lon], {
       icon: L.divIcon({
@@ -309,6 +332,8 @@ function openLayers() {
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
+      <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
+        <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
     </div>`,
   });
   sh.body.querySelectorAll('[data-b]').forEach(
@@ -323,6 +348,13 @@ function openLayers() {
     setSetting('overlayTrails', e.target.checked);
     applyLayers();
   };
+  const filt = () => {
+    setSetting('wpYear', sh.body.querySelector('#ly-year').value);
+    setSetting('wpMonth', Number(sh.body.querySelector('#ly-month').value) || 0);
+    renderWaypoints();
+  };
+  sh.body.querySelector('#ly-year').onchange = filt;
+  sh.body.querySelector('#ly-month').onchange = filt;
   sh.body.querySelector('#ly-wp').onchange = (e) => {
     setSetting('showWaypoints', e.target.checked);
     renderWaypoints();
@@ -406,4 +438,121 @@ function openDownload() {
     }
     sh.close();
   };
+}
+
+const MONTHS = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+function yearOpts(cur) {
+  const ys = [...new Set(getWaypoints().map((w) => new Date(w.ts).getFullYear()))].sort((a, b) => b - a);
+  return `<option value="">Tutti gli anni</option>` + ys.map((y) => `<option value="${y}" ${String(cur) === String(y) ? 'selected' : ''}>${y}</option>`).join('');
+}
+function monthOpts(cur) {
+  return `<option value="0">Tutti i mesi</option>` + MONTHS.map((m, i) => `<option value="${i + 1}" ${Number(cur) === i + 1 ? 'selected' : ''}>${m}</option>`).join('');
+}
+
+// ---------- SOS: pressione lunga per evitare tocchi accidentali ----------
+function setupSosHold(btn) {
+  let t = null, fired = false;
+  const stop = () => {
+    clearTimeout(t);
+    btn.classList.remove('holding');
+  };
+  btn.addEventListener('pointerdown', () => {
+    fired = false;
+    btn.classList.add('holding');
+    t = setTimeout(() => {
+      fired = true;
+      stop();
+      navigator.vibrate && navigator.vibrate([70, 40, 70]);
+      openSOS();
+    }, 2000);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => btn.addEventListener(e, stop));
+  btn.addEventListener('click', () => {
+    if (!fired) toast('Tieni premuto per 2 secondi per attivare l\'SOS', 2200);
+  });
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+// ---------- Trova la mia auto ----------
+function setupCar(btn) {
+  let t = null, long = false;
+  btn.addEventListener('pointerdown', () => {
+    long = false;
+    t = setTimeout(async () => {
+      long = true;
+      await saveParking();
+    }, 700);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => btn.addEventListener(e, () => clearTimeout(t)));
+  btn.addEventListener('click', async () => {
+    if (long) return;
+    const ps = getWaypoints().filter((w) => w.icon === 'parcheggio').sort((a, b) => b.ts - a.ts);
+    if (!ps.length) {
+      if (await confirmBox('Nessun parcheggio salvato. Salvo la <b>posizione attuale come auto parcheggiata</b>? Poi un tocco su questo pulsante ti guida fino all\'auto.', { ok: 'Salva qui' })) await saveParking();
+      return;
+    }
+    toast(`Ti guido a: ${ps[0].title} (tieni premuto per salvare un nuovo parcheggio)`, 3200);
+    bus.emit('wp:target', ps[0].id);
+  });
+}
+
+// ---------- avviso fuori traccia ----------
+function distToPolyline(p, pts) {
+  const k = Math.cos((p.lat * Math.PI) / 180) * 111320, m = 110540;
+  const px = p.lon * k, py = p.lat * m;
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i][1] * k, ay = pts[i][0] * m, bx = pts[i + 1][1] * k, by = pts[i + 1][0] * m;
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    const t = l2 ? clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1) : 0;
+    best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)));
+  }
+  return best;
+}
+function checkOffTrack(p) {
+  if (!followPts || followPts.length < 2) return;
+  offTrack = distToPolyline(p, followPts);
+  const thr = getSettings().offTrackM || 80;
+  if (offTrack > thr && Date.now() - lastAlert > 30000) {
+    lastAlert = Date.now();
+    navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]);
+    toast(`Fuori traccia di ${Math.round(offTrack)} m`, 3500);
+  }
+}
+
+// ---------- meteo al volo ----------
+function setupWeatherChip(chip) {
+  let open = lsGet('fp.wxopen', false), data = lsGet('fp.wxchip'), fetching = false;
+  const paint = () => {
+    if (!data) return (chip.hidden = true);
+    chip.hidden = false;
+    const c = data.current;
+    const [em] = wmo(c.weather_code);
+    chip.classList.toggle('open', !!open);
+    chip.innerHTML = open
+      ? `<span class="wx-main">${em} <b>${Math.round(c.temperature_2m)}°</b></span><span class="wx-more">Vento ${Math.round(c.wind_speed_10m)} km/h · Umidità ${c.relative_humidity_2m}%<br>Percepita ${Math.round(c.apparent_temperature)}° · Pioggia ${c.precipitation} mm</span><span class="wx-link" data-wx="open">Dettagli ›</span>`
+      : `<span class="wx-main">${em} <b>${Math.round(c.temperature_2m)}°</b> <small>${Math.round(c.wind_speed_10m)} km/h</small></span>`;
+  };
+  const load = async () => {
+    const p = lastPos();
+    if (!p || fetching || !navigator.onLine) return;
+    if (data && Date.now() - data.t < 15 * 60000) return;
+    fetching = true;
+    try {
+      const d = await fetchWx(p.lat, p.lon);
+      data = { t: Date.now(), current: d.current };
+      lsSet('fp.wxchip', data);
+      paint();
+    } catch {}
+    fetching = false;
+  };
+  chip.addEventListener('click', (e) => {
+    if (e.target.closest('[data-wx]')) return openWeather();
+    open = !open;
+    lsSet('fp.wxopen', open);
+    paint();
+  });
+  bus.on('pos', load);
+  setInterval(load, 5 * 60000);
+  paint();
 }

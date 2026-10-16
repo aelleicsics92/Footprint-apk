@@ -14,7 +14,7 @@ const WMO = {
 };
 export const wmo = (c) => WMO[c] || ['🌡️', '—'];
 
-async function fetchWx(lat, lon) {
+export async function fetchWx(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=7&wind_speed_unit=kmh`;
   const r = await fetch(url);
   if (!r.ok) throw new Error('meteo ' + r.status);

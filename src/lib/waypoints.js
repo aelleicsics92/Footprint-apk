@@ -66,6 +66,17 @@ export async function quickWaypoint() {
   toast(`Salvato: ${title}`);
 }
 
+// Salva la posizione attuale come parcheggio dell'auto
+export async function saveParking() {
+  const p = await currentFix();
+  if (!p) return toast('GPS non ancora pronto');
+  const w = { id: uid(), title: 'Auto parcheggiata', desc: 'Parcheggio', icon: 'parcheggio', lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
+  await addWaypoint(w);
+  navigator.vibrate && navigator.vibrate(40);
+  toast('Parcheggio salvato: ora puoi farti guidare all\'auto');
+  return w;
+}
+
 function formHTML({ wp, pos, title, icon }) {
   const grid = WP_ICONS.map(
     (i) => `<button type="button" class="icon-opt ${i.id === icon ? 'sel' : ''}" data-icon="${i.id}" title="${esc(i.label)}"><span class="ic">${i.svg}</span><small>${esc(i.label)}</small></button>`
