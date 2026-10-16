@@ -23,32 +23,32 @@ const BG_BODY = `
   </g>
   <rect width="108" height="108" fill="url(#glow)"/>`;
 
-const PIN = 'M54 86 C54 86 33 64 33 45 A21 21 0 1 1 75 45 C75 64 54 86 54 86Z';
-const MUSH = `<path d="M40.500 46 C40.500 36.500 47 31 54 31 S67.500 36.500 67.500 46 Q54 49.500 40.500 46Z"/><path d="M49.300 47.500 H58.700 Q58.200 53 60 58 H48 Q49.800 53 49.300 47.500Z"/>`;
+const CAP = 'M24 55 C24 35 37 22 54 22 S84 35 84 55 C72 60.500 36 60.500 24 55Z';
+const STEM = 'M41.500 54 C42 67 49 78 54 90 C59 78 66 67 66.500 54Z';
+const SPOTS = [[46, 40, 1.500], [58, 36, 1.200], [66, 44, 1.400], [52, 47, 1.100], [38, 46, 1.200], [62, 51, 1]];
+const spots = (fill) => SPOTS.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
 
 const DEFS = `<defs>
-  <linearGradient id="pin" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#ffd788"/><stop offset=".5" stop-color="#f09a2a"/><stop offset="1" stop-color="#b5560c"/></linearGradient>
-  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3d2"/><stop offset="1" stop-color="#f6b24c" stop-opacity="0"/></linearGradient>
-  <linearGradient id="mush" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f3a2b"/><stop offset="1" stop-color="#06241b"/></linearGradient>
-  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108"><rect width="108" height="108" fill="#fff"/><g fill="#000">${MUSH}</g></mask>
-  <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  <linearGradient id="cap" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#f2a64e"/><stop offset=".5" stop-color="#c4682a"/><stop offset="1" stop-color="#7a3414"/></linearGradient>
+  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#eadcb6"/><stop offset=".5" stop-color="#fff7e0"/><stop offset="1" stop-color="#d9c79a"/></linearGradient>
+  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108"><rect width="108" height="108" fill="#fff"/><g fill="#000">${spots('#000')}<path d="M24 60.500 C36 66 72 66 84 60.500 L84 62 C72 67.500 36 67.500 24 62Z"/></g></mask>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.400"/></filter>
 </defs>`;
 
-const TRAIL = `<path d="M6 100 C26 104 34 86 54 87 S86 96 104 82" fill="none" stroke="#fff3d2" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="0.1 4.6" opacity=".9"/>`;
-const GROUND = `<ellipse cx="54" cy="86.500" rx="13" ry="3.200" fill="#04140e" opacity=".5"/>`;
-
-const FG_BODY = `${GROUND}${TRAIL}
-  <g filter="url(#blur)" opacity=".5" transform="translate(0 2.500)"><path d="${PIN}" fill="#020c08"/></g>
-  <path d="${PIN}" fill="url(#pin)"/>
-  <path d="${PIN}" fill="none" stroke="url(#rim)" stroke-width="1.300"/>
-  <path d="M38 38 C40 28 48 24 56 24" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2.200" stroke-linecap="round"/>
-  <circle cx="54" cy="45" r="15.500" fill="#fff4d6" opacity=".95"/>
-  <g fill="url(#mush)">${MUSH}</g>
-  <g fill="#fff4d6" opacity=".95"><circle cx="49" cy="38.800" r="1.700"/><circle cx="56.500" cy="36" r="1.400"/><circle cx="60.500" cy="41.500" r="1.500"/></g>`;
+const FG_BODY = `
+  <ellipse cx="54" cy="90.500" rx="22" ry="4.600" fill="none" stroke="#ffcf7a" stroke-opacity=".35" stroke-width="1"/>
+  <ellipse cx="54" cy="90.500" rx="12" ry="2.700" fill="none" stroke="#ffcf7a" stroke-opacity=".7" stroke-width="1.200"/>
+  <g filter="url(#blur)" opacity=".5" transform="translate(0 3)"><path d="${CAP}" fill="#020c08"/><path d="${STEM}" fill="#020c08"/></g>
+  <path d="${STEM}" fill="url(#stem)"/>
+  <path d="M41.500 54 C42 67 49 78 54 90 C48 76 45 66 44.500 54Z" fill="#c4ad7a" opacity=".45"/>
+  <path d="${CAP}" fill="url(#cap)"/>
+  <path d="M30 47 C32 35 41 27 53 26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2.600" stroke-linecap="round"/>
+  ${spots('#ffe2b0')}
+  <path d="M24 55 C36 60.500 72 60.500 84 55" fill="none" stroke="#7a2e08" stroke-opacity=".5" stroke-width="1.400"/>`;
 
 const svg = (inner, size = 108, vb = '0 0 108 108') => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${vb}">${inner}</svg>`;
 const FG = svg(`${DEFS}${FG_BODY}`);
-const FG_MONO = svg(`${DEFS}<path d="${PIN}" fill="#fff" mask="url(#cut)"/>`);
+const FG_MONO = svg(`${DEFS}<path d="${CAP}" fill="#fff" mask="url(#cut)"/><path d="${STEM}" fill="#fff"/>`);
 const BG = svg(BG_BODY);
 const FULL = svg(`${BG_BODY}${DEFS}${FG_BODY}`);
 

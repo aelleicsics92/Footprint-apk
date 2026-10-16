@@ -54,10 +54,9 @@ jobs:
             echo "$KS_B64" | base64 -d > "$KS"
             echo "Uso la chiave di firma dei Secrets"
           else
-            KS_PASS="footprint-temp"; KS_ALIAS="footprint"; KEY_PASS="footprint-temp"
-            keytool -genkeypair -keystore "$KS" -storepass "$KS_PASS" -keypass "$KEY_PASS" -alias "$KS_ALIAS" \
-              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Footprint, O=Footprint, C=IT"
-            echo "ATTENZIONE: chiave temporanea (aggiungi i Secrets per una chiave stabile)"
+            cp android/footprint-dev.keystore "$KS"
+            KS_PASS="footprint-dev"; KS_ALIAS="footprint"; KEY_PASS="footprint-dev"
+            echo "Uso la chiave di sviluppo fissa (per il Play Store usa i Secrets)"
           fi
           echo "FP_KEYSTORE=$KS" >> "$GITHUB_ENV"
           echo "FP_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"

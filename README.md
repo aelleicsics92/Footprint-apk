@@ -12,7 +12,7 @@ La build parte da sola a ogni push su `main` (GitHub Actions) e pubblica APK e A
 `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`. Non scrivere mai le chiavi nel codice (il repository è pubblico).
 
 ### Firma stabile (consigliata per il Play Store)
-Aggiungi i secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Senza, ogni build usa una chiave temporanea.
+Aggiungi i secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Senza, le build usano la chiave di sviluppo fissa `android/footprint-dev.keystore` (solo per test, non per il Play Store).
 
 ## Sviluppo locale
 ```
