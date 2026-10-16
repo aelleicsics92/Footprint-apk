@@ -68,7 +68,14 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease bundleRelease -PfpVersionCode=${{ github.run_number }} --no-daemon --stacktrace
+          set +e
+          ./gradlew assembleRelease bundleRelease -PfpVersionCode=${{ github.run_number }} --no-daemon --stacktrace > "$RUNNER_TEMP/gradle.log" 2>&1
+          CODE=$?
+          if [ $CODE -ne 0 ]; then
+            grep -nE "What went wrong|error:|FAILED|Caused by|Could not|not found|Execution failed" -A4 "$RUNNER_TEMP/gradle.log" | head -40 | tr '\n' '|' | sed 's/%/%25/g' | while read -r L; do echo "::error title=Gradle::$L"; done
+            tail -25 "$RUNNER_TEMP/gradle.log" | tr '\n' '|' | while read -r L; do echo "::error title=GradleTail::$L"; done
+          fi
+          exit $CODE
 
       - name: Prepara i file
         run: |
