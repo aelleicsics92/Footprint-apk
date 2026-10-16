@@ -5,53 +5,52 @@ import fs from 'fs';
 import path from 'path';
 
 const RES = 'android/app/src/main/res';
-const ROOT = path.resolve('.');
 
-const contour = (o) => `stroke="#9fe0b8" stroke-opacity="${o}" stroke-width=".9" fill="none"`;
+const contour = (o, w = 0.9) => `stroke="#a8ecc4" stroke-opacity="${o}" stroke-width="${w}" fill="none"`;
 const BG_BODY = `
-  <defs><radialGradient id="bg" cx="50%" cy="36%" r="78%"><stop offset="0" stop-color="#34815f"/><stop offset=".5" stop-color="#1b4d3a"/><stop offset="1" stop-color="#0a281d"/></radialGradient></defs>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="80%"><stop offset="0" stop-color="#2f8a63"/><stop offset=".48" stop-color="#17503a"/><stop offset="1" stop-color="#06201a"/></radialGradient>
+    <radialGradient id="glow" cx="50%" cy="46%" r="42%"><stop offset="0" stop-color="#ffe2a8" stop-opacity=".38"/><stop offset="1" stop-color="#ffe2a8" stop-opacity="0"/></radialGradient>
+  </defs>
   <rect width="108" height="108" fill="url(#bg)"/>
   <g>
-    <path d="M60 30 C62 14 84 8 96 18 C108 28 104 50 90 56 C76 62 58 48 60 30Z" ${contour(0.2)}/>
-    <path d="M50 30 C50 6 86 -2 102 12 C118 26 112 58 92 66 C70 74 48 56 50 30Z" ${contour(0.15)}/>
-    <path d="M70 30 C72 20 84 16 92 22 C100 28 96 42 86 46 C76 50 68 42 70 30Z" ${contour(0.22)}/>
-    <path d="M-6 70 C10 60 30 66 34 82 C38 98 20 112 6 110 C-8 108 -14 82 -6 70Z" ${contour(0.2)}/>
-    <path d="M-14 60 C8 46 40 54 46 80 C52 106 28 122 4 120Z" ${contour(0.15)}/>
-    <path d="M14 20 C26 12 40 16 42 28 C44 40 30 48 20 44 C10 40 6 28 14 20Z" ${contour(0.12)}/>
+    <path d="M54 10 C80 6 100 24 98 50 C96 78 74 100 50 98 C24 96 8 76 10 52 C12 28 30 12 54 10Z" ${contour(0.16)}/>
+    <path d="M54 20 C72 18 88 31 86 50 C84 70 68 88 50 86 C32 84 20 68 22 52 C24 34 38 22 54 20Z" ${contour(0.2)}/>
+    <path d="M54 30 C65 29 76 38 75 50 C74 62 63 76 51 75 C40 74 32 63 33 53 C34 41 43 31 54 30Z" ${contour(0.26)}/>
+    <path d="M-10 30 C12 20 30 30 28 48 C26 66 4 70 -10 62" ${contour(0.14)}/>
+    <path d="M118 70 C96 62 84 74 88 90 C92 104 108 108 118 104" ${contour(0.14)}/>
+    <path d="M-10 14 C20 4 50 -4 80 -2" ${contour(0.1)}/>
   </g>
-  <path d="M-4 98 C18 94 24 72 42 76 S76 98 112 72" fill="none" stroke="#f3b45a" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 4.2" opacity=".9"/>`;
+  <rect width="108" height="108" fill="url(#glow)"/>`;
 
-function fgShapes(mode) {
-  // mode: 'color' | 'mono' (silhouette bianca per icona a tema)
-  const f = (c) => (mode === 'mono' ? '#fff' : c);
-  const toe = (cx, cy, rx, ry, rot) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})" fill="${f('url(#toe)')}"/>`;
-  const toes = toe(30.5, 46, 5.6, 7.6, -30) + toe(42.5, 31.5, 5.9, 8.2, -11) + toe(65.5, 31.5, 5.9, 8.2, 11) + toe(77.5, 46, 5.6, 7.6, 30);
-  const stem = `<path d="M46.5 66 Q45 77 41.5 83.5 H66.500 Q63 77 61.500 66Z" fill="${f('url(#stem)')}"/>`;
-  const cap = `<path d="M32.500 66.500 C32.500 52 42 46.500 54 46.500 S75.500 52 75.500 66.500 Q54 72 32.500 66.500Z" fill="${f('url(#cap)')}"/>`;
-  return toes + stem + cap;
-}
+const PIN = 'M54 86 C54 86 33 64 33 45 A21 21 0 1 1 75 45 C75 64 54 86 54 86Z';
+const MUSH = `<path d="M40.500 46 C40.500 36.500 47 31 54 31 S67.500 36.500 67.500 46 Q54 49.500 40.500 46Z"/><path d="M49.300 47.500 H58.700 Q58.200 53 60 58 H48 Q49.800 53 49.300 47.500Z"/>`;
 
 const DEFS = `<defs>
-  <linearGradient id="cap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0924b"/><stop offset=".55" stop-color="#ac5b25"/><stop offset="1" stop-color="#76391a"/></linearGradient>
-  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e6d8b4"/><stop offset=".5" stop-color="#faf3de"/><stop offset="1" stop-color="#d6c59b"/></linearGradient>
-  <linearGradient id="toe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fcf6e2"/><stop offset="1" stop-color="#dfcf a5"/></linearGradient>
-  <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="1.7"/></filter>
-</defs>`.replace('#dfcf a5', '#dfcfa5');
+  <linearGradient id="pin" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#ffd788"/><stop offset=".5" stop-color="#f09a2a"/><stop offset="1" stop-color="#b5560c"/></linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3d2"/><stop offset="1" stop-color="#f6b24c" stop-opacity="0"/></linearGradient>
+  <linearGradient id="mush" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f3a2b"/><stop offset="1" stop-color="#06241b"/></linearGradient>
+  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108"><rect width="108" height="108" fill="#fff"/><g fill="#000">${MUSH}</g></mask>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.2"/></filter>
+</defs>`;
 
-const FG_DETAILS = `
-  <ellipse cx="45" cy="53.500" rx="9.500" ry="3" transform="rotate(-14 45 53.500)" fill="#ffd9a6" opacity=".45"/>
-  <g fill="#f6e7c4" opacity=".85"><circle cx="52" cy="52" r="1.500"/><circle cx="61.500" cy="55" r="1.300"/><circle cx="46" cy="60" r="1.100"/><circle cx="66" cy="61.500" r="1"/><circle cx="56" cy="61" r=".9"/></g>
-  <path d="M49.500 72 Q54 74 58.500 72 M48.500 77.500 Q54 79.500 59.500 77.500" stroke="#c9b88c" stroke-width=".8" fill="none" opacity=".8"/>
-  <ellipse cx="29" cy="43" rx="1.600" ry="2.400" transform="rotate(-30 29 43)" fill="#fff" opacity=".5"/>
-  <ellipse cx="41.500" cy="28.500" rx="1.700" ry="2.600" transform="rotate(-11 41.500 28.500)" fill="#fff" opacity=".5"/>
-  <ellipse cx="66.500" cy="28.500" rx="1.700" ry="2.600" transform="rotate(11 66.500 28.500)" fill="#fff" opacity=".5"/>
-  <ellipse cx="79" cy="43" rx="1.600" ry="2.400" transform="rotate(30 79 43)" fill="#fff" opacity=".5"/>`;
+const TRAIL = `<path d="M6 100 C26 104 34 86 54 87 S86 96 104 82" fill="none" stroke="#fff3d2" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="0.1 4.6" opacity=".9"/>`;
+const GROUND = `<ellipse cx="54" cy="86.500" rx="13" ry="3.200" fill="#04140e" opacity=".5"/>`;
+
+const FG_BODY = `${GROUND}${TRAIL}
+  <g filter="url(#blur)" opacity=".5" transform="translate(0 2.500)"><path d="${PIN}" fill="#020c08"/></g>
+  <path d="${PIN}" fill="url(#pin)"/>
+  <path d="${PIN}" fill="none" stroke="url(#rim)" stroke-width="1.300"/>
+  <path d="M38 38 C40 28 48 24 56 24" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2.200" stroke-linecap="round"/>
+  <circle cx="54" cy="45" r="15.500" fill="#fff4d6" opacity=".95"/>
+  <g fill="url(#mush)">${MUSH}</g>
+  <g fill="#fff4d6" opacity=".95"><circle cx="49" cy="38.800" r="1.700"/><circle cx="56.500" cy="36" r="1.400"/><circle cx="60.500" cy="41.500" r="1.500"/></g>`;
 
 const svg = (inner, size = 108, vb = '0 0 108 108') => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${vb}">${inner}</svg>`;
-const FG = svg(`${DEFS}<g filter="url(#blur)" opacity=".55" transform="translate(0 1.8)" fill="#04150e">${fgShapes('mono').replace(/fill="#fff"/g, 'fill="#04150e"')}</g>${fgShapes('color')}${FG_DETAILS}`);
-const FG_MONO = svg(`${DEFS}${fgShapes('mono')}`);
+const FG = svg(`${DEFS}${FG_BODY}`);
+const FG_MONO = svg(`${DEFS}<path d="${PIN}" fill="#fff" mask="url(#cut)"/>`);
 const BG = svg(BG_BODY);
-const FULL = svg(`${BG_BODY}${DEFS}<g filter="url(#blur)" opacity=".55" transform="translate(0 1.8)" fill="#04150e">${fgShapes('mono').replace(/fill="#fff"/g, 'fill="#04150e"')}</g>${fgShapes('color')}${FG_DETAILS}`);
+const FULL = svg(`${BG_BODY}${DEFS}${FG_BODY}`);
 
 const png = (s, size) => sharp(Buffer.from(s), { density: 300 }).resize(size, size).png().toBuffer();
 const write = (p, buf) => (fs.mkdirSync(path.dirname(p), { recursive: true }), fs.writeFileSync(p, buf));
