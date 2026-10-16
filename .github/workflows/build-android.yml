@@ -1,0 +1,92 @@
+name: Build Android (APK + AAB)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-android
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Installa dipendenze
+        run: npm ci
+
+      - name: Build web (le chiavi AI arrivano dai Secrets, non dal repository)
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VITE_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          VITE_GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: npm run build
+
+      - name: Sincronizza Capacitor
+        run: npx cap sync android
+
+      - name: Chiave di firma
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          KS="$RUNNER_TEMP/release.keystore"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$KS"
+            echo "Uso la chiave di firma dei Secrets"
+          else
+            KS_PASS="footprint-temp"; KS_ALIAS="footprint"; KEY_PASS="footprint-temp"
+            keytool -genkeypair -keystore "$KS" -storepass "$KS_PASS" -keypass "$KEY_PASS" -alias "$KS_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Footprint, O=Footprint, C=IT"
+            echo "ATTENZIONE: chiave temporanea (aggiungi i Secrets per una chiave stabile)"
+          fi
+          echo "FP_KEYSTORE=$KS" >> "$GITHUB_ENV"
+          echo "FP_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+          echo "FP_KEY_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
+          echo "FP_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+
+      - name: Compila APK e AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease -PfpVersionCode=${{ github.run_number }} --no-daemon --stacktrace
+
+      - name: Prepara i file
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/Footprint-1.0.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "out/Footprint-1.0.${{ github.run_number }}.aab"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Footprint-${{ github.run_number }}
+          path: out/*
+
+      - name: Pubblica release (scarica l'APK da qui)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" out/* \
+            --title "Footprint build ${{ github.run_number }}" \
+            --notes "APK per l'installazione diretta e AAB per il Play Store." \
+            --latest

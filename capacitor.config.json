@@ -1,0 +1,16 @@
+{
+  "appId": "it.footprint.trail",
+  "appName": "Footprint",
+  "webDir": "dist",
+  "backgroundColor": "#14392b",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#14392b",
+      "overlaysWebView": false
+    }
+  }
+}

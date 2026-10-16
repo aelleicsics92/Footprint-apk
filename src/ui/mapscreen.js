@@ -1,0 +1,409 @@
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, downloadArea } from '../lib/offline.js';
+import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
+import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
+import { ico, wpIcon } from '../lib/icons.js';
+import { openSheet, toast, confirmBox } from '../lib/ui.js';
+import { lastPos } from '../lib/geo.js';
+import { getHeading, compassAlive } from '../lib/compass.js';
+import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint } from '../lib/waypoints.js';
+import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
+import { getTarget, setTarget } from '../lib/state.js';
+import { toGPX, shareFile, safeName } from '../lib/gpsio.js';
+import { openSOS } from './sos.js';
+
+let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
+let follow = true, firstFix = false, shownTrackName = null;
+let root;
+
+export const getMap = () => map;
+
+export function mountMap(el) {
+  root = el;
+  el.innerHTML = `
+    <div id="map"></div>
+    <div class="map-top">
+      <button class="sos-btn" id="btn-sos" aria-label="Emergenza">SOS</button>
+      <div class="hud" id="hud"><div class="row2"><span>In attesa del GPS…</span></div></div>
+    </div>
+    <div class="map-tools">
+      <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
+      <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
+      <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
+    </div>
+    <div class="rec-chip hidden" id="rec-chip"></div>
+    <button class="fab" id="btn-wp" aria-label="Nuovo waypoint">${ico('pinplus', 30)}</button>`;
+
+  const s = getSettings();
+  const saved = lsGet('fp.view');
+  map = L.map('map', { zoomControl: false, attributionControl: true, preferCanvas: true, worldCopyJump: false, zoomSnap: 0.5, zoomDelta: 1, maxZoom: 20, minZoom: 4 });
+  map.attributionControl.setPrefix(false);
+  map.setView(saved ? [saved.lat, saved.lng] : [42.3, 12.6], saved ? saved.zoom : 6);
+  baseLayers = { sat: makeLayer('sat'), topo: makeLayer('topo') };
+  trailsLayer = makeLayer('trails', { opacity: 0.95, zIndex: 5 });
+  applyLayers();
+  wpGroup = L.layerGroup().addTo(map);
+  shownGroup = L.layerGroup().addTo(map);
+  recLine = L.polyline([], { color: '#ff5a4a', weight: 5, opacity: 0.95 }).addTo(map);
+  targetLine = L.polyline([], { color: '#d28a2c', weight: 4, dashArray: '2 9', lineCap: 'round' }).addTo(map);
+
+  map.on('dragstart', () => setFollow(false));
+  map.on('moveend', () => {
+    const c = map.getCenter();
+    lsSet('fp.view', { lat: c.lat, lng: c.lng, zoom: map.getZoom() });
+  });
+
+  root.querySelector('#btn-layers').onclick = openLayers;
+  root.querySelector('#btn-dl').onclick = openDownload;
+  root.querySelector('#btn-sos').onclick = openSOS;
+  root.querySelector('#btn-locate').onclick = () => {
+    const p = lastPos();
+    if (!p) return toast('GPS non ancora pronto');
+    setFollow(true);
+    map.setView([p.lat, p.lon], Math.max(map.getZoom(), 16), { animate: true });
+  };
+  const fab = root.querySelector('#btn-wp');
+  let timer = null, long = false;
+  fab.addEventListener('pointerdown', () => {
+    long = false;
+    timer = setTimeout(() => {
+      long = true;
+      navigator.vibrate && navigator.vibrate(40);
+      quickWaypoint();
+    }, 650);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => fab.addEventListener(e, () => clearTimeout(timer)));
+  fab.addEventListener('click', () => {
+    if (!long) openNewWaypoint();
+  });
+
+  bus.on('pos', onPos);
+  bus.on('heading', onHeading);
+  bus.on('wp:changed', renderWaypoints);
+  bus.on('wp:target', (id) => {
+    setTarget(id);
+    bus.emit('nav:tab', 'map');
+    const w = getWaypoint(id);
+    const p = lastPos();
+    if (w && map) {
+      if (p) map.fitBounds([[p.lat, p.lon], [w.lat, w.lon]], { padding: [70, 70], maxZoom: 17 });
+      else map.setView([w.lat, w.lon], 16);
+    }
+  });
+  bus.on('wp:goto', (id) => {
+    const w = getWaypoint(id);
+    if (w) {
+      setFollow(false);
+      map.setView([w.lat, w.lon], Math.max(map.getZoom(), 16));
+    }
+  });
+  bus.on('target:changed', () => {
+    renderWaypoints();
+    updateTargetLine();
+    updateHud();
+  });
+  bus.on('rec:state', renderRec);
+  bus.on('rec:tick', updateRecChip);
+  bus.on('rec:point', (pt) => {
+    recLine.addLatLng([pt[0], pt[1]]);
+    updateRecChip();
+  });
+  bus.on('settings:changed', () => {
+    renderWaypoints();
+    renderRec();
+  });
+  bus.on('track:show', showTrack);
+  bus.on('map:fit', (b) => {
+    setFollow(false);
+    setTimeout(() => map.fitBounds([[b.south, b.west], [b.north, b.east]]), 100);
+  });
+  bus.on('nav:tab', (t) => t === 'map' && setTimeout(() => map.invalidateSize(), 60));
+  renderWaypoints();
+  renderRec();
+  updateHud();
+}
+
+export function invalidate() {
+  map && map.invalidateSize();
+}
+
+function applyLayers() {
+  const s = getSettings();
+  Object.entries(baseLayers).forEach(([k, l]) => (k === s.baseLayer ? l.addTo(map) : map.removeLayer(l)));
+  if (s.overlayTrails) trailsLayer.addTo(map);
+  else map.removeLayer(trailsLayer);
+  const max = SOURCES[s.baseLayer].maxNative + 2;
+  map.setMaxZoom(max);
+}
+
+function setFollow(v) {
+  follow = v;
+  root.querySelector('#btn-locate').classList.toggle('on', v);
+}
+
+function onPos(p) {
+  const ll = [p.lat, p.lon];
+  if (!userMarker) {
+    userMarker = L.marker(ll, {
+      icon: L.divIcon({ className: '', html: '<div class="me"><div class="cone"></div><div class="dot"></div></div>', iconSize: [34, 34], iconAnchor: [17, 17] }),
+      interactive: false,
+      zIndexOffset: 1000,
+    }).addTo(map);
+    accCircle = L.circle(ll, { radius: p.acc || 10, color: '#2f8cff', weight: 1, fillColor: '#2f8cff', fillOpacity: 0.12, interactive: false }).addTo(map);
+  } else {
+    userMarker.setLatLng(ll);
+    accCircle.setLatLng(ll).setRadius(p.acc || 10);
+  }
+  if (!firstFix) {
+    firstFix = true;
+    if (!lsGet('fp.view') || lsGet('fp.view').zoom < 10) map.setView(ll, 16);
+    else if (follow) map.setView(ll, Math.max(map.getZoom(), 15));
+  } else if (follow) map.panTo(ll, { animate: true, duration: 0.4 });
+  if (!compassAlive() && p.heading != null && p.speed > 1) onHeading(p.heading);
+  updateTargetLine();
+  updateHud();
+}
+
+function onHeading(h) {
+  const c = userMarker && userMarker.getElement() && userMarker.getElement().querySelector('.cone');
+  if (c) c.style.transform = `rotate(${h}deg)`;
+}
+
+function updateHud() {
+  const hud = root.querySelector('#hud');
+  const p = lastPos();
+  let html = p
+    ? `<div class="row2"><b>${fmtCoord(p.lat, p.lon)}</b><span>${p.alt != null ? Math.round(p.alt) + ' m' : '— m'} · ±${Math.round(p.acc || 0)} m</span></div>`
+    : '<div class="row2"><span>In attesa del GPS…</span></div>';
+  const tid = getTarget();
+  const w = tid && getWaypoint(tid);
+  if (w) {
+    const d = p ? `${fmtDist(haversine(p, w))} · ${Math.round(bearing(p, w))}° ${cardinal(bearing(p, w))}` : '';
+    html += `<div class="tgt">${ico('nav', 14)}<span>${esc(w.title)} · ${d}</span><button data-clear="target">Fine</button></div>`;
+  }
+  if (shownTrackName) html += `<div class="tgt">${ico('route', 14)}<span>${esc(shownTrackName)}</span><button data-clear="track">Nascondi</button></div>`;
+  hud.innerHTML = html;
+  hud.querySelectorAll('[data-clear]').forEach(
+    (b) =>
+      (b.onclick = () => {
+        if (b.dataset.clear === 'target') setTarget(null);
+        else {
+          shownGroup.clearLayers();
+          shownTrackName = null;
+          updateHud();
+        }
+      })
+  );
+}
+
+function updateTargetLine() {
+  const p = lastPos();
+  const w = getTarget() && getWaypoint(getTarget());
+  targetLine.setLatLngs(p && w ? [[p.lat, p.lon], [w.lat, w.lon]] : []);
+}
+
+function renderWaypoints() {
+  if (!wpGroup) return;
+  wpGroup.clearLayers();
+  if (!getSettings().showWaypoints) return;
+  const tid = getTarget();
+  for (const w of getWaypoints()) {
+    const ic = wpIcon(w.icon);
+    const m = L.marker([w.lat, w.lon], {
+      icon: L.divIcon({
+        className: 'wp-marker' + (w.id === tid ? ' target' : ''),
+        html: `<div class="pin" style="--c:${ic.color}"><div class="bd">${ic.svg}</div></div>`,
+        iconSize: [42, 50],
+        iconAnchor: [21, 48],
+      }),
+      zIndexOffset: 500,
+    });
+    m.on('click', () => openWaypoint(w));
+    m.addTo(wpGroup);
+  }
+}
+
+// ---------- registrazione ----------
+function renderRec() {
+  const chip = root.querySelector('#rec-chip');
+  const r = getRec();
+  const enabled = getSettings().recordTrack;
+  if (r.status === 'idle') {
+    recLine.setLatLngs([]);
+    chip.classList.toggle('hidden', !enabled);
+    chip.className = 'rec-chip' + (enabled ? '' : ' hidden');
+    chip.innerHTML = `<span>Traccia ferma</span><button data-r="start" aria-label="Avvia">${ico('play', 18)}</button>`;
+  } else {
+    chip.className = 'rec-chip' + (r.status === 'pause' ? ' pause' : '');
+    chip.innerHTML = `<span class="dot"></span><span id="rec-t"></span><button data-r="${r.status === 'pause' ? 'resume' : 'pause'}" aria-label="Pausa/riprendi">${ico(r.status === 'pause' ? 'play' : 'pause', 18)}</button><button class="stop" data-r="stop" aria-label="Stop e salva">${ico('stop', 16)}</button>`;
+    updateRecChip();
+  }
+  chip.onclick = async (e) => {
+    const b = e.target.closest('[data-r]');
+    if (!b) return;
+    const a = b.dataset.r;
+    if (a === 'start') startRecording();
+    else if (a === 'pause') pauseRecording();
+    else if (a === 'resume') resumeRecording();
+    else if (a === 'stop') {
+      const t = await stopRecording();
+      if (!t) return toast('Traccia troppo corta: non salvata');
+      afterSave(t);
+    }
+  };
+}
+function updateRecChip() {
+  const el = root.querySelector('#rec-t');
+  const r = getRec();
+  if (el) el.textContent = `${fmtDur(elapsed())} · ${fmtDist(r.dist)}`;
+}
+function afterSave(t) {
+  const s = openSheet({
+    title: 'Traccia salvata',
+    body: `<div data-enter-scope>
+      <div class="stat-row"><div><b>${fmtDist(t.dist)}</b><span>Distanza</span></div><div><b>${fmtDur(t.dur)}</b><span>Durata</span></div><div><b>${Math.round(t.up)} m</b><span>Salita</span></div></div>
+      <label class="field"><span>Nome</span><input id="tn" type="text" value="${esc(t.name)}" maxlength="80"></label>
+      <div class="row gap"><button class="btn ghost grow" id="tn-share">${ico('share', 18)} Condividi</button><button class="btn primary grow" data-primary id="tn-ok">${ico('check', 18)} Salva</button></div></div>`,
+  });
+  const nm = () => s.body.querySelector('#tn').value.trim() || t.name;
+  s.body.querySelector('#tn-ok').onclick = async () => {
+    await renameTrack(t.id, nm());
+    s.close();
+  };
+  s.body.querySelector('#tn-share').onclick = async () => {
+    const name = nm();
+    await renameTrack(t.id, name);
+    const pts = await loadTrackPoints(t.id);
+    s.close();
+    try {
+      await shareFile(`${safeName(name)}.gpx`, toGPX({ tracks: [{ ...t, name, points: pts }], name }), { title: name });
+    } catch {}
+  };
+}
+
+async function showTrack({ id, name }) {
+  const pts = await loadTrackPoints(id);
+  if (!pts.length) return;
+  shownGroup.clearLayers();
+  const ll = pts.map((p) => [p[0], p[1]]);
+  L.polyline(ll, { color: '#ffb23e', weight: 5, opacity: 0.95 }).addTo(shownGroup);
+  L.circleMarker(ll[0], { radius: 7, color: '#fff', weight: 2, fillColor: '#1b7a4a', fillOpacity: 1 }).addTo(shownGroup);
+  L.circleMarker(ll[ll.length - 1], { radius: 7, color: '#fff', weight: 2, fillColor: '#c0392b', fillOpacity: 1 }).addTo(shownGroup);
+  shownTrackName = name;
+  setFollow(false);
+  bus.emit('nav:tab', 'map');
+  setTimeout(() => {
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(ll), { padding: [50, 50] });
+  }, 80);
+  updateHud();
+}
+
+// ---------- livelli ----------
+function openLayers() {
+  const s = getSettings();
+  const sh = openSheet({
+    title: 'Livelli mappa',
+    body: `<div class="stack">
+      <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
+    </div>`,
+  });
+  sh.body.querySelectorAll('[data-b]').forEach(
+    (b) =>
+      (b.onclick = () => {
+        setSetting('baseLayer', b.dataset.b);
+        sh.body.querySelectorAll('[data-b]').forEach((x) => x.classList.toggle('sel', x === b));
+        applyLayers();
+      })
+  );
+  sh.body.querySelector('#ly-trails').onchange = (e) => {
+    setSetting('overlayTrails', e.target.checked);
+    applyLayers();
+  };
+  sh.body.querySelector('#ly-wp').onchange = (e) => {
+    setSetting('showWaypoints', e.target.checked);
+    renderWaypoints();
+  };
+}
+
+// ---------- download offline ----------
+function openDownload() {
+  const b = map.getBounds();
+  const bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
+  const cur = Math.round(map.getZoom());
+  const s = getSettings();
+  const now = new Date();
+  const defName = `Area ${now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} ${now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+  const sh = openSheet({
+    title: 'Scarica mappa offline',
+    full: true,
+    body: `<div data-enter-scope>
+      <p class="muted" style="margin:0 0 4px">Verrà scaricata l'area attualmente visibile, per usarla anche senza rete.</p>
+      <label class="field"><span>Nome area</span><input id="dl-name" type="text" value="${esc(defName)}" maxlength="60"></label>
+      <label class="field"><span>Dettaglio massimo: zoom <b id="dl-zl"></b></span><input id="dl-z" type="range" min="12" max="17" value="${clamp(cur + 1, 13, 17)}" style="width:100%"></label>
+      <div class="chips" style="padding:0 0 8px">
+        <button class="chip ${s.baseLayer === 'sat' ? 'sel' : ''}" data-s="sat">Satellite</button>
+        <button class="chip ${s.baseLayer === 'topo' ? 'sel' : ''}" data-s="topo">Topografica</button>
+        <button class="chip ${s.overlayTrails ? 'sel' : ''}" data-s="trails">Sentieri</button>
+      </div>
+      <div class="infobox" id="dl-info"></div>
+      <div class="progress hidden" id="dl-prog"><i></i></div>
+      <p class="muted hidden" id="dl-status" style="margin:0 0 8px"></p>
+      <button class="btn primary big" data-primary id="dl-go">${ico('download', 20)} Scarica</button>
+    </div>`,
+  });
+  const q = (x) => sh.body.querySelector(x);
+  const srcSel = () => [...sh.body.querySelectorAll('[data-s].sel')].map((x) => x.dataset.s);
+  const zmin = () => Math.max(6, Math.min(Number(q('#dl-z').value), cur - 3));
+  const upd = () => {
+    const zmax = Number(q('#dl-z').value);
+    q('#dl-zl').textContent = zmax;
+    const srcs = srcSel();
+    const per = countTiles(bounds, zmin(), zmax);
+    const total = per * srcs.length;
+    const mb = estimateBytes(per, srcs);
+    const big = total > MAX_TILES;
+    q('#dl-info').className = big ? 'warnbox' : 'infobox';
+    q('#dl-info').innerHTML = big
+      ? `Area troppo grande (${total.toLocaleString('it-IT')} tile). Avvicina la mappa o riduci il dettaglio.`
+      : `<b>${total.toLocaleString('it-IT')}</b> tile · circa <b>${fmtMB(mb)}</b> · zoom ${zmin()}–${zmax}`;
+    q('#dl-go').disabled = big || !srcs.length;
+  };
+  sh.body.querySelectorAll('[data-s]').forEach((c) => (c.onclick = () => (c.classList.toggle('sel'), upd())));
+  q('#dl-z').oninput = upd;
+  upd();
+  let ctrl = null;
+  q('#dl-go').onclick = async () => {
+    if (ctrl) {
+      ctrl.abort();
+      return;
+    }
+    ctrl = new AbortController();
+    const btn = q('#dl-go');
+    btn.innerHTML = `${ico('close', 18)} Annulla`;
+    q('#dl-prog').classList.remove('hidden');
+    q('#dl-status').classList.remove('hidden');
+    try {
+      const r = await downloadArea({
+        name: q('#dl-name').value.trim() || defName,
+        bounds,
+        zmin: zmin(),
+        zmax: Number(q('#dl-z').value),
+        sources: srcSel(),
+        signal: ctrl.signal,
+        onProgress: (p) => {
+          q('#dl-prog i').style.width = `${Math.round((p.done / p.total) * 100)}%`;
+          q('#dl-status').textContent = `${p.done.toLocaleString('it-IT')} / ${p.total.toLocaleString('it-IT')} tile · ${fmtMB(p.bytes)}${p.fail ? ` · ${p.fail} non disponibili` : ''}`;
+        },
+      });
+      if (r.aborted) toast('Download annullato');
+      else toast(`Mappa salvata (${fmtMB(r.bytes)})`);
+    } catch (e) {
+      toast(e.message || 'Download non riuscito', 4000);
+    }
+    sh.close();
+  };
+}
