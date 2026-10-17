@@ -16,7 +16,7 @@ let nameCache = {};
 export function mountFungi(el) {
   root = el;
   el.innerHTML = `
-    <div class="sec-title">Previsione funghi</div>
+    <div class="sec-title">Previsione raccolta</div>
     <div class="chips" id="f-prof"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
@@ -39,7 +39,7 @@ function renderProfiles() {
   const cur = getSettings().fungiProfile;
   root.querySelector('#f-prof').innerHTML =
     Object.entries(PROFILES)
-      .map(([k, p]) => `<button class="chip ${k === cur ? 'sel' : ''}" data-p="${k}">${ico(k === 'tartufi' ? 'target' : 'mushroom', 16)} ${p.label}</button>`)
+      .map(([k, p]) => `<button class="chip ${k === cur ? 'sel' : ''}" data-p="${k}">${ico(p.truffle ? 'target' : 'mushroom', 16)} ${p.label}</button>`)
       .join('') + `<button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna</button>`;
   root.querySelectorAll('[data-p]').forEach(
     (b) =>
@@ -154,7 +154,7 @@ function gaugeSVG(score, color) {
 
 function renderCard() {
   const card = root.querySelector('#f-card');
-  const prof = PROFILES[getSettings().fungiProfile];
+  const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
   let series, elev, title;
   if (state.ptData) {
     series = state.ptData.series;
@@ -168,7 +168,7 @@ function renderCard() {
   const out = outlook(series, prof, elev);
   const day = clamp(state.day, 0, out.length - 1);
   const o = out[day];
-  const lv = levelOf(o.score);
+  const lv = o.closed ? { color: '#8c9690', label: 'Chiusa' } : levelOf(o.score);
   const best = out.reduce((a, b, i) => (b.score > a.score ? { score: b.score, i } : a), { score: -1, i: 0 });
   const dayName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
   let advice = '';
@@ -176,10 +176,11 @@ function renderCard() {
   else if (o.score >= 70) advice = 'Condizioni ottime: è il momento giusto per uscire.';
   else if (o.score >= 45) advice = 'Buone possibilità nelle zone adatte (esposizione e quota giuste).';
   else if (o.score < 22) advice = 'Poco probabile: manca pioggia utile o la temperatura è fuori range.';
+  if (o.closed) advice = `Raccolta chiusa per legge fino al ${o.opens} (calendario nazionale e Lazio, le regioni possono variare con ordinanza). Indice biologico del giorno: ${o.score}/100.`;
   const place = state.point && state.point.gps ? 'Sei qui' : 'Zona';
   card.innerHTML = `<div class="gauge-card">
     <div class="place">${ico('locate', 16)} ${place}: <b style="color:#fff">${esc(title)}</b> · ${Math.round(elev)} m</div>
-    <div class="gauge">${gaugeSVG(o.score, lv.color)}<div class="val"><b>${o.score}</b><span style="color:${lv.color === '#b9553a' ? '#ffb199' : '#fff'}">${lv.label}</span></div></div>
+    <div class="gauge">${gaugeSVG(o.score, lv.color)}<div class="val"><b>${o.closed ? '–' : o.score}</b><span style="color:${lv.color === '#b9553a' ? '#ffb199' : '#fff'}">${lv.label}</span></div></div>
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     <div class="stats">
@@ -204,12 +205,13 @@ function renderCard() {
 
 function renderMap() {
   if (!fmap || !state.zones) return;
-  const prof = PROFILES[getSettings().fungiProfile];
+  const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
   zoneLayer.clearLayers();
   const pts = ZONES.map((z, i) => {
     const sr = state.zones.series[i];
     const out = outlook(sr, prof, sr.elev);
-    return { lat: z.lat, lon: z.lon, score: out[clamp(state.day, 0, out.length - 1)].score, name: z.name };
+    const o = out[clamp(state.day, 0, out.length - 1)];
+    return { lat: z.lat, lon: z.lon, score: o.score, closed: o.closed, name: z.name };
   });
   heat.setPoints(pts);
   const p = lastPos();
@@ -269,7 +271,7 @@ const HeatLayer = L.Layer.extend({
           const wi = 1 / ((q.p.x - gx) ** 2 + (q.p.y - gy) ** 2 + 400);
           w += wi; v += wi * q.score;
         }
-        const [r, g, b] = colorAt(v / w);
+        const [r, g, b] = P[0].closed ? [150, 158, 153] : colorAt(v / w);
         o.fillStyle = `rgb(${r},${g},${b})`;
         o.fillRect(gx, gy, CELL + 1, CELL + 1);
       }

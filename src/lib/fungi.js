@@ -9,7 +9,12 @@ export const ZONES = zonesRaw.map(([name, lat, lon]) => ({ name, lat, lon }));
 export const PROFILES = {
   autunnali: { label: 'Porcini e autunnali', short: 'Porcini', peaks: [{ doy: 275, w: 38, a: 1, alt: true }, { doy: 178, w: 22, a: 0.5 }], tOpt: [9, 19], tZero: [2, 28], lagOpt: 9, lagSig: 4.5, frost: 1, hot: 27, rain: [15, 60] },
   estivi: { label: 'Estivi (galletti, ovuli)', short: 'Estivi', peaks: [{ doy: 200, w: 34, a: 1 }, { doy: 268, w: 26, a: 0.65, alt: true }], tOpt: [14, 24], tZero: [6, 32], lagOpt: 7, lagSig: 4, frost: 1, hot: 32, rain: [12, 50] },
-  tartufi: { label: 'Tartufi', short: 'Tartufi', peaks: [{ doy: 20, w: 32, a: 1 }, { doy: 302, w: 26, a: 1 }, { doy: 190, w: 36, a: 0.55 }], tOpt: [4, 17], tZero: [-3, 26], lagOpt: 14, lagSig: 6, frost: 0.5, hot: 28, rain: [20, 70] },
+  // Tartufi: un profilo per specie. "window" = periodo di raccolta consentito (L. 752/1985 e L.R. Lazio 82/1988; le regioni possono variare con ordinanza)
+  scorzone: { label: 'Scorzone', short: 'Scorzone (T. aestivum)', truffle: true, window: [[5, 1], [11, 30]], peaks: [{ doy: 215, w: 38, a: 1 }], tOpt: [14, 24], tZero: [6, 31], lagOpt: 12, lagSig: 6, frost: 0.5, hot: 32, rain: [15, 60] },
+  uncinato: { label: 'Uncinato', short: 'Uncinato (T. uncinatum)', truffle: true, window: [[10, 1], [12, 31]], peaks: [{ doy: 300, w: 28, a: 1, alt: true }], tOpt: [7, 17], tZero: [0, 25], lagOpt: 12, lagSig: 6, frost: 0.8, hot: 26, rain: [20, 70] },
+  bianco: { label: 'Tartufo bianco', short: 'Bianco pregiato', truffle: true, window: [[10, 1], [12, 31]], peaks: [{ doy: 312, w: 24, a: 1, alt: true }], tOpt: [6, 15], tZero: [-1, 22], lagOpt: 12, lagSig: 6, frost: 1, hot: 24, rain: [25, 80] },
+  nero: { label: 'Nero pregiato', short: 'Nero pregiato', truffle: true, window: [[11, 15], [3, 15]], peaks: [{ doy: 15, w: 28, a: 1 }], tOpt: [3, 12], tZero: [-4, 20], lagOpt: 14, lagSig: 7, frost: 0.4, hot: 26, rain: [15, 60] },
+  bianchetto: { label: 'Bianchetto', short: 'Bianchetto (marzuolo)', truffle: true, window: [[1, 15], [4, 30]], peaks: [{ doy: 60, w: 25, a: 1 }], tOpt: [4, 14], tZero: [-3, 22], lagOpt: 12, lagSig: 6, frost: 0.4, hot: 24, rain: [15, 60] },
 };
 
 export const LEVELS = [
@@ -25,6 +30,15 @@ const ss = (x, a, b) => {
   return t * t * (3 - 2 * t);
 };
 const trap = (x, o0, o1, z0, z1) => (x >= o0 && x <= o1 ? 1 : x < o0 ? clamp((x - z0) / (o0 - z0), 0, 1) : clamp((z1 - x) / (z1 - o1), 0, 1));
+const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+function windowState(iso, win) {
+  if (!win) return { closed: false };
+  const m = Number(iso.slice(5, 7)), d = Number(iso.slice(8, 10)), v = m * 100 + d;
+  const a = win[0][0] * 100 + win[0][1], z = win[1][0] * 100 + win[1][1];
+  const open = a <= z ? v >= a && v <= z : v >= a || v <= z;
+  return open ? { closed: false } : { closed: true, opens: `${win[0][1]} ${MESI[win[0][0] - 1]}` };
+}
+
 const sum = (arr, a, b) => {
   let s = 0;
   for (let k = Math.max(0, a); k <= b; k++) s += arr[k] || 0;
@@ -82,7 +96,8 @@ export function evaluate(series, i, prof, elev) {
   const S = seasonFactor(dayOfYear(time[i]), prof, elev);
   const gate = 0.2 + 0.8 * clamp(2 * Math.max(rain, timing), 0, 1);
   const score = clamp(100 * Math.pow(S, 0.7) * base * pen * gate, 0, 97);
-  return { score: Math.round(score), R7, R14, R30, tmean, frostMin: frostMin === 99 ? null : frostMin, lag, season: S, wb, date: time[i] };
+  const ws = windowState(time[i], prof.window);
+  return { closed: ws.closed, opens: ws.opens, score: Math.round(score), R7, R14, R30, tmean, frostMin: frostMin === 99 ? null : frostMin, lag, season: S, wb, date: time[i] };
 }
 
 export function outlook(series, prof, elev) {
@@ -150,12 +165,12 @@ export function nearestZone(lat, lon) {
 
 // Riepilogo testuale per l'assistente AI
 export async function fungiContext(profKey = 'autunnali') {
-  const prof = PROFILES[profKey];
+  const prof = PROFILES[profKey] || PROFILES.autunnali;
   const data = await getZoneSeries();
   const rows = ZONES.map((z, i) => {
     const s = data.series[i];
     const o = outlook(s, prof, s.elev);
-    return `${z.name} (${Math.round(s.elev)} m): oggi ${o[0].score} (${levelOf(o[0].score).label}), +3gg ${o[3].score}, +7gg ${o[7].score}, pioggia 14gg ${Math.round(o[0].R14)} mm, T media 7gg ${o[0].tmean.toFixed(0)}°C`;
+    return `${z.name} (${Math.round(s.elev)} m): ${o[0].closed ? 'raccolta chiusa fino al ' + o[0].opens + ', ' : ''}oggi ${o[0].score} (${levelOf(o[0].score).label}), +3gg ${o[3].score}, +7gg ${o[7].score}, pioggia 14gg ${Math.round(o[0].R14)} mm, T media 7gg ${o[0].tmean.toFixed(0)}°C`;
   });
   return `Indice crescita (${prof.label}), scala 0-100 (Scarsa<22, Moderata<45, Buona<70, Eccellente>=70):\n${rows.join('\n')}`;
 }

@@ -24,7 +24,7 @@ const TABS = [
   ['map', 'Mappa', 'map'],
   ['compass', 'Bussola', 'compass'],
   ['ai', 'Identifica', 'camera'],
-  ['fungi', 'Funghi', 'mushroom'],
+  ['fungi', 'Previsione', 'mushroom'],
   ['more', 'Altro', 'more'],
 ];
 let current = 'map';
