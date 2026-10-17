@@ -370,7 +370,7 @@ function openAbout() {
 }
 
 function openWpOrder() {
-  const sh = openSheet({ title: 'Ordine icone waypoint', body: '<div id="wo" class="list"></div><button class="btn ghost" id="wo-reset" style="margin-top:10px">Ripristina ordine</button>', full: true });
+  const sh = openSheet({ title: 'Icone waypoint', body: '<div id="wo" class="list"></div><button class="btn ghost" id="wo-reset" style="margin-top:10px">Ripristina ordine</button>', full: true });
   const draw = () => {
     const l = orderedIcons(getSettings().wpOrder);
     sh.body.querySelector('#wo').innerHTML = l.map((i, n) => `<div class="set-row wo-row ${(getSettings().wpHidden || []).includes(i.id) ? 'off' : ''}" data-n="${n}"><span class="wo-grip" data-grip>☰</span><span class="ic">${i.svg}</span><div class="ti"><b>${esc(i.label)}</b></div><button class="btn ghost" data-h="${i.id}" aria-label="Mostra o nascondi">${(getSettings().wpHidden || []).includes(i.id) ? '🚫' : '👁'}</button><button class="btn ghost" data-u="${n}" ${n ? '' : 'disabled'}>▲</button><button class="btn ghost" data-d="${n}" ${n < l.length - 1 ? '' : 'disabled'}>▼</button></div>`).join('');
@@ -392,22 +392,36 @@ function openWpOrder() {
     else if (d) move(Number(d.dataset.d), 1);
     else if (e.target.closest('#wo-reset')) (setSetting('wpOrder', []), setSetting('wpHidden', []), draw());
   });
+  sh.body.style.padding = '6px 34px 24px';
   let drag = null;
   sh.body.addEventListener('pointerdown', (e) => {
     const g = e.target.closest('[data-grip]');
     if (!g) return;
     const row = g.closest('.wo-row');
-    drag = { row, n: Number(row.dataset.n), y0: e.clientY };
+    drag = { row, n: Number(row.dataset.n), y0: e.clientY, cy: e.clientY, s0: sh.body.scrollTop };
+    drag.raf = requestAnimationFrame(tick);
     row.classList.add('drag');
     g.setPointerCapture && g.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
+  const upd = () => (drag.row.style.transform = `translateY(${drag.cy - drag.y0 + (sh.body.scrollTop - drag.s0)}px)`);
+  const tick = () => {
+    if (!drag) return;
+    const r = sh.body.getBoundingClientRect(), edge = 90;
+    let v = 0;
+    if (drag.cy < r.top + edge) v = -Math.ceil(((r.top + edge - drag.cy) / edge) * 16);
+    else if (drag.cy > r.bottom - edge) v = Math.ceil(((drag.cy - (r.bottom - edge)) / edge) * 16);
+    if (v) (sh.body.scrollTop += v), upd();
+    drag.raf = requestAnimationFrame(tick);
+  };
   sh.body.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    drag.row.style.transform = `translateY(${e.clientY - drag.y0}px)`;
+    drag.cy = e.clientY;
+    upd();
   });
   const end = (e) => {
     if (!drag) return;
+    cancelAnimationFrame(drag.raf);
     const rows = [...sh.body.querySelectorAll('.wo-row')];
     const rr = drag.row.getBoundingClientRect(), cy = rr.top + rr.height / 2;
     drag.row.style.transform = '';

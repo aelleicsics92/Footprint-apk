@@ -357,3 +357,7 @@ html.night .warnbox{background:#3a2420;border-color:#6b3a30}
 html.night .sel{color:var(--ink)}
 html.night .chip.sel,html.night .round.on{color:#fff}
 html.night .muted{color:var(--muted)}
+
+html.night .chip.sel,html.night .seg button.sel{background:#4f8f5c;border-color:#86b04f;color:#fff}
+html.night .round.on{background:#4f8f5c}
+.wo-grip{padding:10px 8px;margin:-6px -2px}
