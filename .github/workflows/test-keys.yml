@@ -16,12 +16,14 @@ jobs:
           add() { out="$out$1 ; "; }
           add "gem_len=${#GEM} prefisso=${GEM:0:3} spazi=$(printf '%s' "$GEM" | tr -cd '[:space:]' | wc -c)"
           B='{"contents":[{"role":"user","parts":[{"text":"ciao"}]}]}'
-          for M in gemini-2.5-flash gemini-flash-latest; do
+          for M in gemini-3.5-flash gemini-3.5-flash-lite gemini-3.7-flash gemini-2.5-flash; do
             C=$(curl -s -o r.json -w '%{http_code}' -H "x-goog-api-key: $GEM" -H 'Content-Type: application/json' -d "$B" "https://generativelanguage.googleapis.com/v1beta/models/$M:generateContent")
             add "GenAI $M -> $C $(head -c 160 r.json | tr '\n' ' ')"
           done
-          C=$(curl -s -o r.json -w '%{http_code}' -H 'Content-Type: application/json' -d "$B" "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=$GEM")
-          add "Vertex -> $C $(head -c 160 r.json | tr '\n' ' ')"
+          for M in gemini-3.5-flash gemini-2.5-flash; do
+            C=$(curl -s -o r.json -w '%{http_code}' -H 'Content-Type: application/json' -d "$B" "https://aiplatform.googleapis.com/v1/publishers/google/models/$M:generateContent?key=$GEM")
+            add "Vertex $M -> $C $(head -c 160 r.json | tr '\n' ' ')"
+          done
           C=$(curl -s -o r.json -w '%{http_code}' -H "Authorization: Bearer $GRQ" https://api.groq.com/openai/v1/models)
           add "Groq models -> $C $(grep -o '"id":"[^"]*"' r.json | cut -d'"' -f4 | tr '\n' ' ' | head -c 700)"
           echo "::error title=TestChiavi::$out"
