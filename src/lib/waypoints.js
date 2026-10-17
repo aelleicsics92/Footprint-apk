@@ -1,7 +1,7 @@
 import { kvGet, kvSet, getSettings, setSetting } from './store.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
 import { openSheet, toast, confirmBox } from './ui.js';
-import { WP_ICONS, wpIcon, ico } from './icons.js';
+import { orderedIcons, wpIcon, ico } from './icons.js';
 import { lastPos, getOnce } from './geo.js';
 import { apiKey } from './store.js';
 import { toGPX, shareFile, shareText, safeName, mapsLink } from './gpsio.js';
@@ -61,7 +61,7 @@ export async function quickWaypoint() {
   if (!p) return toast('GPS non ancora pronto');
   const icon = 'fungo';
   const title = nextTitle(icon);
-  const w = { id: uid(), title, desc: '', icon, lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
+  const w = { id: uid(), title, desc: '', icon, dog: (getSettings().dogName || '').split(',')[0].trim(), lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
   await addWaypoint(w);
   setSetting('wpCounter', (getSettings().wpCounter || 0) + 1);
   toast(`Salvato: ${title}`);
@@ -78,8 +78,10 @@ export async function saveParking() {
   return w;
 }
 
+const dogs = () => [...new Set([...(getSettings().dogName || '').split(',').map((x) => x.trim()), ...list.map((w) => w.dog)].filter(Boolean))];
+
 function formHTML({ wp, pos, title, icon }) {
-  const grid = WP_ICONS.map(
+  const grid = orderedIcons(getSettings().wpOrder).map(
     (i) => `<button type="button" class="icon-opt ${i.id === icon ? 'sel' : ''}" data-icon="${i.id}" title="${esc(i.label)}"><span class="ic">${i.svg}</span><small>${esc(i.label)}</small></button>`
   ).join('');
   const alt = pos && pos.alt != null ? `quota ${Math.round(pos.alt)} m` : '';
@@ -89,6 +91,7 @@ function formHTML({ wp, pos, title, icon }) {
     <label class="field"><span>Titolo</span><input id="wp-title" type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
+    <label class="field"><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
     <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
     <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small></div>
     <button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button>
@@ -153,7 +156,8 @@ function wireForm(s, { wp, pos, onSave }) {
     const desc = s.body.querySelector('#wp-desc').value.trim();
     const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
     const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
-    await onSave({ title, desc, icon, qty, kg, memo });
+    const dog = s.body.querySelector('#wp-dog').value.trim();
+    await onSave({ title, desc, icon, qty, kg, memo, dog });
     s.close();
   });
 }
@@ -175,9 +179,8 @@ export async function openNewWaypoint() {
   s.onClose = off;
   wireForm(s, {
     pos,
-    onSave: async ({ title, desc, icon, qty, kg, memo }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo, dog }) => {
       if (!fix) return;
-      const dog = getSettings().dogName || '';
       const w = { id: uid(), title, desc, icon, qty, kg, dog, memo: !!memo, lat: fix.lat, lon: fix.lon, alt: fix.alt, acc: fix.acc, ts: Date.now() };
       if (memo) await kvSet('memo:' + w.id, memo);
       await addWaypoint(w);
@@ -193,9 +196,9 @@ export function openEditWaypoint(w) {
   wireForm(s, {
     wp: w,
     pos: w,
-    onSave: async ({ title, desc, icon, qty, kg, memo }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo, dog }) => {
       if (memo) await kvSet('memo:' + w.id, memo);
-      await updateWaypoint(w.id, { title, desc, icon, qty, kg, ...(memo ? { memo: true } : {}) });
+      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, ...(memo ? { memo: true } : {}) });
       toast('Modificato');
     },
   });

@@ -1208,5 +1208,445 @@
   "habitat": "Prati, giardini, boschi radi",
   "riconoscimento": "Struttura a rete rosso-arancio con gleba nerastra maleodorante.",
   "attenzione": "Non commestibile, odore di carne in putrefazione."
+ },
+ {
+  "id": "lattariosanguigno",
+  "nome": "Lattario sanguigno",
+  "sci": "Lactarius sanguifluus",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete mediterranee e di pino d'Aleppo",
+  "riconoscimento": "Cappello rosso-vinoso con zone concentriche, latice rosso scuro vinoso che non cambia, carne arancio che diventa verde.",
+  "attenzione": "Latice scuro: distinguilo da L. deterrimus (abete) a latice arancio. Ottimo alla griglia."
+ },
+ {
+  "id": "lattariotormentoso",
+  "nome": "Lattario tormentoso",
+  "sci": "Lactarius torminosus",
+  "stato": "tossico",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Betulle, su terreni acidi",
+  "riconoscimento": "Cappello rosato-salmone con margine lanoso e arrotolato, latice bianco acre.",
+  "attenzione": "Causa disturbi gastrointestinali. In alcune zone nordiche è consumato dopo lunga bollitura: meglio evitarlo."
+ },
+ {
+  "id": "peperonedelboscolattariopiperato",
+  "nome": "Peperone del bosco (lattario piperato)",
+  "sci": "Lactarius piperatus",
+  "stato": "non commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Latifoglie",
+  "riconoscimento": "Cappello bianco imbutiforme, lamelle fitte, latice bianco molto piccante, immutabile.",
+  "attenzione": "Il sapore acre lo rende sgradevole; non confonderlo con russule bianche prive di latice."
+ },
+ {
+  "id": "russulanera",
+  "nome": "Russula nera",
+  "sci": "Russula nigricans",
+  "stato": "non commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Latifoglie e conifere",
+  "riconoscimento": "Carne bianca che arrossa e poi annerisce al taglio, lamelle spaziate e spesse.",
+  "attenzione": "Poco pregiata, scarso valore. Facile da riconoscere dall'annerimento."
+ },
+ {
+  "id": "russulafetida",
+  "nome": "Russula fetida",
+  "sci": "Russula foetens",
+  "stato": "tossico",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello giallo-ocra, viscido, margine striato a tubercoli, odore sgradevole di olio rancido, sapore acre.",
+  "attenzione": "Provoca disturbi gastrici. Non assaggiare crudo."
+ },
+ {
+  "id": "russuladorata",
+  "nome": "Russula dorata",
+  "sci": "Russula aurea",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Latifoglie e querce",
+  "riconoscimento": "Cappello rosso e giallo-dorato, lamelle e gambo giallo-dorato, sapore dolce.",
+  "attenzione": "Non confonderla con russule acri; assaggio crudo di un frammento è un test sicuro per le russule, da sputare."
+ },
+ {
+  "id": "porcinoreale",
+  "nome": "Porcino reale",
+  "sci": "Boletus regius",
+  "stato": "commestibile",
+  "periodo": "Giugno-settembre",
+  "habitat": "Querceti, faggete calde",
+  "riconoscimento": "Cappello rosa-carminio, gambo giallo con reticolo, tubuli gialli.",
+  "attenzione": "Ottimo, simile ai porcini. Non confonderlo con boleti a pori rossi."
+ },
+ {
+  "id": "boletodalpiederossocarminio",
+  "nome": "Boleto dal piede rosso carminio",
+  "sci": "Rubroboletus rhodoxanthus",
+  "stato": "tossico",
+  "periodo": "Giugno-settembre",
+  "habitat": "Querceti, faggete su calcare",
+  "riconoscimento": "Cappello rosato, gambo giallo con rosso e reticolo rosso, pori rossi, vira al blu.",
+  "attenzione": "Come i boleti rossi: pori rossi, tossico da crudo e mal tollerato. Non raccogliere."
+ },
+ {
+  "id": "boletodalpiederuvidocalopo",
+  "nome": "Boleto dal piede ruvido (calopo)",
+  "sci": "Caloboletus calopus",
+  "stato": "non commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Conifere, boschi acidi",
+  "riconoscimento": "Cappello grigiastro, gambo giallo con reticolo rosso, carne amara, vira al blu.",
+  "attenzione": "Amarissimo, non commestibile. Evita ogni boleto amaro."
+ },
+ {
+  "id": "pinarologiallobrisa",
+  "nome": "Pinarolo giallo (brisa)",
+  "sci": "Suillus luteus",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete",
+  "riconoscimento": "Cappello bruno viscido, anello biancastro-violaceo, pori gialli.",
+  "attenzione": "Togliere la cuticola viscida prima di cuocere. Può dare disturbi digestivi."
+ },
+ {
+  "id": "boletodeilarici",
+  "nome": "Boleto dei larici",
+  "sci": "Suillus grevillei",
+  "stato": "commestibile con cautela",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Sotto larici",
+  "riconoscimento": "Cappello giallo-arancio viscido, anello membranoso, solo sotto larice.",
+  "attenzione": "Pulire la cuticola. Commestibile discreto."
+ },
+ {
+  "id": "boletocastano",
+  "nome": "Boleto castano",
+  "sci": "Gyroporus castaneus",
+  "stato": "commestibile con cautela",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Querceti e castagneti",
+  "riconoscimento": "Cappello castano-aranciato, gambo cavo a maturità, pori bianchi poi crema.",
+  "attenzione": "Commestibile ma con riserve in alcune fonti: consumare in piccole quantità."
+ },
+ {
+  "id": "boletodeisentierisubtomentoso",
+  "nome": "Boleto dei sentieri (subtomentoso)",
+  "sci": "Xerocomus subtomentosus",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi misti, sentieri",
+  "riconoscimento": "Cappello olivastro vellutato, pori giallo largo, gambo giallo senza reticolo.",
+  "attenzione": "Carne spesso molle; da consumare giovane e ben cotto."
+ },
+ {
+  "id": "boletopepato",
+  "nome": "Boleto pepato",
+  "sci": "Chalciporus piperatus",
+  "stato": "commestibile con cautela",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Conifere, betulle",
+  "riconoscimento": "Piccolo, cappello rosso-bruno, pori ruggine, carne giallo-rossastra molto piccante.",
+  "attenzione": "Usato in piccole quantità come spezia. Non per pasto."
+ },
+ {
+  "id": "boletorubino",
+  "nome": "Boleto rubino",
+  "sci": "Hortiboletus rubellus",
+  "stato": "commestibile con cautela",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Latifoglie, prati alberati",
+  "riconoscimento": "Cappello rosso-lampone vellutato, pori gialli, gambo con puntini rossi.",
+  "attenzione": "Piccolo, scarso. Controlla che non sia confuso con boleti a pori rossi."
+ },
+ {
+  "id": "tricolomasolforoso",
+  "nome": "Tricoloma solforoso",
+  "sci": "Tricholoma sulphureum",
+  "stato": "tossico",
+  "periodo": "Agosto-novembre",
+  "habitat": "Latifoglie e conifere",
+  "riconoscimento": "Tutto giallo-zolfo, odore di gas illuminante, lamelle spaziate.",
+  "attenzione": "Odore forte di gas: è un indizio sicuro. Tossico."
+ },
+ {
+  "id": "agaricoviolascuro",
+  "nome": "Agarico viola scuro",
+  "sci": "Lepista sordida",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Prati, orti, margini",
+  "riconoscimento": "Cappello violaceo-bruno che sbiadisce, lamelle lilla, gambo fibroso.",
+  "attenzione": "Attenzione a confonderlo con cortinari violetti. Cuocere sempre."
+ },
+ {
+  "id": "clitocibeodoroso",
+  "nome": "Clitocibe odoroso",
+  "sci": "Clitocybe odora",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-novembre",
+  "habitat": "Latifoglie",
+  "riconoscimento": "Cappello verde-azzurrognolo, forte odore di anice, lamelle chiare.",
+  "attenzione": "Usato come aromatico. Non raccogliere se hai dubbi con clitocibi bianchi tossici."
+ },
+ {
+  "id": "falsaspugnoladellaboemia",
+  "nome": "Falsa spugnola della Boemia",
+  "sci": "Verpa bohemica",
+  "stato": "tossico",
+  "periodo": "Marzo-maggio",
+  "habitat": "Pioppeti, golene",
+  "riconoscimento": "Cappello campanulato quasi libero dal gambo, ruga longitudinale, gambo cavo.",
+  "attenzione": "Non è una spugnola commestibile. Sospetta tossicità."
+ },
+ {
+  "id": "spugnolavenosa",
+  "nome": "Spugnola venosa",
+  "sci": "Disciotis venosa",
+  "stato": "commestibile con cautela",
+  "periodo": "Aprile-maggio",
+  "habitat": "Terreni umidi, giardini",
+  "riconoscimento": "A coppa con venature, odore di candeggina.",
+  "attenzione": "Cuocere accuratamente, mai da crudo."
+ },
+ {
+  "id": "fungodellombrellopoliporiombrellato",
+  "nome": "Fungo dell'ombrello (polipori ombrellato)",
+  "sci": "Polyporus umbellatus",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Latifoglie, alla base dei ceppi",
+  "riconoscimento": "Grande massa di cappelli minuti a ombrello su gambo ramificato.",
+  "attenzione": "Raccogliere solo giovane. Raro."
+ },
+ {
+  "id": "poliporogigante",
+  "nome": "Poliporo gigante",
+  "sci": "Meripilus giganteus",
+  "stato": "non commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Faggi e latifoglie, ceppi",
+  "riconoscimento": "Grandi mensole sovrapposte brune che anneriscono al tatto.",
+  "attenzione": "Non commestibile, legnoso."
+ },
+ {
+  "id": "clavariapistillo",
+  "nome": "Clavaria pistillo",
+  "sci": "Clavariadelphus pistillaris",
+  "stato": "commestibile con cautela",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Faggete",
+  "riconoscimento": "Corpo a clava giallo-ocra, fino a 20 cm, carne spugnosa.",
+  "attenzione": "Amarognolo: non pregiato."
+ },
+ {
+  "id": "clavulinacrestadigallo",
+  "nome": "Clavulina cresta di gallo",
+  "sci": "Clavulina cristata",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Corallo bianco piccolo con apici a cresta.",
+  "attenzione": "Poco carnoso, valore scarso."
+ },
+ {
+  "id": "vesciaapera",
+  "nome": "Vescia a pera",
+  "sci": "Lycoperdon pyriforme",
+  "stato": "commestibile",
+  "periodo": "Luglio-novembre",
+  "habitat": "Su legno marcescente",
+  "riconoscimento": "Piccola a pera, in gruppi su legno, bianca poi bruna, carne bianca.",
+  "attenzione": "Consuma solo se interna bianca e soda."
+ },
+ {
+  "id": "pezizaarancione",
+  "nome": "Peziza arancione",
+  "sci": "Aleuria aurantia",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-novembre",
+  "habitat": "Terreni nudi, margini di strade",
+  "riconoscimento": "Coppe arancio vivo, fragili, nessun gambo.",
+  "attenzione": "Cuocere, non usare crudo."
+ },
+ {
+  "id": "tremellagialla",
+  "nome": "Tremella gialla",
+  "sci": "Tremella mesenterica",
+  "stato": "non commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Su rami caduti",
+  "riconoscimento": "Massa gelatinosa giallo-vivo che si secca e si reidrata.",
+  "attenzione": "Senza interesse culinario."
+ },
+ {
+  "id": "coprinomicaceo",
+  "nome": "Coprino micaceo",
+  "sci": "Coprinellus micaceus",
+  "stato": "commestibile con cautela",
+  "periodo": "Aprile-novembre",
+  "habitat": "Ceppi, radici",
+  "riconoscimento": "Cappello bruno-ocraceo con granuli micacei, in gruppi, lamelle diventano nere.",
+  "attenzione": "Non consumare con alcol, come altri coprini. Meglio evitare."
+ },
+ {
+  "id": "amanitagemmata",
+  "nome": "Amanita gemmata",
+  "sci": "Amanita gemmata",
+  "stato": "tossico",
+  "periodo": "Maggio-ottobre",
+  "habitat": "Pinete, boschi misti",
+  "riconoscimento": "Cappello giallo-ocra con verruche bianche, anello fragile, volva a cercine.",
+  "attenzione": "Contiene muscimolo. Non raccogliere."
+ },
+ {
+  "id": "cortinarioviolaceo",
+  "nome": "Cortinario violaceo",
+  "sci": "Cortinarius violaceus",
+  "stato": "non commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Conifere",
+  "riconoscimento": "Tutto viola-scuro, vellutato, gambo bulboso, lamelle violette.",
+  "attenzione": "Non commestibile. Molti cortinari sono tossici o mortali."
+ },
+ {
+  "id": "cortinariosplendido",
+  "nome": "Cortinario splendido",
+  "sci": "Cortinarius splendens",
+  "stato": "tossico",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Faggete",
+  "riconoscimento": "Cappello giallo-limone viscido, lamelle gialle poi ruggine.",
+  "attenzione": "Gruppo che comprende specie tossiche. Evitare."
+ },
+ {
+  "id": "strophariaaeruginosa",
+  "nome": "Stropharia aeruginosa",
+  "sci": "Stropharia aeruginosa",
+  "stato": "non commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Boschi, prati",
+  "riconoscimento": "Cappello viscido verde-azzurro con squame bianche, anello bianco.",
+  "attenzione": "Sospetta tossicità lieve. Non raccogliere."
+ },
+ {
+  "id": "inocibegeophylla",
+  "nome": "Inocibe geophylla",
+  "sci": "Inocybe geophylla",
+  "stato": "tossico",
+  "periodo": "Agosto-novembre",
+  "habitat": "Boschi vari",
+  "riconoscimento": "Piccolo bianco sericeo, cappello conico-umbonato, odore spermatico.",
+  "attenzione": "Contiene muscarina. Attenzione a non confondere con piccole specie commestibili."
+ },
+ {
+  "id": "volvopluteusgloiocephalus",
+  "nome": "Volvopluteus gloiocephalus",
+  "sci": "Volvopluteus gloiocephalus",
+  "stato": "commestibile con cautela",
+  "periodo": "Maggio-novembre",
+  "habitat": "Prati, orti, cumuli di compost",
+  "riconoscimento": "Cappello grigio-bruno viscido, grande volva, lamelle rosate.",
+  "attenzione": "Facile confondere con Amanita: sempre controllare volva e lamelle rosate."
+ },
+ {
+  "id": "mazzaditamburodeipratimastoidea",
+  "nome": "Mazza di tamburo dei prati (mastoidea)",
+  "sci": "Macrolepiota mastoidea",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Prati, radure",
+  "riconoscimento": "Come la mazza ma più piccola, cappello con umbone marcato.",
+  "attenzione": "Anello semplice e non mobile; controlla sempre il gambo senza zigzag."
+ },
+ {
+  "id": "pholiotadeiceppimattonella",
+  "nome": "Pholiota dei ceppi (mattonella)",
+  "sci": "Hypholoma sublateritium",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-novembre",
+  "habitat": "Ceppi di latifoglie",
+  "riconoscimento": "Cappello rosso-mattone con margine giallastro, gambo fibroso, in ciuffi.",
+  "attenzione": "Amaro, spesso non apprezzato. Attenzione al falso chiodino zolfino (Hypholoma fasciculare, tossico)."
+ },
+ {
+  "id": "pleurotodelnocedryinus",
+  "nome": "Pleuroto del noce (dryinus)",
+  "sci": "Pleurotus dryinus",
+  "stato": "commestibile con cautela",
+  "periodo": "Aprile-ottobre",
+  "habitat": "Noci, frassini, latifoglie vive",
+  "riconoscimento": "Cappello bianco-crema con squame, velo anello cotonoso, gambo eccentrico.",
+  "attenzione": "Commestibile da giovane. Alcuni lo giudicano coriaceo."
+ },
+ {
+  "id": "prataiolocoltivatochampignon",
+  "nome": "Prataiolo coltivato (champignon)",
+  "sci": "Agaricus bisporus",
+  "stato": "commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Compost, orti",
+  "riconoscimento": "Cappello bianco o bruno, lamelle rosa poi bruno-nerastre, anello semplice.",
+  "attenzione": "Attenzione ad A. xanthodermus (giallo al piede): odore di inchiostro."
+ },
+ {
+  "id": "collibiaagambofusiforme",
+  "nome": "Collibia a gambo fusiforme",
+  "sci": "Gymnopus fusipes",
+  "stato": "non commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Ceppi di quercia",
+  "riconoscimento": "Gambo radicante a fuso, cappello rosso-bruno, in ciuffi.",
+  "attenzione": "Coriaceo, non commestibile."
+ },
+ {
+  "id": "igroforodeiprati",
+  "nome": "Igroforo dei prati",
+  "sci": "Cuphophyllus pratensis",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Prati, pascoli",
+  "riconoscimento": "Cappello arancio-camoscio, lamelle spaziate e decorrenti, carne soda.",
+  "attenzione": "Ottimo ma in forte declino. Non confonderlo con piccoli Hygrocybe non commestibili."
+ },
+ {
+  "id": "albatrellodellepecore",
+  "nome": "Albatrello delle pecore",
+  "sci": "Albatrellus ovinus",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Abetaie, peccete",
+  "riconoscimento": "Cappello bianco-crema con crepe, pori fini decorrenti.",
+  "attenzione": "Specie rara e protetta in alcune zone. Mangiare solo giovane."
+ },
+ {
+  "id": "sparassiscrespacavolodelbosco",
+  "nome": "Sparassis crespa (cavolo del bosco)",
+  "sci": "Sparassis crispa",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Pinete, ceppi di conifere",
+  "riconoscimento": "Grande massa crespa giallo-crema simile a un cavolfiore.",
+  "attenzione": "Lavare bene. Mangiare da giovane."
+ },
+ {
+  "id": "amanitavaginatafulva",
+  "nome": "Amanita fulva",
+  "sci": "Amanita fulva",
+  "stato": "commestibile con cautela",
+  "periodo": "Luglio-novembre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello fulvo con striature, senza anello, volva a sacco.",
+  "attenzione": "Amanita senza anello ma con volva a sacco: confondibile con Amanita mortali. Solo per esperti."
+ },
+ {
+  "id": "boletodifechtner",
+  "nome": "Boleto di Fechtner",
+  "sci": "Boletus fechtneri",
+  "stato": "commestibile",
+  "periodo": "Giugno-settembre",
+  "habitat": "Latifoglie calde, calcare",
+  "riconoscimento": "Cappello argenteo-bianco, gambo giallo-rosato, pori gialli.",
+  "attenzione": "Ottimo, simile ai porcini."
  }
 ]

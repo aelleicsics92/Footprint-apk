@@ -168,7 +168,7 @@ function renderCard() {
   const out = outlook(series, prof, elev);
   const day = clamp(state.day, 0, out.length - 1);
   const o = out[day];
-  const lv = o.closed ? { color: '#8c9690', label: 'Chiusa' } : levelOf(o.score);
+  const lv = levelOf(o.score);
   const best = out.reduce((a, b, i) => (b.score > a.score ? { score: b.score, i } : a), { score: -1, i: 0 });
   const dayName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
   let advice = '';
@@ -176,11 +176,11 @@ function renderCard() {
   else if (o.score >= 70) advice = 'Condizioni ottime: è il momento giusto per uscire.';
   else if (o.score >= 45) advice = 'Buone possibilità nelle zone adatte (esposizione e quota giuste).';
   else if (o.score < 22) advice = 'Poco probabile: manca pioggia utile o la temperatura è fuori range.';
-  if (o.closed) advice = `Raccolta chiusa per legge fino al ${o.opens} (calendario nazionale e Lazio, le regioni possono variare con ordinanza). Indice biologico del giorno: ${o.score}/100.`;
+  if (o.closed) advice += ` Attenzione: fuori dal periodo tipico di raccolta (da ${o.opens}). Verifica il regolamento della tua regione prima di cercare.`;
   const place = state.point && state.point.gps ? 'Sei qui' : 'Zona';
   card.innerHTML = `<div class="gauge-card">
     <div class="place">${ico('locate', 16)} ${place}: <b style="color:#fff">${esc(title)}</b> · ${Math.round(elev)} m</div>
-    <div class="gauge">${gaugeSVG(o.score, lv.color)}<div class="val"><b>${o.closed ? '–' : o.score}</b><span style="color:${lv.color === '#b9553a' ? '#ffb199' : '#fff'}">${lv.label}</span></div></div>
+    <div class="gauge">${gaugeSVG(o.score, lv.color)}<div class="val"><b>${o.score}</b><span style="color:${lv.color === '#b9553a' ? '#ffb199' : '#fff'}">${lv.label}</span></div></div>
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     <div class="stats">
@@ -271,7 +271,7 @@ const HeatLayer = L.Layer.extend({
           const wi = 1 / ((q.p.x - gx) ** 2 + (q.p.y - gy) ** 2 + 400);
           w += wi; v += wi * q.score;
         }
-        const [r, g, b] = P[0].closed ? [150, 158, 153] : colorAt(v / w);
+        const [r, g, b] = colorAt(v / w);
         o.fillStyle = `rgb(${r},${g},${b})`;
         o.fillRect(gx, gy, CELL + 1, CELL + 1);
       }

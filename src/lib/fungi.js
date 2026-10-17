@@ -9,7 +9,7 @@ export const ZONES = zonesRaw.map(([name, lat, lon]) => ({ name, lat, lon }));
 export const PROFILES = {
   autunnali: { label: 'Porcini e autunnali', short: 'Porcini', peaks: [{ doy: 275, w: 38, a: 1, alt: true }, { doy: 178, w: 22, a: 0.5 }], tOpt: [9, 19], tZero: [2, 28], lagOpt: 9, lagSig: 4.5, frost: 1, hot: 27, rain: [15, 60] },
   estivi: { label: 'Estivi (galletti, ovuli)', short: 'Estivi', peaks: [{ doy: 200, w: 34, a: 1 }, { doy: 268, w: 26, a: 0.65, alt: true }], tOpt: [14, 24], tZero: [6, 32], lagOpt: 7, lagSig: 4, frost: 1, hot: 32, rain: [12, 50] },
-  // Tartufi: un profilo per specie. "window" = periodo di raccolta consentito (L. 752/1985 e L.R. Lazio 82/1988; le regioni possono variare con ordinanza)
+  // Tartufi: un profilo per specie. "window" = periodo tipico di raccolta (L. 752/1985, indicativo: le regioni variano)
   scorzone: { label: 'Scorzone', short: 'Scorzone (T. aestivum)', truffle: true, window: [[5, 1], [11, 30]], peaks: [{ doy: 215, w: 38, a: 1 }], tOpt: [14, 24], tZero: [6, 31], lagOpt: 12, lagSig: 6, frost: 0.5, hot: 32, rain: [15, 60] },
   uncinato: { label: 'Uncinato', short: 'Uncinato (T. uncinatum)', truffle: true, window: [[10, 1], [12, 31]], peaks: [{ doy: 300, w: 28, a: 1, alt: true }], tOpt: [7, 17], tZero: [0, 25], lagOpt: 12, lagSig: 6, frost: 0.8, hot: 26, rain: [20, 70] },
   bianco: { label: 'Tartufo bianco', short: 'Bianco pregiato', truffle: true, window: [[10, 1], [12, 31]], peaks: [{ doy: 312, w: 24, a: 1, alt: true }], tOpt: [6, 15], tZero: [-1, 22], lagOpt: 12, lagSig: 6, frost: 1, hot: 24, rain: [25, 80] },
@@ -170,7 +170,7 @@ export async function fungiContext(profKey = 'autunnali') {
   const rows = ZONES.map((z, i) => {
     const s = data.series[i];
     const o = outlook(s, prof, s.elev);
-    return `${z.name} (${Math.round(s.elev)} m): ${o[0].closed ? 'raccolta chiusa fino al ' + o[0].opens + ', ' : ''}oggi ${o[0].score} (${levelOf(o[0].score).label}), +3gg ${o[3].score}, +7gg ${o[7].score}, pioggia 14gg ${Math.round(o[0].R14)} mm, T media 7gg ${o[0].tmean.toFixed(0)}°C`;
+    return `${z.name} (${Math.round(s.elev)} m): ${o[0].closed ? 'fuori periodo tipico di raccolta (verificare regolamento regionale), ' : ''}oggi ${o[0].score} (${levelOf(o[0].score).label}), +3gg ${o[3].score}, +7gg ${o[7].score}, pioggia 14gg ${Math.round(o[0].R14)} mm, T media 7gg ${o[0].tmean.toFixed(0)}°C`;
   });
   return `Indice crescita (${prof.label}), scala 0-100 (Scarsa<22, Moderata<45, Buona<70, Eccellente>=70):\n${rows.join('\n')}`;
 }

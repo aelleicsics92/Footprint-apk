@@ -31,7 +31,7 @@ export async function scheduleFungiAlerts(lat, lon) {
     const zone = nearestZone(lat, lon).zone.name;
     const notes = [];
     outlook(series, prof, series.elev).forEach((o, i) => {
-      if (o.closed || o.score < 45) return;
+      if (o.score < 45) return;
       const at = new Date(o.date + 'T07:30:00');
       if (at.getTime() < Date.now() + 60000) return;
       const lvl = levelOf(o.score);

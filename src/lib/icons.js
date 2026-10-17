@@ -39,7 +39,7 @@ const P = {
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
   trail: '<path d="M4 20c4-2 2-6 6-8s6-1 6-5M16 7l3-3 1 4"/>',
   rec: '<circle cx="12" cy="12" r="5" fill="currentColor"/>',
-  car: '<path d="M3 16l1.8-6.2A2 2 0 016.7 8h10.6a2 2 0 011.9 1.8L21 16v3h-3v-2H6v2H3z"/><circle cx="7.5" cy="13" r="1"/><circle cx="16.5" cy="13" r="1"/>',
+  car: '<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11h.5A1.5 1.5 0 0121 12.5V17a1 1 0 01-1 1h-1a2 2 0 01-4 0H9a2 2 0 01-4 0H4a1 1 0 01-1-1v-4.5A1.5 1.5 0 014.5 11zM8.1 7.4L7.2 10h9.6l-.9-2.6a.5.5 0 00-.5-.4H8.6a.5.5 0 00-.5.4z" fill-rule="evenodd"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
   target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -84,8 +84,22 @@ const WP_IMG = import.meta.glob('../assets/wp/*.png', { eager: true, query: '?ur
 const wpImg = (id) => `<img class="wpimg" src="${WP_IMG['../assets/wp/' + id + '.png']}" alt="" draggable="false">`;
 const WP_DEF = [
   ['porcino', 'Porcino', '#8a4b21'],
-  ['galletto', 'Galletto', '#e2a017'],
+  ['galletto', 'Gallinaccio', '#e2a017'],
   ['ovulo', 'Ovulo buono', '#e2531f'],
+  ['prugnolo', 'Prugnolo', '#d9cfae'],
+  ['gambesecche', 'Gambesecche', '#c9a26a'],
+  ['chiodini', 'Chiodini', '#c9a26a'],
+  ['prataiolo', 'Prataiolo', '#d8b9b0'],
+  ['morchella', 'Spugnola', '#7a5b2c'],
+  ['steccherino', 'Steccherino', '#d9a64b'],
+  ['trombetta', 'Trombetta dei morti', '#3b3b3b'],
+  ['pinarolo', 'Pinarolo', '#c99a2a'],
+  ['pinaiolo', 'Pinaiolo', '#7a2f1a'],
+  ['leccino', 'Leccino (boleto)', '#6b5236'],
+  ['cardoncello', 'Cardoncello', '#8a7a62'],
+  ['tignosa', 'Tignosa vinata', '#a45a5a'],
+  ['lactarius', 'Sanguinello', '#d9722a'],
+  ['vescia', 'Vescia gigante', '#e8e4da'],
   ['russola', 'Russola', '#a23a78'],
   ['mazza', 'Mazza di tamburo', '#9a8466'],
   ['pleurotus', 'Orecchione', '#6e7f93'],
@@ -101,6 +115,11 @@ const WP_DEF = [
   ['orma', 'Orma / tracce', '#8a5a3a'],
 ];
 export const WP_ICONS = WP_DEF.map(([id, label, color]) => ({ id, label, color, svg: wpImg(id) }));
+export const orderedIcons = (order) => {
+  const o = Array.isArray(order) ? order : [];
+  const rank = (id) => (o.indexOf(id) < 0 ? 999 : o.indexOf(id));
+  return [...WP_ICONS].sort((a, b) => rank(a.id) - rank(b.id));
+};
 export const WP_BY_ID = Object.fromEntries(WP_ICONS.map((i) => [i.id, i]));
 export const wpIcon = (id) => WP_BY_ID[id] || WP_BY_ID.fungo;
 export const GARMIN_SYM = {
@@ -116,6 +135,20 @@ export const GARMIN_SYM = {
   mazza: 'Forest',
   pleurotus: 'Forest',
   fungo: 'Forest',
+  prugnolo: 'Forest',
+  gambesecche: 'Forest',
+  chiodini: 'Forest',
+  prataiolo: 'Forest',
+  morchella: 'Forest',
+  steccherino: 'Forest',
+  trombetta: 'Forest',
+  pinarolo: 'Forest',
+  pinaiolo: 'Forest',
+  leccino: 'Forest',
+  cardoncello: 'Forest',
+  tignosa: 'Forest',
+  lactarius: 'Forest',
+  vescia: 'Forest',
   scorzone: 'Forest',
   bianco: 'Forest',
   bianchetto: 'Forest',

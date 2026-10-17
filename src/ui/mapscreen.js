@@ -42,6 +42,7 @@ export function mountMap(el) {
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}</button>
+      <button class="round" id="btn-3d" aria-label="Mappa 3D" style="font-weight:800;font-size:.8rem">3D</button>
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
     <div class="rec-chip hidden" id="rec-chip"></div>
@@ -80,6 +81,7 @@ export function mountMap(el) {
   root.querySelector('#btn-dl').onclick = openDownload;
   setupSosHold(root.querySelector('#btn-sos'));
   setupCar(root.querySelector('#btn-car'));
+  root.querySelector('#btn-3d').onclick = () => { const c = map.getCenter(); import('./map3d.js').then((m) => m.openMap3D([c.lng, c.lat])); };
   setupWeatherChip(root.querySelector('#wx-chip'));
   root.querySelector('#btn-locate').onclick = () => {
     const p = lastPos();

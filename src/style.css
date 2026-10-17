@@ -324,3 +324,12 @@ html.night img{filter:brightness(.75) sepia(.6) hue-rotate(-20deg)}
 .cty i.r1{width:8px;height:8px;left:-4px;top:-4px;background:#26342c;border-color:#fff}
 .cty span.r3{font-size:10px;font-style:italic;color:#5d6a62}
 .cty i.r3{width:4px;height:4px;left:-2px;top:-2px;border-width:1px}
+
+.sc-photo.gal{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;justify-content:flex-start;-webkit-overflow-scrolling:touch}
+.sc-photo.gal img{width:82%;flex:none;scroll-snap-align:center;border-radius:12px}
+.sc-photo.gal img:only-child{width:100%}
+
+.m3d-bar{position:absolute;left:8px;right:8px;top:8px;display:flex;gap:6px;flex-wrap:wrap;z-index:3}
+.m3d-leg{position:absolute;left:8px;bottom:44px;background:#fffd;border-radius:10px;padding:4px 8px;font-size:.72rem;display:flex;align-items:center;gap:3px;z-index:3}
+.m3d-leg i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-left:5px}
+.m3d-info{position:absolute;left:8px;right:8px;bottom:8px;background:#12372ae6;color:#fff;border-radius:10px;padding:7px 10px;font-size:.82rem;z-index:3}

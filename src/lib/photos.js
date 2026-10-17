@@ -79,6 +79,19 @@ export function hydratePhotos(root, resolver) {
     el.dataset.done = '1';
     const x = resolver(el.dataset.ph);
     if (!x) return;
+    if (el.classList.contains('sc-photo')) {
+      getGallery(x, x._k === 'tartufi' ? 4 : 3).then((urls) => {
+        if (!el.isConnected) return;
+        if (urls && urls.length > 1) {
+          el.classList.add('gal');
+          el.innerHTML = urls.map((u) => `<img src="${u}" alt="" draggable="false" loading="lazy" onerror="this.remove()">`).join('');
+        } else getPhoto(x).then((u) => {
+          if (!el.isConnected) return;
+          el.innerHTML = u ? `<img src="${u}" alt="" draggable="false">` : '<span class="muted">Foto non disponibile</span>';
+        });
+      });
+      return;
+    }
     getPhoto(x).then((u) => {
       if (u && el.isConnected) el.innerHTML = `<img src="${u}" alt="" draggable="false">`;
       else if (el.isConnected && el.classList.contains('sc-photo')) el.innerHTML = '<span class="muted">Foto non disponibile</span>';
@@ -97,4 +110,38 @@ export function hydratePhotos(root, resolver) {
     );
     els.forEach((e) => io.observe(e));
   } else els.forEach(load);
+}
+
+// Galleria: più foto dalla pagina Wikipedia (es. tartufo fuori e dentro, pianta con foglia e fiore)
+const BAD = /(map|mappa|range|distrib|icon|logo|symbol|diagram|schema|\.svg|\.png|\.gif|\.webp|commons|wiki|question|edible|toxic|poison|flag|sign|stub|silhouette|portrait|spore|microscop|illustration|drawing|plate|\bpl\b)/i;
+const GOOD = /(section|cross|interior|inside|sliced|cut|gleba|sezione|tagliat|flower|fiore|bloom|fruit|frutto|leaf|foglia|habitat|young|adult|track|print|scat)/i;
+async function mediaList(lang, title) {
+  const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent(title.replace(/ /g, '_'))}?redirect=true`);
+  if (!r.ok) return [];
+  const j = await r.json();
+  return (j.items || [])
+    .filter((i) => i.type === 'image' && i.srcset && i.srcset.length && /\.jpe?g/i.test(i.title || '') && !BAD.test(i.title || ''))
+    .map((i) => ({ t: i.title, src: 'https:' + i.srcset[0].src.replace(/\/(\d+)px-/, '/640px-') }));
+}
+export function getGallery(x, n = 4) {
+  const title = wikiTitle(x);
+  return run(async () => {
+    const key = 'gal:' + title;
+    try {
+      const c = await kvGet(key);
+      if (c && c.urls && c.urls.length) return c.urls.slice(0, n);
+    } catch {}
+    if (!navigator.onLine) return [];
+    let list = [];
+    try {
+      list = await mediaList('it', title);
+      if (list.length < 2) list = list.concat(await mediaList('en', title));
+    } catch {}
+    const seen = new Set();
+    list = list.filter((i) => (seen.has(i.src) ? false : seen.add(i.src)));
+    list.sort((a, b) => Number(GOOD.test(b.t)) - Number(GOOD.test(a.t)));
+    const urls = list.slice(0, n).map((i) => i.src);
+    if (urls.length) try { await kvSet(key, { urls }); } catch {}
+    return urls;
+  });
 }
