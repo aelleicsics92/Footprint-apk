@@ -86,7 +86,8 @@ export async function saveParking() {
 const dogs = () => [...new Set([...(getSettings().dogName || '').split(',').map((x) => x.trim()), ...list.map((w) => w.dog)].filter(Boolean))];
 
 function formHTML({ wp, pos, title, icon }) {
-  const grid = orderedIcons(getSettings().wpOrder).map(
+  const hid = getSettings().wpHidden || [];
+  const grid = orderedIcons(getSettings().wpOrder).filter((i) => !hid.includes(i.id) || i.id === icon).map(
     (i) => `<button type="button" class="icon-opt ${i.id === icon ? 'sel' : ''}" data-icon="${i.id}" title="${esc(i.label)}"><span class="ic">${i.svg}</span><small>${esc(i.label)}</small></button>`
   ).join('');
   const alt = pos && pos.alt != null ? `quota ${Math.round(pos.alt)} m` : '';

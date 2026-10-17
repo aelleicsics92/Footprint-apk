@@ -285,11 +285,11 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Sfondo nero e rosso, per alba e buio (anche meno batteria su OLED)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
-      <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Ordine icone waypoint</b><small>Scegli quali icone vedi per prime</small></div></button></div>
+      <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Icone waypoint</b><small>Ordine (trascina) e icone da nascondere</small></div></button></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
       <div class="set-row"><div class="ti"><b>Allergie</b></div><input type="text" data-k="iceAllergies" value="${esc(s.iceAllergies)}" maxlength="80" onfocus="this.select()"></div>
@@ -373,7 +373,7 @@ function openWpOrder() {
   const sh = openSheet({ title: 'Ordine icone waypoint', body: '<div id="wo" class="list"></div><button class="btn ghost" id="wo-reset" style="margin-top:10px">Ripristina ordine</button>', full: true });
   const draw = () => {
     const l = orderedIcons(getSettings().wpOrder);
-    sh.body.querySelector('#wo').innerHTML = l.map((i, n) => `<div class="set-row wo-row" data-n="${n}"><span class="wo-grip" data-grip>☰</span><span class="ic" style="width:34px;height:34px;display:inline-block">${i.svg}</span><div class="ti"><b>${esc(i.label)}</b></div><button class="btn ghost" data-u="${n}" ${n ? '' : 'disabled'}>▲</button><button class="btn ghost" data-d="${n}" ${n < l.length - 1 ? '' : 'disabled'}>▼</button></div>`).join('');
+    sh.body.querySelector('#wo').innerHTML = l.map((i, n) => `<div class="set-row wo-row ${(getSettings().wpHidden || []).includes(i.id) ? 'off' : ''}" data-n="${n}"><span class="wo-grip" data-grip>☰</span><span class="ic" style="width:34px;height:34px;display:inline-block">${i.svg}</span><div class="ti"><b>${esc(i.label)}</b></div><button class="btn ghost" data-h="${i.id}" aria-label="Mostra o nascondi">${(getSettings().wpHidden || []).includes(i.id) ? '🚫' : '👁'}</button><button class="btn ghost" data-u="${n}" ${n ? '' : 'disabled'}>▲</button><button class="btn ghost" data-d="${n}" ${n < l.length - 1 ? '' : 'disabled'}>▼</button></div>`).join('');
   };
   const move = (n, dlt) => {
     const ids = orderedIcons(getSettings().wpOrder).map((i) => i.id);
@@ -383,10 +383,14 @@ function openWpOrder() {
     draw();
   };
   sh.body.addEventListener('click', (e) => {
-    const u = e.target.closest('[data-u]'), d = e.target.closest('[data-d]');
-    if (u) move(Number(u.dataset.u), -1);
+    const u = e.target.closest('[data-u]'), d = e.target.closest('[data-d]'), h = e.target.closest('[data-h]');
+    if (h) {
+      const cur = getSettings().wpHidden || [];
+      setSetting('wpHidden', cur.includes(h.dataset.h) ? cur.filter((x) => x !== h.dataset.h) : [...cur, h.dataset.h]);
+      draw();
+    } else if (u) move(Number(u.dataset.u), -1);
     else if (d) move(Number(d.dataset.d), 1);
-    else if (e.target.closest('#wo-reset')) (setSetting('wpOrder', []), draw());
+    else if (e.target.closest('#wo-reset')) (setSetting('wpOrder', []), setSetting('wpHidden', []), draw());
   });
   let drag = null;
   sh.body.addEventListener('pointerdown', (e) => {

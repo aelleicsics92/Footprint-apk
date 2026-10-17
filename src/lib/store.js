@@ -37,6 +37,7 @@ const DEFAULTS = {
   statusNotif: false,
   dogName: '',
   wpOrder: [],
+  wpHidden: [],
   iceBlood: '',
   iceAllergies: '',
   icePhone: '',
