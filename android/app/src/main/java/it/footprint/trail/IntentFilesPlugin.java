@@ -80,7 +80,8 @@ public class IntentFilesPlugin extends Plugin {
 
     public void deliver() {
         JSObject r = takeAll();
-        if (r.getJSONArray("files").length() > 0) notifyListeners("files", r, true);
+        Object arr = r.opt("files");
+        if (arr instanceof JSArray && ((JSArray) arr).length() > 0) notifyListeners("files", r, true);
     }
 
     private static synchronized JSObject takeAll() {
