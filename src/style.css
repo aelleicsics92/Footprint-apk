@@ -340,3 +340,15 @@ html.night{--forest:#0f1a15;--forest2:#16251d;--moss:#4f8f5c;--leaf:#86b04f;--pa
 
 .sheet-grip,.sheet-head{touch-action:none}
 .wo-row.off{opacity:.45}
+html.night .btn.ghost,html.night .sec-title,html.night .item .lead,html.night .chip,html.night .seg button.sel,html.night .round,html.night .cat{color:var(--ink)}
+html.night .chip.sel,html.night .round.on{color:#fff}
+html.night .cat.sel{background:#243a2b}
+html.night .infobox,html.night .warnbox{color:var(--ink)}
+/* riga ordine icone compatta */
+.wo-row{gap:6px;padding:8px 10px}
+.wo-row .ic{width:38px;height:38px;flex:none;display:inline-flex}
+.wo-row .ic img,.wo-row .ic svg{width:100%;height:100%}
+.wo-row .ti{flex:1;min-width:0}
+.wo-row .ti b{font-size:.88rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-row .btn{flex:none;width:32px;height:32px;min-width:0;padding:0;font-size:.8rem;border-radius:9px}
+.wo-grip{padding:0 4px;font-size:1.15rem}

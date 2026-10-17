@@ -373,7 +373,7 @@ function openWpOrder() {
   const sh = openSheet({ title: 'Ordine icone waypoint', body: '<div id="wo" class="list"></div><button class="btn ghost" id="wo-reset" style="margin-top:10px">Ripristina ordine</button>', full: true });
   const draw = () => {
     const l = orderedIcons(getSettings().wpOrder);
-    sh.body.querySelector('#wo').innerHTML = l.map((i, n) => `<div class="set-row wo-row ${(getSettings().wpHidden || []).includes(i.id) ? 'off' : ''}" data-n="${n}"><span class="wo-grip" data-grip>☰</span><span class="ic" style="width:34px;height:34px;display:inline-block">${i.svg}</span><div class="ti"><b>${esc(i.label)}</b></div><button class="btn ghost" data-h="${i.id}" aria-label="Mostra o nascondi">${(getSettings().wpHidden || []).includes(i.id) ? '🚫' : '👁'}</button><button class="btn ghost" data-u="${n}" ${n ? '' : 'disabled'}>▲</button><button class="btn ghost" data-d="${n}" ${n < l.length - 1 ? '' : 'disabled'}>▼</button></div>`).join('');
+    sh.body.querySelector('#wo').innerHTML = l.map((i, n) => `<div class="set-row wo-row ${(getSettings().wpHidden || []).includes(i.id) ? 'off' : ''}" data-n="${n}"><span class="wo-grip" data-grip>☰</span><span class="ic">${i.svg}</span><div class="ti"><b>${esc(i.label)}</b></div><button class="btn ghost" data-h="${i.id}" aria-label="Mostra o nascondi">${(getSettings().wpHidden || []).includes(i.id) ? '🚫' : '👁'}</button><button class="btn ghost" data-u="${n}" ${n ? '' : 'disabled'}>▲</button><button class="btn ghost" data-d="${n}" ${n < l.length - 1 ? '' : 'disabled'}>▼</button></div>`).join('');
   };
   const move = (n, dlt) => {
     const ids = orderedIcons(getSettings().wpOrder).map((i) => i.id);
