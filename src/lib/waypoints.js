@@ -1,7 +1,7 @@
 import { kvGet, kvSet, getSettings, setSetting } from './store.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
 import { openSheet, toast, confirmBox } from './ui.js';
-import { orderedIcons, wpIcon, ico } from './icons.js';
+import { orderedIcons, wpIcon, ico, TRUFFLE_ICONS } from './icons.js';
 import { lastPos, getOnce } from './geo.js';
 import { apiKey } from './store.js';
 import { toGPX, shareFile, shareText, safeName, mapsLink } from './gpsio.js';
@@ -43,7 +43,13 @@ export async function mergeWaypoints(arr) {
   return n;
 }
 
-const nextTitle = (iconId) => `${wpIcon(iconId).label} ${pad((getSettings().wpCounter || 0) + 1)}`;
+const nextTitle = (iconId) => {
+  const label = wpIcon(iconId).label;
+  const re = new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' (\\d+)$');
+  let max = 0;
+  for (const w of list) if (w.icon === iconId) { const m = re.exec(w.title || ''); if (m) max = Math.max(max, Number(m[1])); }
+  return `${label} ${pad(max + 1)}`;
+};
 
 async function currentFix() {
   let p = lastPos();
@@ -61,9 +67,8 @@ export async function quickWaypoint() {
   if (!p) return toast('GPS non ancora pronto');
   const icon = 'fungo';
   const title = nextTitle(icon);
-  const w = { id: uid(), title, desc: '', icon, dog: (getSettings().dogName || '').split(',')[0].trim(), lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
+  const w = { id: uid(), title, desc: '', icon, dog: '', lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
   await addWaypoint(w);
-  setSetting('wpCounter', (getSettings().wpCounter || 0) + 1);
   toast(`Salvato: ${title}`);
 }
 
@@ -91,10 +96,10 @@ function formHTML({ wp, pos, title, icon }) {
     <label class="field"><span>Titolo</span><input id="wp-title" type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
-    <label class="field"><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
+    <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
     <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
     <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small></div>
-    <button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button>
+    <div class="save-bar"><button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button></div>
   </div>`;
 }
 
@@ -109,6 +114,7 @@ function wireForm(s, { wp, pos, onSave }) {
     icon = b.dataset.icon;
     s.body.querySelectorAll('.icon-opt').forEach((x) => x.classList.toggle('sel', x === b));
     if (!titleEdited) titleEl.value = nextTitle(icon);
+    s.body.querySelector('#wp-dog-row').hidden = !TRUFFLE_ICONS.includes(icon);
   });
   let memo = null, rec = null;
   const vb = s.body.querySelector('#wp-voice'), vo = s.body.querySelector('#wp-voice-out');
@@ -156,7 +162,7 @@ function wireForm(s, { wp, pos, onSave }) {
     const desc = s.body.querySelector('#wp-desc').value.trim();
     const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
     const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
-    const dog = s.body.querySelector('#wp-dog').value.trim();
+    const dog = TRUFFLE_ICONS.includes(icon) ? s.body.querySelector('#wp-dog').value.trim() : '';
     await onSave({ title, desc, icon, qty, kg, memo, dog });
     s.close();
   });
@@ -184,11 +190,9 @@ export async function openNewWaypoint() {
       const w = { id: uid(), title, desc, icon, qty, kg, dog, memo: !!memo, lat: fix.lat, lon: fix.lon, alt: fix.alt, acc: fix.acc, ts: Date.now() };
       if (memo) await kvSet('memo:' + w.id, memo);
       await addWaypoint(w);
-      setSetting('wpCounter', (getSettings().wpCounter || 0) + 1);
       toast(`Salvato: ${title}`);
     },
   });
-  setTimeout(() => s.body.querySelector('#wp-title')?.focus(), 250);
 }
 
 export function openEditWaypoint(w) {

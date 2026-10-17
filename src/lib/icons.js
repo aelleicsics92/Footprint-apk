@@ -105,6 +105,7 @@ const WP_DEF = [
   ['pleurotus', 'Orecchione', '#6e7f93'],
   ['fungo', 'Fungo generico', '#a88a5d'],
   ['scorzone', 'Tartufo scorzone', '#33302d'],
+  ['uncinato', 'Tartufo uncinato', '#4a3526'],
   ['bianco', 'Tartufo bianco', '#b8996a'],
   ['bianchetto', 'Bianchetto', '#c9b48a'],
   ['nero', 'Nero pregiato', '#2a2623'],
@@ -120,6 +121,7 @@ export const orderedIcons = (order) => {
   const rank = (id) => (o.indexOf(id) < 0 ? 999 : o.indexOf(id));
   return [...WP_ICONS].sort((a, b) => rank(a.id) - rank(b.id));
 };
+export const TRUFFLE_ICONS = ['scorzone', 'uncinato', 'bianco', 'bianchetto', 'nero'];
 export const WP_BY_ID = Object.fromEntries(WP_ICONS.map((i) => [i.id, i]));
 export const wpIcon = (id) => WP_BY_ID[id] || WP_BY_ID.fungo;
 export const GARMIN_SYM = {
@@ -150,6 +152,7 @@ export const GARMIN_SYM = {
   lactarius: 'Forest',
   vescia: 'Forest',
   scorzone: 'Forest',
+  uncinato: 'Forest',
   bianco: 'Forest',
   bianchetto: 'Forest',
   nero: 'Forest',

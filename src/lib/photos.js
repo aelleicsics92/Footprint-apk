@@ -84,7 +84,13 @@ export function hydratePhotos(root, resolver) {
         if (!el.isConnected) return;
         if (urls && urls.length > 1) {
           el.classList.add('gal');
-          el.innerHTML = urls.map((u) => `<img src="${u}" alt="" draggable="false" loading="lazy" onerror="this.remove()">`).join('');
+          el.innerHTML = urls.map((u) => `<img src="${u}" alt="" draggable="false">`).join('');
+          const chk = () => {
+            if (el.querySelector('img')) return;
+            el.classList.remove('gal');
+            getPhoto(x).then((u) => el.isConnected && (el.innerHTML = u ? `<img src="${u}" alt="" draggable="false">` : '<span class="muted">Foto non disponibile</span>'));
+          };
+          el.querySelectorAll('img').forEach((im) => im.addEventListener('error', () => (im.remove(), chk())));
         } else getPhoto(x).then((u) => {
           if (!el.isConnected) return;
           el.innerHTML = u ? `<img src="${u}" alt="" draggable="false">` : '<span class="muted">Foto non disponibile</span>';
@@ -121,7 +127,7 @@ async function mediaList(lang, title) {
   const j = await r.json();
   return (j.items || [])
     .filter((i) => i.type === 'image' && i.srcset && i.srcset.length && /\.jpe?g/i.test(i.title || '') && !BAD.test(i.title || ''))
-    .map((i) => ({ t: i.title, src: 'https:' + i.srcset[0].src.replace(/\/(\d+)px-/, '/640px-') }));
+    .map((i) => ({ t: i.title, src: 'https:' + i.srcset[i.srcset.length - 1].src }));
 }
 export function getGallery(x, n = 4) {
   const title = wikiTitle(x);
