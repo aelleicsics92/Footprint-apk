@@ -1,4 +1,4 @@
-import { getSettings, apiKey } from './store.js';
+import { setSetting, getSettings, apiKey } from './store.js';
 
 // Catena di provider: Gemini -> OpenRouter -> Groq (fallback open source)
 export function providers() {
@@ -25,7 +25,6 @@ async function post(url, headers, body) {
   return r.json();
 }
 
-const vertexModel = (m) => (/latest/.test(m) ? 'gemini-2.5-flash' : m);
 
 async function callGemini(p, { system, user, images, audio, json }) {
   const parts = [{ text: user }];
@@ -36,19 +35,28 @@ async function callGemini(p, { system, user, images, audio, json }) {
     contents: [{ role: 'user', parts }],
     generationConfig: { temperature: 0.2, ...(json ? { responseMimeType: 'application/json' } : {}) },
   };
-  // Chiavi classiche "AIza…" -> Gemini API; chiavi "AQ.…" -> Vertex AI (modalità express). Se la prima via fallisce prova l'altra.
-  const gen = () => post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`, { 'x-goog-api-key': p.key }, body);
-  const vtx = () => post(`https://aiplatform.googleapis.com/v1/publishers/google/models/${encodeURIComponent(vertexModel(p.model))}:generateContent?key=${encodeURIComponent(p.key)}`, {}, body);
-  const order = p.key.startsWith('AIza') ? [gen, vtx] : [vtx, gen];
-  let j;
-  try {
-    j = await order[0]();
-  } catch (e) {
-    if (![400, 401, 403, 404].includes(e.status)) throw e;
+  // Le chiavi nuove ("AQ.…") non vedono più i modelli 1.x/2.x (errore 404): servono i Gemini 3.x.
+  const legacy = (m) => !m || /latest|gemini-(1|2)\./.test(m);
+  const first = legacy(p.model) ? 'gemini-3.5-flash' : p.model;
+  const models = [...new Set([first, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.7-flash'])];
+  const gen = (m) => post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { 'x-goog-api-key': p.key }, body);
+  const vtx = (m) => post(`https://aiplatform.googleapis.com/v1/publishers/google/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(p.key)}`, {}, body);
+  let j, firstErr;
+  for (const m of models) {
     try {
-      j = await order[1]();
-    } catch (e2) {
-      throw e;
+      j = await gen(m);
+      if (m !== p.model) setSetting('geminiModel', m);
+      break;
+    } catch (e) {
+      firstErr = firstErr || e;
+      if (![404, 429, 500, 503].includes(e.status)) break; // chiave rifiutata o richiesta errata: inutile cambiare modello
+    }
+  }
+  if (!j) {
+    try {
+      j = await vtx(first);
+    } catch {
+      throw firstErr;
     }
   }
   const t = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('');
