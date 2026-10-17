@@ -6,7 +6,7 @@ import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
 import { openSheet, toast, confirmBox } from '../lib/ui.js';
-import { lastPos } from '../lib/geo.js';
+import { lastPos, gpsStatus, ensurePermission, restartWatch } from '../lib/geo.js';
 import { getHeading, compassAlive } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
@@ -103,6 +103,8 @@ export function mountMap(el) {
   });
 
   bus.on('pos', onPos);
+  bus.on('gps:status', updateHud);
+  root.querySelector('#hud').addEventListener('click', async () => { if (!lastPos() && ['denied', 'off'].includes(gpsStatus().state)) { await ensurePermission(); restartWatch(); } });
   bus.on('heading', onHeading);
   bus.on('wp:changed', () => { renderWaypoints(); if (map && getSettings().showHeat) drawOverlays(); });
   setTimeout(drawOverlays, 800);
@@ -216,7 +218,7 @@ function updateHud() {
   const p = lastPos();
   let html = p
     ? `<div class="row2"><b>${fmtCoord(p.lat, p.lon)}</b><span>${p.alt != null ? Math.round(p.alt) + ' m' : '— m'} · ±${Math.round(p.acc || 0)} m</span></div>`
-    : '<div class="row2"><span>In attesa del GPS…</span></div>';
+    : `<div class="row2"><span style="white-space:normal;line-height:1.25">${esc(gpsStatus().msg || 'In attesa del GPS…')}</span></div>`;
   const tid = getTarget();
   const w = tid && getWaypoint(tid);
   if (w) {
@@ -559,7 +561,7 @@ function checkOffTrack(p) {
 function setupWeatherChip(chip) {
   let open = lsGet('fp.wxopen', false), data = lsGet('fp.wxchip'), fetching = false;
   const paint = () => {
-    if (!data) return (chip.hidden = true);
+    if (!data || !data.current || data.current.temperature_2m == null) return (chip.hidden = true);
     chip.hidden = false;
     const c = data.current;
     const [em] = wmo(c.weather_code);

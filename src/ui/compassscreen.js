@@ -1,7 +1,7 @@
 import { bus, fmtCoord, fmtDist, haversine, bearing, cardinal, esc } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
 import { getHeading, compassAlive } from '../lib/compass.js';
-import { lastPos } from '../lib/geo.js';
+import { lastPos, gpsStatus } from '../lib/geo.js';
 import { getTarget, setTarget } from '../lib/state.js';
 import { getWaypoint } from '../lib/waypoints.js';
 
@@ -47,6 +47,7 @@ export function mountCompass(el) {
   tgtMark = el.querySelector('#tgt-mark');
   bus.on('heading', onHeading);
   bus.on('pos', updateInfo);
+  bus.on('gps:status', updateInfo);
   bus.on('target:changed', updateInfo);
   setTimeout(() => {
     if (!compassAlive()) el.querySelector('#c-note').textContent = 'Sensore bussola non disponibile: uso la direzione GPS quando ti muovi.';
@@ -81,5 +82,5 @@ function updateInfo() {
   const g = root.querySelector('#c-gps');
   g.innerHTML = p
     ? `<div><span>Latitudine</span><b>${p.lat.toFixed(6)}</b></div><div><span>Longitudine</span><b>${p.lon.toFixed(6)}</b></div><div><span>Quota</span><b>${p.alt != null ? Math.round(p.alt) + ' m' : '—'}</b></div><div><span>Velocità</span><b>${p.speed != null ? (p.speed * 3.6).toFixed(1) + ' km/h' : '—'}</b></div>`
-    : '<div style="grid-column:1/3"><span>GPS</span><b>in attesa del segnale…</b></div>';
+    : `<div style="grid-column:1/3"><span>GPS</span><b style="font-size:.9rem">${esc(gpsStatus().msg || 'in attesa del segnale…')}</b></div>`;
 }

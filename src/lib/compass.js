@@ -5,15 +5,16 @@ let heading = null; // gradi, nord vero
 let started = false;
 let lastEvt = 0;
 
+// Direzione (da nord) in cui punta la cima del telefono se è in piano, oppure il retro se è in verticale.
+// Usa la rotazione completa alpha/beta/gamma, quindi funziona in entrambe le posizioni.
 function tiltCompensated(alpha, beta, gamma) {
   const a = rad(alpha), b = rad(beta), g = rad(gamma);
   const cA = Math.cos(a), sA = Math.sin(a), cB = Math.cos(b), sB = Math.sin(b), cG = Math.cos(g), sG = Math.sin(g);
-  const rA = -cA * sG - sA * sB * cG;
-  const rB = -sA * sG + cA * sB * cG;
-  let h = Math.atan(rA / rB);
-  if (rB < 0) h += Math.PI;
-  else if (rA < 0) h += 2 * Math.PI;
-  return deg(h);
+  // retro del telefono (-Z) e cima (Y) proiettati sul piano orizzontale: [est, nord]
+  const back = [-cA * sG - sA * sB * cG, -sA * sG + cA * sB * cG];
+  const top = [-sA * cB, cA * cB];
+  const v = Math.hypot(top[0], top[1]) >= Math.hypot(back[0], back[1]) ? top : back;
+  return (deg(Math.atan2(v[0], v[1])) + 360) % 360;
 }
 
 let absSeen = false;

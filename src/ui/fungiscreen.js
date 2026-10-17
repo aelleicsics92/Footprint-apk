@@ -1,4 +1,5 @@
 import { CITIES } from '../data/cities.js';
+import { ITALY } from '../data/italy.js';
 import L from 'leaflet';
 import { getSettings, setSetting } from '../lib/store.js';
 import { bus, esc, clamp } from '../lib/util.js';
@@ -78,10 +79,16 @@ function initMap() {
   cityLayer = L.layerGroup().addTo(fmap);
   const drawCities = () => {
     cityLayer.clearLayers();
-    const z = fmap.getZoom(), b = fmap.getBounds().pad(0.1);
-    CITIES.forEach(([n, la, lo, r]) => {
-      if ((r === 2 && z < 7) || (r === 3 && z < 8) || !b.contains([la, lo])) return;
-      L.marker([la, lo], { interactive: false, icon: L.divIcon({ className: 'cty', html: `<i class="r${r}"></i><span class="r${r}">${n}</span>`, iconSize: [0, 0] }) }).addTo(cityLayer);
+    const z = fmap.getZoom(), size = fmap.getSize(), boxes = [];
+    [...CITIES].sort((a, b) => a[3] - b[3]).forEach(([n, la, lo, r]) => {
+      if ((r === 2 && z < 7) || (r === 3 && z < 8)) return;
+      const q = fmap.latLngToContainerPoint([la, lo]);
+      if (q.x < -20 || q.y < -10 || q.x > size.x + 20 || q.y > size.y + 10) return;
+      const w = n.length * (r === 1 ? 7.4 : 6.2) + 14, h = r === 1 ? 17 : 14;
+      const bx = { x1: q.x - 4, y1: q.y - h / 2, x2: q.x + w, y2: q.y + h / 2 };
+      if (boxes.some((o) => bx.x1 < o.x2 && bx.x2 > o.x1 && bx.y1 < o.y2 && bx.y2 > o.y1)) return;
+      boxes.push(bx);
+      L.marker([la, lo], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'cty', html: `<i class="r${r}"></i><span class="r${r}">${n}</span>`, iconSize: [0, 0] }) }).addTo(cityLayer);
     });
   };
   fmap.on('zoomend moveend', drawCities);
@@ -230,8 +237,9 @@ const HeatLayer = L.Layer.extend({
   onAdd(map) {
     this._map = map;
     this._c = L.DomUtil.create('canvas', 'heat-canvas');
-    this._c.style.cssText = 'position:absolute;pointer-events:none;filter:blur(7px);opacity:.62';
-    map.getPanes().overlayPane.appendChild(this._c);
+    this._c.style.cssText = 'position:absolute;pointer-events:none;mix-blend-mode:multiply;opacity:.68';
+    map.getPanes().tilePane.appendChild(this._c);
+    this._c.style.zIndex = 250;
     map.on('moveend zoomend resize', this._draw, this);
     this._draw();
   },
@@ -246,29 +254,42 @@ const HeatLayer = L.Layer.extend({
   _draw() {
     const map = this._map, pts = this._pts;
     if (!map || !pts) return;
-    const size = map.getSize(), c = this._c, CELL = 10;
+    const size = map.getSize(), c = this._c, CELL = 12;
     L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
     c.width = size.x; c.height = size.y;
-    const x = c.getContext('2d');
+    c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
+    const off = document.createElement('canvas');
+    off.width = size.x; off.height = size.y;
+    const o = off.getContext('2d');
     const P = pts.map((q) => ({ ...q, p: map.latLngToContainerPoint([q.lat, q.lon]) }));
-    // raggio d'influenza ≈ 55 km in pixel (dipende dallo zoom)
-    const mpp = (40075016 * Math.cos((42 * Math.PI) / 180)) / (256 * Math.pow(2, map.getZoom()));
-    const R = 55000 / mpp;
-    for (let gy = 0; gy < size.y; gy += CELL) {
-      for (let gx = 0; gx < size.x; gx += CELL) {
-        let w = 0, v = 0, near = Infinity;
+    for (let gy = 0; gy < size.y + CELL; gy += CELL) {
+      for (let gx = 0; gx < size.x + CELL; gx += CELL) {
+        let w = 0, v = 0;
         for (const q of P) {
-          const d2 = (q.p.x - gx) ** 2 + (q.p.y - gy) ** 2;
-          if (d2 < near) near = d2;
-          const wi = 1 / (d2 + 1);
+          const wi = 1 / ((q.p.x - gx) ** 2 + (q.p.y - gy) ** 2 + 400);
           w += wi; v += wi * q.score;
         }
-        const d = Math.sqrt(near);
-        if (d > R * 1.3) continue;
         const [r, g, b] = colorAt(v / w);
-        x.fillStyle = `rgba(${r},${g},${b},${d > R ? Math.max(0, 1 - (d - R) / (R * 0.3)) : 1})`;
-        x.fillRect(gx, gy, CELL + 1, CELL + 1);
+        o.fillStyle = `rgb(${r},${g},${b})`;
+        o.fillRect(gx, gy, CELL + 1, CELL + 1);
       }
     }
+    // ammorbidisce le celle e ritaglia sulla sagoma dell'Italia (niente colore sul mare)
+    const x = c.getContext('2d');
+    x.save();
+    x.beginPath();
+    for (const poly of ITALY) {
+      for (const ring of poly) {
+        for (let i = 0; i < ring.length; i += 2) {
+          const q = map.latLngToContainerPoint([ring[i + 1], ring[i]]);
+          i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
+        }
+        x.closePath();
+      }
+    }
+    x.clip('evenodd');
+    x.filter = 'blur(8px)';
+    x.drawImage(off, -10, -10, size.x + 20, size.y + 20);
+    x.restore();
   },
 });
