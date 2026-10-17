@@ -10,13 +10,12 @@ import { listAreas, deleteArea, fmtMB } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
-import { openRadar, openTerrain } from './extras.js';
+import { openRadar } from './extras.js';
 
 export function mountMore(el) {
   const items = [
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
-    ['layers', 'Terreno e sole', 'Pendenza, esposizione e ore di sole qui', () => openTerrain()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],

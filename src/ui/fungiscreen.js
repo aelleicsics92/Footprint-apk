@@ -1,3 +1,4 @@
+import { CITIES } from '../data/cities.js';
 import L from 'leaflet';
 import { getSettings, setSetting } from '../lib/store.js';
 import { bus, esc, clamp } from '../lib/util.js';
@@ -7,7 +8,7 @@ import { lastPos } from '../lib/geo.js';
 import { PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
 
-let root, fmap, zoneLayer, youMarker, selMarker;
+let root, fmap, zoneLayer, youMarker, selMarker, cityLayer, heat;
 let state = { day: 0, point: null, ptData: null, zones: null, loading: false };
 let nameCache = {};
 
@@ -68,11 +69,25 @@ function onShow() {
 }
 
 function initMap() {
-  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, attributionControl: true, minZoom: 5, maxZoom: 10 });
+  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotateControl: false, attributionControl: true, minZoom: 5, maxZoom: 10 });
   fmap.attributionControl.setPrefix(false);
   L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, HERE, Garmin', maxZoom: 10, maxNativeZoom: 10 }).addTo(fmap);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
   zoneLayer = L.layerGroup().addTo(fmap);
+  // etichette città e paesi, più fitte con lo zoom
+  cityLayer = L.layerGroup().addTo(fmap);
+  const drawCities = () => {
+    cityLayer.clearLayers();
+    const z = fmap.getZoom(), b = fmap.getBounds().pad(0.1);
+    CITIES.forEach(([n, la, lo, r]) => {
+      if ((r === 2 && z < 7) || (r === 3 && z < 8) || !b.contains([la, lo])) return;
+      L.marker([la, lo], { interactive: false, icon: L.divIcon({ className: 'cty', html: `<i class="r${r}"></i><span class="r${r}">${n}</span>`, iconSize: [0, 0] }) }).addTo(cityLayer);
+    });
+  };
+  fmap.on('zoomend moveend', drawCities);
+  fmap.whenReady(drawCities);
+  heat = new HeatLayer();
+  heat.addTo(fmap);
   fmap.on('click', async (e) => {
     state.point = { lat: e.latlng.lat, lon: e.latlng.lng, name: 'Punto selezionato' };
     if (selMarker) fmap.removeLayer(selMarker);
@@ -184,22 +199,12 @@ function renderMap() {
   if (!fmap || !state.zones) return;
   const prof = PROFILES[getSettings().fungiProfile];
   zoneLayer.clearLayers();
-  ZONES.forEach((z, i) => {
-    const s = state.zones.series[i];
-    const out = outlook(s, prof, s.elev);
-    const o = out[clamp(state.day, 0, out.length - 1)];
-    const lv = levelOf(o.score);
-    const m = L.circleMarker([z.lat, z.lon], { radius: 11, color: '#fff', weight: 2, fillColor: lv.color, fillOpacity: 0.92 });
-    m.bindTooltip(`<b>${esc(z.name)}</b><br>${lv.label} · ${o.score}`, { direction: 'top' });
-    m.on('click', async (e) => {
-      L.DomEvent.stopPropagation(e);
-      state.point = { lat: z.lat, lon: z.lon, name: z.name };
-      await loadPoint();
-      renderCard();
-      root.scrollTo && root.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    m.addTo(zoneLayer);
+  const pts = ZONES.map((z, i) => {
+    const sr = state.zones.series[i];
+    const out = outlook(sr, prof, sr.elev);
+    return { lat: z.lat, lon: z.lon, score: out[clamp(state.day, 0, out.length - 1)].score, name: z.name };
   });
+  heat.setPoints(pts);
   const p = lastPos();
   if (p) {
     if (youMarker) fmap.removeLayer(youMarker);
@@ -209,3 +214,61 @@ function renderMap() {
   d.setDate(d.getDate() + state.day);
   root.querySelector('#f-daylabel').textContent = state.day === 0 ? '· oggi' : '· ' + d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'short' });
 }
+
+// Sfumatura continua del colore di raccolta sopra la mappa (interpolazione IDW tra le zone)
+const STOPS = [[0, [185, 85, 58]], [22, [185, 85, 58]], [34, [224, 166, 58]], [45, [224, 166, 58]], [58, [127, 174, 74]], [70, [127, 174, 74]], [90, [27, 122, 74]], [100, [20, 105, 62]]];
+function colorAt(v) {
+  for (let i = 1; i < STOPS.length; i++) {
+    if (v <= STOPS[i][0]) {
+      const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], t = b === a ? 0 : (v - a) / (b - a);
+      return ca.map((c, k) => Math.round(c + (cb[k] - c) * t));
+    }
+  }
+  return STOPS[STOPS.length - 1][1];
+}
+const HeatLayer = L.Layer.extend({
+  onAdd(map) {
+    this._map = map;
+    this._c = L.DomUtil.create('canvas', 'heat-canvas');
+    this._c.style.cssText = 'position:absolute;pointer-events:none;filter:blur(7px);opacity:.62';
+    map.getPanes().overlayPane.appendChild(this._c);
+    map.on('moveend zoomend resize', this._draw, this);
+    this._draw();
+  },
+  onRemove(map) {
+    map.off('moveend zoomend resize', this._draw, this);
+    this._c.remove();
+  },
+  setPoints(p) {
+    this._pts = p;
+    if (this._map) this._draw();
+  },
+  _draw() {
+    const map = this._map, pts = this._pts;
+    if (!map || !pts) return;
+    const size = map.getSize(), c = this._c, CELL = 10;
+    L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+    c.width = size.x; c.height = size.y;
+    const x = c.getContext('2d');
+    const P = pts.map((q) => ({ ...q, p: map.latLngToContainerPoint([q.lat, q.lon]) }));
+    // raggio d'influenza ≈ 55 km in pixel (dipende dallo zoom)
+    const mpp = (40075016 * Math.cos((42 * Math.PI) / 180)) / (256 * Math.pow(2, map.getZoom()));
+    const R = 55000 / mpp;
+    for (let gy = 0; gy < size.y; gy += CELL) {
+      for (let gx = 0; gx < size.x; gx += CELL) {
+        let w = 0, v = 0, near = Infinity;
+        for (const q of P) {
+          const d2 = (q.p.x - gx) ** 2 + (q.p.y - gy) ** 2;
+          if (d2 < near) near = d2;
+          const wi = 1 / (d2 + 1);
+          w += wi; v += wi * q.score;
+        }
+        const d = Math.sqrt(near);
+        if (d > R * 1.3) continue;
+        const [r, g, b] = colorAt(v / w);
+        x.fillStyle = `rgba(${r},${g},${b},${d > R ? Math.max(0, 1 - (d - R) / (R * 0.3)) : 1})`;
+        x.fillRect(gx, gy, CELL + 1, CELL + 1);
+      }
+    }
+  },
+});

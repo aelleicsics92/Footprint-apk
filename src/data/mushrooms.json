@@ -1,922 +1,1212 @@
 [
-{
-"id": "porcino",
-"nome": "Porcino",
-"sci": "Boletus edulis e affini",
-"stato": "commestibile",
-"periodo": "Giugno-novembre (picco settembre-ottobre)",
-"habitat": "Faggete, castagneti, querceti, abetaie",
-"riconoscimento": "Cappello bruno-nocciola, sotto tubuli bianchi poi giallo-verdastri (mai rossi), gambo tozzo con reticolo chiaro, carne bianca immutabile.",
-"attenzione": "Simili: boleto Satana e Tylopilus felleus (amaro). Controlla che i pori non siano rossi e il reticolo sia chiaro."
-},
-{
-"id": "porcinonero",
-"nome": "Porcino nero",
-"sci": "Boletus aereus",
-"stato": "commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Querceti e castagneti caldi",
-"riconoscimento": "Cappello bruno scuro quasi nero, vellutato; pori bianchi; gambo con reticolo bruno.",
-"attenzione": "Controlla l'assenza di pori rossi."
-},
-{
-"id": "porcinoestivo",
-"nome": "Porcino estivo",
-"sci": "Boletus aestivalis (reticulatus)",
-"stato": "commestibile",
-"periodo": "Maggio-agosto",
-"habitat": "Querceti e castagneti",
-"riconoscimento": "Cappello bruno chiaro, spesso screpolato a tempo secco.",
-"attenzione": "Verifica sempre i pori e il reticolo."
-},
-{
-"id": "porcinopini",
-"nome": "Porcino dei pini",
-"sci": "Boletus pinophilus",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Pinete e abetaie",
-"riconoscimento": "Cappello rosso-bruno, gambo robusto con reticolo.",
-"attenzione": "Controlla l'assenza di pori rossi."
-},
-{
-"id": "gallinaccio",
-"nome": "Gallinaccio (galletto)",
-"sci": "Cantharellus cibarius",
-"stato": "commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi di latifoglie e conifere",
-"riconoscimento": "Colore giallo uovo, pieghe forcute e decorrenti (non vere lamelle), profumo di albicocca.",
-"attenzione": "Simili: fungo dell'olivo (Omphalotus olearius, tossico: lamelle vere, a cespi su legno) e falso gallinaccio (lamelle fitte e sottili)."
-},
-{
-"id": "ovolo",
-"nome": "Ovolo buono",
-"sci": "Amanita caesarea",
-"stato": "commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Querceti e castagneti caldi",
-"riconoscimento": "Cappello arancio-rosso, lamelle, gambo e anello GIALLI, volva bianca a sacco.",
-"attenzione": "Si confonde con l'ovolo malefico (cappello con verruche bianche, lamelle bianche) e con l'amanita falloide: lamelle gialle = indizio chiave. Mai raccogliere ovuli chiusi senza controllare."
-},
-{
-"id": "mazza",
-"nome": "Mazza di tamburo",
-"sci": "Macrolepiota procera",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Prati, margini dei boschi",
-"riconoscimento": "Cappello grande a ombrello con squame brune, gambo alto «a pelle di serpente» con anello mobile.",
-"attenzione": "Non raccogliere esemplari piccoli o dubbi (lepiote tossiche). Consumare il solo cappello ben cotto."
-},
-{
-"id": "prataiolo",
-"nome": "Prataiolo",
-"sci": "Agaricus campestris",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Prati concimati",
-"riconoscimento": "Cappello bianco, lamelle rosa poi bruno cioccolato, anello semplice.",
-"attenzione": "Pericolo di confusione con Agaricus xanthodermus (odore di inchiostro, ingiallisce) e con amanite (lamelle bianche e volva)."
-},
-{
-"id": "orecchione",
-"nome": "Orecchione",
-"sci": "Pleurotus ostreatus",
-"stato": "commestibile",
-"periodo": "Ottobre-febbraio",
-"habitat": "Tronchi e ceppi di latifoglie",
-"riconoscimento": "Cappello a conchiglia grigio-bluastro, lamelle bianche decorrenti, gambo laterale.",
-"attenzione": "Cuoci sempre. Non confonderlo con Omphalotus (arancio)."
-},
-{
-"id": "cardoncello",
-"nome": "Cardoncello",
-"sci": "Pleurotus eryngii",
-"stato": "commestibile",
-"periodo": "Ottobre-dicembre",
-"habitat": "Pascoli con ombrellifere e cardi",
-"riconoscimento": "Cappello nocciola, lamelle decorrenti, gambo robusto spesso eccentrico.",
-"attenzione": "Cresce su radici di cardi (Eryngium): è un indizio utile."
-},
-{
-"id": "chiodino",
-"nome": "Chiodino",
-"sci": "Armillaria mellea",
-"stato": "commestibile previa cottura",
-"periodo": "Settembre-novembre",
-"habitat": "Ceppi e radici di latifoglie",
-"riconoscimento": "Cespi di funghi color miele con anello, cappello con piccole squame scure.",
-"attenzione": "Commestibile SOLO dopo scottatura e cottura prolungata. Simili pericolosi: Galerina marginata (mortale, sporata bruna) e falso chiodino (lamelle verdastre)."
-},
-{
-"id": "russolaverde",
-"nome": "Russola verde",
-"sci": "Russula virescens / cyanoxantha",
-"stato": "commestibile",
-"periodo": "Luglio-ottobre",
-"habitat": "Latifoglie",
-"riconoscimento": "Cappello verde screpolato, lamelle bianche, carne compatta.",
-"attenzione": "Molte russole sono acri o tossiche (es. Russula emetica): consumare solo specie certe. Non assaggiare crude per prova."
-},
-{
-"id": "sanguinello",
-"nome": "Sanguinello",
-"sci": "Lactarius deliciosus",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Pinete",
-"riconoscimento": "Latice arancio che diventa verdastro, cappello zonato arancio, carne arancio.",
-"attenzione": "Altri lattari acri possono dare disturbi."
-},
-{
-"id": "trombetta",
-"nome": "Trombetta dei morti",
-"sci": "Craterellus cornucopioides",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Faggete e querceti",
-"riconoscimento": "A tromba, nero-grigiastro, interno liscio senza lamelle.",
-"attenzione": "Nessun simile pericoloso comune."
-},
-{
-"id": "steccherino",
-"nome": "Steccherino dorato",
-"sci": "Hydnum repandum",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Boschi misti",
-"riconoscimento": "Color crema-arancio, sotto aculei fragili invece di lamelle.",
-"attenzione": "Nessun simile pericoloso comune."
-},
-{
-"id": "prugnolo",
-"nome": "Prugnolo",
-"sci": "Calocybe gambosa",
-"stato": "commestibile",
-"periodo": "Aprile-giugno",
-"habitat": "Prati e margini dei boschi",
-"riconoscimento": "Bianco-crema, odore di farina, lamelle bianche fitte.",
-"attenzione": "Si confonde con Entoloma sinuatum e Inocybe patouillardii (tossici). Lamelle bianche = prugnolo."
-},
-{
-"id": "spugnola",
-"nome": "Spugnola",
-"sci": "Morchella esculenta / conica",
-"stato": "commestibile previa cottura",
-"periodo": "Marzo-maggio",
-"habitat": "Frutteti, boschi umidi, zone bruciate",
-"riconoscimento": "Cappello alveolato a nido d'ape, tutto cavo internamente.",
-"attenzione": "Mai cruda. Simile: Gyromitra esculenta (tossica/mortale, cappello cerebriforme non cavo)."
-},
-{
-"id": "coprino",
-"nome": "Coprino chiomato",
-"sci": "Coprinus comatus",
-"stato": "commestibile",
-"periodo": "Primavera-autunno",
-"habitat": "Prati, bordi di strade",
-"riconoscimento": "Cappello cilindrico bianco-squamoso che si scioglie in liquido nero.",
-"attenzione": "Raccogli giovane e consuma in giornata; evita alcol."
-},
-{
-"id": "lepistanuda",
-"nome": "Piedi blu",
-"sci": "Lepista nuda",
-"stato": "commestibile previa cottura",
-"periodo": "Ottobre-dicembre",
-"habitat": "Lettiera di boschi",
-"riconoscimento": "Viola-lilla, odore fruttato, sporata rosata.",
-"attenzione": "Simile a Cortinarius violaceus (non commestibile, spore ruggine). Non crudo."
-},
-{
-"id": "pioppino",
-"nome": "Pioppino",
-"sci": "Cyclocybe aegerita",
-"stato": "commestibile",
-"periodo": "Primavera-autunno",
-"habitat": "Ceppi di pioppo e salice",
-"riconoscimento": "Cappello bruno con anello, lamelle brune, cresce a gruppi su legno.",
-"attenzione": "Verifica il substrato legnoso e la sporata."
-},
-{
-"id": "granulato",
-"nome": "Boleto granulato",
-"sci": "Suillus granulatus",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Pinete",
-"riconoscimento": "Cappello viscido giallo-bruno, pori con gocce di latte da giovane.",
-"attenzione": "Commestibilità mediocre."
-},
-{
-"id": "falloide",
-"nome": "Tignosa verdognola (falloide)",
-"sci": "Amanita phalloides",
-"stato": "mortale",
-"periodo": "Agosto-novembre",
-"habitat": "Querceti, castagneti, boschi misti",
-"riconoscimento": "Cappello verde-oliva, lamelle bianche, anello e volva a sacco alla base del gambo.",
-"attenzione": "Responsabile della maggior parte dei decessi per funghi. Sintomi dopo 6-24 ore: se hai il dubbio, vai al pronto soccorso e porta il fungo."
-},
-{
-"id": "virosa",
-"nome": "Angelo della morte",
-"sci": "Amanita verna / virosa",
-"stato": "mortale",
-"periodo": "Primavera-autunno",
-"habitat": "Boschi",
-"riconoscimento": "Interamente bianca, anello e volva a sacco.",
-"attenzione": "Si confonde con prataioli e ovuli bianchi."
-},
-{
-"id": "muscaria",
-"nome": "Ovolo malefico",
-"sci": "Amanita muscaria",
-"stato": "tossico",
-"periodo": "Luglio-novembre",
-"habitat": "Boschi di abete, faggio, betulla",
-"riconoscimento": "Cappello rosso con verruche bianche, lamelle bianche, anello, base bulbosa.",
-"attenzione": "Tossico (neurotossico). Spesso confuso con l'ovolo buono: le lamelle bianche sono il segno chiave."
-},
-{
-"id": "pantherina",
-"nome": "Panterina",
-"sci": "Amanita pantherina",
-"stato": "tossico",
-"periodo": "Estate-autunno",
-"habitat": "Boschi misti",
-"riconoscimento": "Cappello bruno con verruche bianche, anello, base con orlo.",
-"attenzione": "Tossica (neurotossica)."
-},
-{
-"id": "orellanus",
-"nome": "Cortinario orellano",
-"sci": "Cortinarius orellanus",
-"stato": "mortale",
-"periodo": "Agosto-ottobre",
-"habitat": "Querceti e castagneti",
-"riconoscimento": "Cappello arancio-ruggine, lamelle ruggine, cortina fibrosa.",
-"attenzione": "Danneggia i reni dopo giorni dall'ingestione."
-},
-{
-"id": "galerina",
-"nome": "Galerina marginata",
-"sci": "Galerina marginata",
-"stato": "mortale",
-"periodo": "Autunno",
-"habitat": "Legno morto di conifere e latifoglie",
-"riconoscimento": "Piccolo, bruno-miele, anello, sporata bruno-ruggine.",
-"attenzione": "Cresce su legno come il chiodino: pericolosissima da confondere."
-},
-{
-"id": "lepiota",
-"nome": "Lepiota bruno-incarnata",
-"sci": "Lepiota brunneoincarnata",
-"stato": "mortale",
-"periodo": "Autunno",
-"habitat": "Prati e bordi di boschi",
-"riconoscimento": "Piccola, cappello con squame bruno-rosate, anello.",
-"attenzione": "Non raccogliere mai lepiote piccole."
-},
-{
-"id": "rivulosa",
-"nome": "Clitocibe sbiancato",
-"sci": "Clitocybe rivulosa / dealbata",
-"stato": "tossico",
-"periodo": "Autunno",
-"habitat": "Prati e pascoli",
-"riconoscimento": "Piccolo, bianco-grigiastro, cappello infossato, a cerchi nei prati.",
-"attenzione": "Contiene muscarina: spesso confuso con gamberi gialli e gambesecche."
-},
-{
-"id": "olearius",
-"nome": "Fungo dell'olivo",
-"sci": "Omphalotus olearius",
-"stato": "tossico",
-"periodo": "Settembre-novembre",
-"habitat": "Ceppi di olivo, quercia, castagno",
-"riconoscimento": "Arancio intenso, a cespi su legno, lamelle vere decorrenti.",
-"attenzione": "Si scambia con il gallinaccio e con l'orecchione."
-},
-{
-"id": "sinuatum",
-"nome": "Entoloma livido",
-"sci": "Entoloma sinuatum",
-"stato": "tossico",
-"periodo": "Primavera-autunno",
-"habitat": "Latifoglie",
-"riconoscimento": "Bianco-grigiastro, odore di farina, lamelle gialle poi rosate.",
-"attenzione": "Si confonde con il prugnolo. Provoca forti disturbi gastrointestinali."
-},
-{
-"id": "satanas",
-"nome": "Boleto Satana",
-"sci": "Rubroboletus satanas",
-"stato": "tossico",
-"periodo": "Giugno-settembre",
-"habitat": "Querceti caldi su calcare",
-"riconoscimento": "Cappello biancastro, pori rossi, gambo bulboso reticolato rosso; carne che vira all'azzurro.",
-"attenzione": "Si confonde con i porcini: pori rossi = non è un porcino."
-},
-{
-"id": "pardinum",
-"nome": "Agarico tigrino",
-"sci": "Tricholoma pardinum",
-"stato": "tossico",
-"periodo": "Autunno",
-"habitat": "Boschi montani",
-"riconoscimento": "Cappello grigio con squame scure disposte a cerchio, lamelle bianche.",
-"attenzione": "Provoca gravi gastroenteriti."
-},
-{
-"id": "gyromitra",
-"nome": "Falsa spugnola",
-"sci": "Gyromitra esculenta",
-"stato": "mortale",
-"periodo": "Primavera",
-"habitat": "Boschi di conifere",
-"riconoscimento": "Cappello bruno cerebriforme (a cervello), non alveolato.",
-"attenzione": "Contiene giromitrina, tossica anche in cottura se non trattata."
-},
-{
-"id": "xanthodermus",
-"nome": "Prataiolo giallescente",
-"sci": "Agaricus xanthodermus",
-"stato": "tossico",
-"periodo": "Estate-autunno",
-"habitat": "Prati e giardini",
-"riconoscimento": "Bianco, ingiallisce alla base se grattato, odore di inchiostro o fenolo.",
-"attenzione": "Si scambia con il prataiolo."
-},
-{
-"id": "paxillus",
-"nome": "Paxillo",
-"sci": "Paxillus involutus",
-"stato": "mortale",
-"periodo": "Estate-autunno",
-"habitat": "Boschi di betulla, conifere",
-"riconoscimento": "Cappello bruno con margine arrotolato, lamelle decorrenti che anneriscono al tocco.",
-"attenzione": "Pericoloso per sindrome emolitica anche dopo consumi ripetuti."
-},
-{
-"id": "fasciculare",
-"nome": "Falso chiodino",
-"sci": "Hypholoma fasciculare",
-"stato": "tossico",
-"periodo": "Tutto l'anno",
-"habitat": "Ceppi",
-"riconoscimento": "Cespi giallo-zolfo, lamelle verdastre, sapore amaro.",
-"attenzione": "Si scambia con il chiodino."
-},
-{
-"id": "nebularis",
-"nome": "Agarico nebbioso",
-"sci": "Clitocybe nebularis",
-"stato": "tossico",
-"periodo": "Autunno",
-"habitat": "Boschi",
-"riconoscimento": "Grigio-cenere, carne compatta, odore dolciastro.",
-"attenzione": "Tossico per molte persone (disturbi gastrici)."
-},
-{
-"id": "emetica",
-"nome": "Russola emetica",
-"sci": "Russula emetica",
-"stato": "tossico",
-"periodo": "Estate-autunno",
-"habitat": "Boschi umidi",
-"riconoscimento": "Cappello rosso vivo, lamelle bianche, sapore molto acre.",
-"attenzione": "Provoca vomito."
-},
-{
-"id": "felleus",
-"nome": "Boleto amaro",
-"sci": "Tylopilus felleus",
-"stato": "non commestibile",
-"periodo": "Estate-autunno",
-"habitat": "Conifere e latifoglie",
-"riconoscimento": "Simile al porcino ma pori rosati e reticolo scuro, sapore amarissimo.",
-"attenzione": "Non tossico ma rovina il piatto: si riconosce dal reticolo scuro e dai pori rosa."
-},
-{
-"id": "scleroderma",
-"nome": "Falso tartufo",
-"sci": "Scleroderma citrinum",
-"stato": "tossico",
-"periodo": "Estate-autunno",
-"habitat": "Boschi acidi",
-"riconoscimento": "Globoso, giallo-bruno con squame, interno nero-violaceo compatto.",
-"attenzione": "Non è un tartufo: è tossico."
-},
-{
-"id": "baio",
-"nome": "Boleto baio",
-"sci": "Imleria badia",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Conifere e faggete acide",
-"riconoscimento": "Cappello bruno-castano viscido-lucido, tubuli giallastri che virano al blu-verde al tocco.",
-"attenzione": "Buon fungo; raccogli giovane, spesso parassitato."
-},
-{
-"id": "porcinello",
-"nome": "Porcinello",
-"sci": "Leccinum scabrum / aurantiacum",
-"stato": "commestibile previa cottura",
-"periodo": "Giugno-ottobre",
-"habitat": "Betulle, pioppi, querce",
-"riconoscimento": "Gambo snello con scagliette scure (granulosità), cappello bruno o arancio, carne che annerisce o vira.",
-"attenzione": "Da consumare ben cotto; crudo o poco cotto può dare disturbi."
-},
-{
-"id": "pinarolo",
-"nome": "Pinarolo",
-"sci": "Suillus luteus",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Pinete",
-"riconoscimento": "Cappello bruno viscido, anello membranoso sul gambo, tubuli giallo-limone.",
-"attenzione": "Togli la cuticola viscida; può essere lassativo."
-},
-{
-"id": "boletodorato",
-"nome": "Boleto dorato",
-"sci": "Xerocomellus chrysenteron",
-"stato": "commestibile",
-"periodo": "Giugno-novembre",
-"habitat": "Boschi misti",
-"riconoscimento": "Cappello vellutato bruno che si screpola mostrando carne rosata; tubuli giallo-verdi.",
-"attenzione": "Qualità mediocre, carne molle; consumo moderato."
-},
-{
-"id": "boletoappendic",
-"nome": "Boleto appendicolato",
-"sci": "Butyriboletus appendiculatus",
-"stato": "commestibile",
-"periodo": "Luglio-ottobre",
-"habitat": "Querceti e faggete calcaree",
-"riconoscimento": "Cappello ocra-bruno, gambo giallo con reticolo, carne gialla che vira al blu pallido.",
-"attenzione": "Buon commestibile; evita se pori rossi o viraggio intenso."
-},
-{
-"id": "cantarello",
-"nome": "Cantarello",
-"sci": "Craterellus lutescens",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Conifere muschiose",
-"riconoscimento": "Cappello brunastro e imbuto, gambo giallo-arancio cavo, falsa lamellatura a pieghe.",
-"attenzione": "Ottimo; non confondere con Hygrophoropsis aurantiaca."
-},
-{
-"id": "finferla",
-"nome": "Finferla (trombetta di Gallo)",
-"sci": "Craterellus tubaeformis",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Conifere e boschi muschiosi",
-"riconoscimento": "Piccolo imbuto bruno-giallastro cavo, falsa lamellatura grigio-gialla.",
-"attenzione": "Consumo cotto."
-},
-{
-"id": "marzuolo",
-"nome": "Marzuolo (ceppa)",
-"sci": "Hygrophorus marzuolus",
-"stato": "commestibile",
-"periodo": "Febbraio-aprile",
-"habitat": "Conifere montane, vicino alla neve",
-"riconoscimento": "Cappello grigio-nerastro carnoso, lamelle bianche-grigiastre, gambo bianco robusto.",
-"attenzione": "Fungo precoce; raccogli esemplari non marci."
-},
-{
-"id": "gambesecche",
-"nome": "Gambesecche",
-"sci": "Marasmius oreades",
-"stato": "commestibile",
-"periodo": "Maggio-ottobre",
-"habitat": "Prati e radure (cerchi delle streghe)",
-"riconoscimento": "Cappello piccolo ocra campanulato, lamelle distanziate, gambo sottile e tenace.",
-"attenzione": "Consuma solo i cappelli; non confondere con Clitocybe rivulosa (mortale) che spesso cresce nello stesso ambiente."
-},
-{
-"id": "agaricosaeva",
-"nome": "Agarico violetto (pie' blu)",
-"sci": "Lepista saeva",
-"stato": "commestibile",
-"periodo": "Settembre-dicembre",
-"habitat": "Prati e pascoli",
-"riconoscimento": "Cappello bruno-beige, gambo violetto-azzurro alla base.",
-"attenzione": "Va cotto; evita esemplari con odore sgradevole."
-},
-{
-"id": "moretta",
-"nome": "Moretta",
-"sci": "Tricholoma terreum",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Pinete",
-"riconoscimento": "Cappello grigio feltrato conico, lamelle bianco-grigie, odore farinoso.",
-"attenzione": "Non confondere con Tricholoma pardinum (tossico)."
-},
-{
-"id": "tricolomagrigio",
-"nome": "Tricoloma grigio",
-"sci": "Tricholoma portentosum",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Pinete sabbiose",
-"riconoscimento": "Cappello grigio-violaceo con striature radiali, lamelle bianche con riflessi gialli.",
-"attenzione": "Controlla l'odore: deve essere farinoso, non pungente."
-},
-{
-"id": "equestre",
-"nome": "Tricoloma equestre",
-"sci": "Tricholoma equestre",
-"stato": "tossico",
-"periodo": "Settembre-novembre",
-"habitat": "Pinete sabbiose",
-"riconoscimento": "Cappello giallo-verdastro con centro bruno, lamelle gialle.",
-"attenzione": "Un tempo consumato, oggi riconosciuto tossico (rabdomiolisi). Non mangiare."
-},
-{
-"id": "geotropa",
-"nome": "Imbutino (clitocibe geotropo)",
-"sci": "Infundibulicybe geotropa",
-"stato": "commestibile",
-"periodo": "Ottobre-dicembre",
-"habitat": "Prati e boschi radi, in cerchi",
-"riconoscimento": "Grande imbuto crema-nocciola, gambo robusto sodo, odore di mandorla.",
-"attenzione": "Consuma giovane; non confondere con Clitocybe rivulosa/dealbata."
-},
-{
-"id": "mugnaio",
-"nome": "Mugnaio",
-"sci": "Clitopilus prunulus",
-"stato": "commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi e prati",
-"riconoscimento": "Cappello bianco feltrato, lamelle decorrenti rosa a maturità, odore di farina.",
-"attenzione": "Occhio a Clitocybe candicans e C. rivulosa, tossici."
-},
-{
-"id": "mazzarosa",
-"nome": "Mazza di tamburo rosata",
-"sci": "Chlorophyllum rhacodes",
-"stato": "commestibile con cautela",
-"periodo": "Settembre-ottobre",
-"habitat": "Boschi, giardini",
-"riconoscimento": "Cappello squamoso bruno, carne che vira al rosso-arancio, anello mobile.",
-"attenzione": "Può causare disturbi digestivi; non confondere con Chlorophyllum molybdites e Lepiote tossiche."
-},
-{
-"id": "vescia",
-"nome": "Vescia perlata",
-"sci": "Lycoperdon perlatum",
-"stato": "commestibile",
-"periodo": "Giugno-novembre",
-"habitat": "Boschi e prati",
-"riconoscimento": "Piccolo corpo a pera coperto da granulazioni, interno bianco compatto da giovane.",
-"attenzione": "Mangia solo se l'interno è bianco puro, senza abbozzo di fungo (Amanita)."
-},
-{
-"id": "vesciagigante",
-"nome": "Vescia gigante",
-"sci": "Calvatia gigantea",
-"stato": "commestibile",
-"periodo": "Agosto-ottobre",
-"habitat": "Prati",
-"riconoscimento": "Palla bianca enorme (20-50 cm), carne bianca compatta da giovane.",
-"attenzione": "Consuma solo se bianca all'interno."
-},
-{
-"id": "laetiporo",
-"nome": "Pollo del bosco (laetiporo)",
-"sci": "Laetiporus sulphureus",
-"stato": "commestibile previa cottura",
-"periodo": "Maggio-ottobre",
-"habitat": "Tronchi di querce, salici, ciliegi",
-"riconoscimento": "Mensole sovrapposte giallo-arancio vivo, carne tenera da giovane.",
-"attenzione": "Solo esemplari giovani e ben cotti; può dare disturbi."
-},
-{
-"id": "linguabue",
-"nome": "Lingua di bue",
-"sci": "Fistulina hepatica",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Castagni e querce",
-"riconoscimento": "Corpo carnoso rosso-fegato a lingua, sanguinante al taglio.",
-"attenzione": "Sapore acido: usata anche cruda in insalata."
-},
-{
-"id": "barbaleone",
-"nome": "Barba di leone",
-"sci": "Hericium erinaceus",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Tronchi di latifoglie",
-"riconoscimento": "Massa bianca con lunghi aculei penduli.",
-"attenzione": "Giovane, bianco; non raccogliere se ingiallito."
-},
-{
-"id": "cavolfiore",
-"nome": "Cavolfiore (spugnola dei pini)",
-"sci": "Sparassis crispa",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Base di pini",
-"riconoscimento": "Ammasso crespo giallo-crema a forma di spugna ondulata.",
-"attenzione": "Pulisci con cura: trattiene terra e aghi."
-},
-{
-"id": "maitake",
-"nome": "Ciuffo (maitake)",
-"sci": "Grifola frondosa",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Base di querce e castagni",
-"riconoscimento": "Ammasso a rosetta di lobi grigio-bruni con pori bianchi.",
-"attenzione": "Giovane è tenero; cuoci a lungo."
-},
-{
-"id": "famigliola",
-"nome": "Famigliola buona",
-"sci": "Kuehneromyces mutabilis",
-"stato": "commestibile",
-"periodo": "Marzo-novembre",
-"habitat": "Ceppi di latifoglie",
-"riconoscimento": "Cappello igrofano bruno, anello membranoso sul gambo, gruppi fitti.",
-"attenzione": "Molto simile a Galerina marginata (mortale): non raccogliere se non sei esperto."
-},
-{
-"id": "arvensis",
-"nome": "Prataiolo maggiore",
-"sci": "Agaricus arvensis",
-"stato": "commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Prati e pascoli",
-"riconoscimento": "Grande cappello bianco, anello a doppio strato, odore di anice.",
-"attenzione": "Evita varietà ingiallenti con odore di inchiostro (Agaricus xanthodermus)."
-},
-{
-"id": "silvicola",
-"nome": "Prataiolo dei boschi",
-"sci": "Agaricus silvicola",
-"stato": "commestibile",
-"periodo": "Agosto-novembre",
-"habitat": "Conifere e latifoglie",
-"riconoscimento": "Cappello bianco crema ingiallente, odore di anice.",
-"attenzione": "Non confondere con Amanita (lamelle bianche e volva)."
-},
-{
-"id": "rubescens",
-"nome": "Tignosa vinata",
-"sci": "Amanita rubescens",
-"stato": "commestibile previa cottura",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi misti",
-"riconoscimento": "Cappello bruno-rosato con verruche grigie, carne che arrossa al taglio.",
-"attenzione": "Tossica se cruda: sempre ben cotta. Occhio a Amanita pantherina."
-},
-{
-"id": "russolavesca",
-"nome": "Russola vesca",
-"sci": "Russula vesca",
-"stato": "commestibile",
-"periodo": "Luglio-ottobre",
-"habitat": "Boschi di latifoglie",
-"riconoscimento": "Cappello rosato-brunastro che lascia scoperto il bordo, lamelle bianche.",
-"attenzione": "Controlla che il sapore sia dolce, non piccante."
-},
-{
-"id": "lactariusvolemus",
-"nome": "Lattario volemo",
-"sci": "Lactarius volemus",
-"stato": "commestibile",
-"periodo": "Luglio-ottobre",
-"habitat": "Boschi di latifoglie",
-"riconoscimento": "Cappello arancio-bruno, latte bianco abbondante dolce, odore di pesce quando secco.",
-"attenzione": "Non usare funghi dal latte amaro o acre."
-},
-{
-"id": "latteloana",
-"nome": "Latte lana",
-"sci": "Lactarius torminosus",
-"stato": "tossico",
-"periodo": "Agosto-ottobre",
-"habitat": "Betulle",
-"riconoscimento": "Cappello rosato con bordo lanuginoso, latte bianco acre.",
-"attenzione": "Irritante per l'apparato digerente: non mangiare."
-},
-{
-"id": "elvella",
-"nome": "Elvella crespa",
-"sci": "Helvella crispa",
-"stato": "commestibile previa cottura",
-"periodo": "Settembre-novembre",
-"habitat": "Boschi radi",
-"riconoscimento": "Cappello bianco crema a sella irregolare, gambo scanalato.",
-"attenzione": "Solo cotta e in piccole quantità; da evitare per molte persone."
-},
-{
-"id": "coprinoinchiostro",
-"nome": "Coprino atramentario",
-"sci": "Coprinopsis atramentaria",
-"stato": "tossico",
-"periodo": "Primavera-autunno",
-"habitat": "Prati, ceppi",
-"riconoscimento": "Cappello grigio ovale che si scioglie in liquido nero.",
-"attenzione": "Tossico se consumato con alcol anche a distanza di giorni."
-},
-{
-"id": "calopus",
-"nome": "Boleto dal piede rosso",
-"sci": "Caloboletus calopus",
-"stato": "non commestibile",
-"periodo": "Luglio-ottobre",
-"habitat": "Conifere",
-"riconoscimento": "Gambo giallo con reticolo rosso, carne gialla che vira al blu, sapore amaro.",
-"attenzione": "Amarissimo e non commestibile; possibile confusione con porcini."
-},
-{
-"id": "legaliae",
-"nome": "Boleto di Le Gal",
-"sci": "Rubroboletus legaliae",
-"stato": "tossico",
-"periodo": "Luglio-ottobre",
-"habitat": "Boschi di querce",
-"riconoscimento": "Cappello rosato, tubuli e gambo con rete rossa, carne che vira al blu.",
-"attenzione": "Tossico crudo e anche da cotto; non confondere con porcini."
-},
-{
-"id": "scarpone",
-"nome": "Boleto scarpone",
-"sci": "Neoboletus luridiformis",
-"stato": "commestibile previa cottura",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi misti",
-"riconoscimento": "Cappello bruno velluto, tubuli e pori rossi, carne che vira al blu intenso.",
-"attenzione": "Tossico crudo: sempre ben cotto. Non mangiare dopo alcol."
-},
-{
-"id": "luridus",
-"nome": "Boleto lurido",
-"sci": "Suillellus luridus",
-"stato": "commestibile previa cottura",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi di latifoglie",
-"riconoscimento": "Pori arancio-rossi, gambo con reticolo rosso e carne che vira al blu.",
-"attenzione": "Tossico se mangiato crudo o con alcol; consumo sconsigliato ai non esperti."
-},
-{
-"id": "ramariabotrytis",
-"nome": "Ramaria botrytis",
-"sci": "Ramaria botrytis",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Boschi di latifoglie",
-"riconoscimento": "Cespuglio ramificato con punte rosate, gambo bianco carnoso.",
-"attenzione": "Specie simili tossiche: non raccogliere Ramaria con colori gialli o arancio intensi."
-},
-{
-"id": "ramariaformosa",
-"nome": "Ramaria formosa",
-"sci": "Ramaria formosa",
-"stato": "tossico",
-"periodo": "Settembre-novembre",
-"habitat": "Faggete",
-"riconoscimento": "Rami rosa-arancio con apici giallastri, gambo bianco.",
-"attenzione": "Lassativa e tossica."
-},
-{
-"id": "hygrophoropsis",
-"nome": "Finto gallinaccio",
-"sci": "Hygrophoropsis aurantiaca",
-"stato": "non commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Conifere",
-"riconoscimento": "Cappello arancio con lamelle arancio fitte e ripetutamente biforcate.",
-"attenzione": "Non commestibile; spesso scambiato per gallinaccio ma ha lamelle vere, non pieghe."
-},
-{
-"id": "erubescens",
-"nome": "Inocibe rosseggiante",
-"sci": "Inocybe erubescens",
-"stato": "mortale",
-"periodo": "Maggio-agosto",
-"habitat": "Boschi e parchi calcarei",
-"riconoscimento": "Cappello conico bianco che si macchia di rosso, lamelle crema, odore di spermatico.",
-"attenzione": "Muscarina in dosi mortali: non raccogliere piccoli funghi sconosciuti."
-},
-{
-"id": "hebeloma",
-"nome": "Hebeloma",
-"sci": "Hebeloma crustuliniforme",
-"stato": "tossico",
-"periodo": "Agosto-ottobre",
-"habitat": "Boschi",
-"riconoscimento": "Cappello color crema-ocra viscido, odore di rafano.",
-"attenzione": "Gastroenterico: da evitare."
-},
-{
-"id": "lepiotacristata",
-"nome": "Lepiota crestata",
-"sci": "Lepiota cristata",
-"stato": "tossico",
-"periodo": "Estate-autunno",
-"habitat": "Boschi e prati",
-"riconoscimento": "Cappello piccolo bianco con squame rosso-brune, odore di gomma.",
-"attenzione": "Può essere mortale per amatossine: non mangiare lepiote piccole."
-},
-{
-"id": "citrina",
-"nome": "Tignosa citrina",
-"sci": "Amanita citrina",
-"stato": "non commestibile",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi",
-"riconoscimento": "Cappello giallo-limone con residui del velo, odore di patata cruda.",
-"attenzione": "Tossica; evita ogni Amanita non identificata con certezza."
-},
-{
-"id": "mycenapura",
-"nome": "Mycena pura",
-"sci": "Mycena pura",
-"stato": "tossico",
-"periodo": "Settembre-novembre",
-"habitat": "Boschi",
-"riconoscimento": "Cappello rosa-lilla, odore di ravanello.",
-"attenzione": "Contiene muscarina: non commestibile."
-},
-{
-"id": "lucidum",
-"nome": "Ganoderma lucido",
-"sci": "Ganoderma lucidum",
-"stato": "non commestibile",
-"periodo": "Tutto l'anno",
-"habitat": "Ceppi e radici di latifoglie",
-"riconoscimento": "Mensola legnosa lucida rosso-bruna con pori bianchi.",
-"attenzione": "Non commestibile (usato per estratti)."
-},
-{
-"id": "versicolor",
-"nome": "Coda di tacchino",
-"sci": "Trametes versicolor",
-"stato": "non commestibile",
-"periodo": "Tutto l'anno",
-"habitat": "Ceppi e tronchi",
-"riconoscimento": "Ventagli sottili e concentrici di vari colori.",
-"attenzione": "Non commestibile."
-},
-{
-"id": "orecchiogiuda",
-"nome": "Orecchio di Giuda",
-"sci": "Auricularia auricula-judae",
-"stato": "commestibile",
-"periodo": "Autunno-inverno",
-"habitat": "Sambuco e altre latifoglie",
-"riconoscimento": "Gelatinoso, a forma di orecchio bruno-vinoso.",
-"attenzione": "Si consuma cotto; usato in cucina orientale."
-},
-{
-"id": "imbricato",
-"nome": "Steccherino squamoso",
-"sci": "Sarcodon imbricatus",
-"stato": "commestibile",
-"periodo": "Agosto-ottobre",
-"habitat": "Conifere",
-"riconoscimento": "Cappello con grandi squame brune, aculei grigio-brunastri al posto delle lamelle.",
-"attenzione": "Può essere amaro: bollire e scartare l'acqua."
-},
-{
-"id": "pratensis",
-"nome": "Prataiolo ombrello",
-"sci": "Cuphophyllus pratensis",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Prati e pascoli",
-"riconoscimento": "Cappello arancio-camoscio ombrelliforme, lamelle decorrenti spaziate.",
-"attenzione": "Ottimo; controlla di non confondere con piccoli Hygrophorus non commestibili."
-},
-{
-"id": "decastes",
-"nome": "Agarico a ciuffi",
-"sci": "Lyophyllum decastes",
-"stato": "commestibile",
-"periodo": "Settembre-novembre",
-"habitat": "Margini di strade, campi",
-"riconoscimento": "Cappello bruno-grigio in grandi ciuffi.",
-"attenzione": "Cuoci bene; rischio confusione con Entoloma sinuatum."
-},
-{
-"id": "volvarisguaina",
-"nome": "Amanita vaginata",
-"sci": "Amanita vaginata",
-"stato": "commestibile con cautela",
-"periodo": "Giugno-ottobre",
-"habitat": "Boschi",
-"riconoscimento": "Cappello grigio striato, senza anello, volva a guaina alla base.",
-"attenzione": "Mangiare solo se esperto: confusione con amanite mortali. Sconsigliato per i principianti."
-}
+ {
+  "id": "porcino",
+  "nome": "Porcino",
+  "sci": "Boletus edulis e affini",
+  "stato": "commestibile",
+  "periodo": "Giugno-novembre (picco settembre-ottobre)",
+  "habitat": "Faggete, castagneti, querceti, abetaie",
+  "riconoscimento": "Cappello bruno-nocciola, sotto tubuli bianchi poi giallo-verdastri (mai rossi), gambo tozzo con reticolo chiaro, carne bianca immutabile.",
+  "attenzione": "Simili: boleto Satana e Tylopilus felleus (amaro). Controlla che i pori non siano rossi e il reticolo sia chiaro."
+ },
+ {
+  "id": "porcinonero",
+  "nome": "Porcino nero",
+  "sci": "Boletus aereus",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Querceti e castagneti caldi",
+  "riconoscimento": "Cappello bruno scuro quasi nero, vellutato; pori bianchi; gambo con reticolo bruno.",
+  "attenzione": "Controlla l'assenza di pori rossi."
+ },
+ {
+  "id": "porcinoestivo",
+  "nome": "Porcino estivo",
+  "sci": "Boletus aestivalis (reticulatus)",
+  "stato": "commestibile",
+  "periodo": "Maggio-agosto",
+  "habitat": "Querceti e castagneti",
+  "riconoscimento": "Cappello bruno chiaro, spesso screpolato a tempo secco.",
+  "attenzione": "Verifica sempre i pori e il reticolo."
+ },
+ {
+  "id": "porcinopini",
+  "nome": "Porcino dei pini",
+  "sci": "Boletus pinophilus",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Pinete e abetaie",
+  "riconoscimento": "Cappello rosso-bruno, gambo robusto con reticolo.",
+  "attenzione": "Controlla l'assenza di pori rossi."
+ },
+ {
+  "id": "gallinaccio",
+  "nome": "Gallinaccio (galletto)",
+  "sci": "Cantharellus cibarius",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi di latifoglie e conifere",
+  "riconoscimento": "Colore giallo uovo, pieghe forcute e decorrenti (non vere lamelle), profumo di albicocca.",
+  "attenzione": "Simili: fungo dell'olivo (Omphalotus olearius, tossico: lamelle vere, a cespi su legno) e falso gallinaccio (lamelle fitte e sottili)."
+ },
+ {
+  "id": "ovolo",
+  "nome": "Ovolo buono",
+  "sci": "Amanita caesarea",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Querceti e castagneti caldi",
+  "riconoscimento": "Cappello arancio-rosso, lamelle, gambo e anello GIALLI, volva bianca a sacco.",
+  "attenzione": "Si confonde con l'ovolo malefico (cappello con verruche bianche, lamelle bianche) e con l'amanita falloide: lamelle gialle = indizio chiave. Mai raccogliere ovuli chiusi senza controllare."
+ },
+ {
+  "id": "mazza",
+  "nome": "Mazza di tamburo",
+  "sci": "Macrolepiota procera",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Prati, margini dei boschi",
+  "riconoscimento": "Cappello grande a ombrello con squame brune, gambo alto «a pelle di serpente» con anello mobile.",
+  "attenzione": "Non raccogliere esemplari piccoli o dubbi (lepiote tossiche). Consumare il solo cappello ben cotto."
+ },
+ {
+  "id": "prataiolo",
+  "nome": "Prataiolo",
+  "sci": "Agaricus campestris",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Prati concimati",
+  "riconoscimento": "Cappello bianco, lamelle rosa poi bruno cioccolato, anello semplice.",
+  "attenzione": "Pericolo di confusione con Agaricus xanthodermus (odore di inchiostro, ingiallisce) e con amanite (lamelle bianche e volva)."
+ },
+ {
+  "id": "orecchione",
+  "nome": "Orecchione",
+  "sci": "Pleurotus ostreatus",
+  "stato": "commestibile",
+  "periodo": "Ottobre-febbraio",
+  "habitat": "Tronchi e ceppi di latifoglie",
+  "riconoscimento": "Cappello a conchiglia grigio-bluastro, lamelle bianche decorrenti, gambo laterale.",
+  "attenzione": "Cuoci sempre. Non confonderlo con Omphalotus (arancio)."
+ },
+ {
+  "id": "cardoncello",
+  "nome": "Cardoncello",
+  "sci": "Pleurotus eryngii",
+  "stato": "commestibile",
+  "periodo": "Ottobre-dicembre",
+  "habitat": "Pascoli con ombrellifere e cardi",
+  "riconoscimento": "Cappello nocciola, lamelle decorrenti, gambo robusto spesso eccentrico.",
+  "attenzione": "Cresce su radici di cardi (Eryngium): è un indizio utile."
+ },
+ {
+  "id": "chiodino",
+  "nome": "Chiodino",
+  "sci": "Armillaria mellea",
+  "stato": "commestibile previa cottura",
+  "periodo": "Settembre-novembre",
+  "habitat": "Ceppi e radici di latifoglie",
+  "riconoscimento": "Cespi di funghi color miele con anello, cappello con piccole squame scure.",
+  "attenzione": "Commestibile SOLO dopo scottatura e cottura prolungata. Simili pericolosi: Galerina marginata (mortale, sporata bruna) e falso chiodino (lamelle verdastre)."
+ },
+ {
+  "id": "russolaverde",
+  "nome": "Russola verde",
+  "sci": "Russula virescens / cyanoxantha",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Latifoglie",
+  "riconoscimento": "Cappello verde screpolato, lamelle bianche, carne compatta.",
+  "attenzione": "Molte russole sono acri o tossiche (es. Russula emetica): consumare solo specie certe. Non assaggiare crude per prova."
+ },
+ {
+  "id": "sanguinello",
+  "nome": "Sanguinello",
+  "sci": "Lactarius deliciosus",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Pinete",
+  "riconoscimento": "Latice arancio che diventa verdastro, cappello zonato arancio, carne arancio.",
+  "attenzione": "Altri lattari acri possono dare disturbi."
+ },
+ {
+  "id": "trombetta",
+  "nome": "Trombetta dei morti",
+  "sci": "Craterellus cornucopioides",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Faggete e querceti",
+  "riconoscimento": "A tromba, nero-grigiastro, interno liscio senza lamelle.",
+  "attenzione": "Nessun simile pericoloso comune."
+ },
+ {
+  "id": "steccherino",
+  "nome": "Steccherino dorato",
+  "sci": "Hydnum repandum",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Color crema-arancio, sotto aculei fragili invece di lamelle.",
+  "attenzione": "Nessun simile pericoloso comune."
+ },
+ {
+  "id": "prugnolo",
+  "nome": "Prugnolo",
+  "sci": "Calocybe gambosa",
+  "stato": "commestibile",
+  "periodo": "Aprile-giugno",
+  "habitat": "Prati e margini dei boschi",
+  "riconoscimento": "Bianco-crema, odore di farina, lamelle bianche fitte.",
+  "attenzione": "Si confonde con Entoloma sinuatum e Inocybe patouillardii (tossici). Lamelle bianche = prugnolo."
+ },
+ {
+  "id": "spugnola",
+  "nome": "Spugnola",
+  "sci": "Morchella esculenta / conica",
+  "stato": "commestibile previa cottura",
+  "periodo": "Marzo-maggio",
+  "habitat": "Frutteti, boschi umidi, zone bruciate",
+  "riconoscimento": "Cappello alveolato a nido d'ape, tutto cavo internamente.",
+  "attenzione": "Mai cruda. Simile: Gyromitra esculenta (tossica/mortale, cappello cerebriforme non cavo)."
+ },
+ {
+  "id": "coprino",
+  "nome": "Coprino chiomato",
+  "sci": "Coprinus comatus",
+  "stato": "commestibile",
+  "periodo": "Primavera-autunno",
+  "habitat": "Prati, bordi di strade",
+  "riconoscimento": "Cappello cilindrico bianco-squamoso che si scioglie in liquido nero.",
+  "attenzione": "Raccogli giovane e consuma in giornata; evita alcol."
+ },
+ {
+  "id": "lepistanuda",
+  "nome": "Piedi blu",
+  "sci": "Lepista nuda",
+  "stato": "commestibile previa cottura",
+  "periodo": "Ottobre-dicembre",
+  "habitat": "Lettiera di boschi",
+  "riconoscimento": "Viola-lilla, odore fruttato, sporata rosata.",
+  "attenzione": "Simile a Cortinarius violaceus (non commestibile, spore ruggine). Non crudo."
+ },
+ {
+  "id": "pioppino",
+  "nome": "Pioppino",
+  "sci": "Cyclocybe aegerita",
+  "stato": "commestibile",
+  "periodo": "Primavera-autunno",
+  "habitat": "Ceppi di pioppo e salice",
+  "riconoscimento": "Cappello bruno con anello, lamelle brune, cresce a gruppi su legno.",
+  "attenzione": "Verifica il substrato legnoso e la sporata."
+ },
+ {
+  "id": "granulato",
+  "nome": "Boleto granulato",
+  "sci": "Suillus granulatus",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete",
+  "riconoscimento": "Cappello viscido giallo-bruno, pori con gocce di latte da giovane.",
+  "attenzione": "Commestibilità mediocre."
+ },
+ {
+  "id": "falloide",
+  "nome": "Tignosa verdognola (falloide)",
+  "sci": "Amanita phalloides",
+  "stato": "mortale",
+  "periodo": "Agosto-novembre",
+  "habitat": "Querceti, castagneti, boschi misti",
+  "riconoscimento": "Cappello verde-oliva, lamelle bianche, anello e volva a sacco alla base del gambo.",
+  "attenzione": "Responsabile della maggior parte dei decessi per funghi. Sintomi dopo 6-24 ore: se hai il dubbio, vai al pronto soccorso e porta il fungo."
+ },
+ {
+  "id": "virosa",
+  "nome": "Angelo della morte",
+  "sci": "Amanita verna / virosa",
+  "stato": "mortale",
+  "periodo": "Primavera-autunno",
+  "habitat": "Boschi",
+  "riconoscimento": "Interamente bianca, anello e volva a sacco.",
+  "attenzione": "Si confonde con prataioli e ovuli bianchi."
+ },
+ {
+  "id": "muscaria",
+  "nome": "Ovolo malefico",
+  "sci": "Amanita muscaria",
+  "stato": "tossico",
+  "periodo": "Luglio-novembre",
+  "habitat": "Boschi di abete, faggio, betulla",
+  "riconoscimento": "Cappello rosso con verruche bianche, lamelle bianche, anello, base bulbosa.",
+  "attenzione": "Tossico (neurotossico). Spesso confuso con l'ovolo buono: le lamelle bianche sono il segno chiave."
+ },
+ {
+  "id": "pantherina",
+  "nome": "Panterina",
+  "sci": "Amanita pantherina",
+  "stato": "tossico",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello bruno con verruche bianche, anello, base con orlo.",
+  "attenzione": "Tossica (neurotossica)."
+ },
+ {
+  "id": "orellanus",
+  "nome": "Cortinario orellano",
+  "sci": "Cortinarius orellanus",
+  "stato": "mortale",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Querceti e castagneti",
+  "riconoscimento": "Cappello arancio-ruggine, lamelle ruggine, cortina fibrosa.",
+  "attenzione": "Danneggia i reni dopo giorni dall'ingestione."
+ },
+ {
+  "id": "galerina",
+  "nome": "Galerina marginata",
+  "sci": "Galerina marginata",
+  "stato": "mortale",
+  "periodo": "Autunno",
+  "habitat": "Legno morto di conifere e latifoglie",
+  "riconoscimento": "Piccolo, bruno-miele, anello, sporata bruno-ruggine.",
+  "attenzione": "Cresce su legno come il chiodino: pericolosissima da confondere."
+ },
+ {
+  "id": "lepiota",
+  "nome": "Lepiota bruno-incarnata",
+  "sci": "Lepiota brunneoincarnata",
+  "stato": "mortale",
+  "periodo": "Autunno",
+  "habitat": "Prati e bordi di boschi",
+  "riconoscimento": "Piccola, cappello con squame bruno-rosate, anello.",
+  "attenzione": "Non raccogliere mai lepiote piccole."
+ },
+ {
+  "id": "rivulosa",
+  "nome": "Clitocibe sbiancato",
+  "sci": "Clitocybe rivulosa / dealbata",
+  "stato": "tossico",
+  "periodo": "Autunno",
+  "habitat": "Prati e pascoli",
+  "riconoscimento": "Piccolo, bianco-grigiastro, cappello infossato, a cerchi nei prati.",
+  "attenzione": "Contiene muscarina: spesso confuso con gamberi gialli e gambesecche."
+ },
+ {
+  "id": "olearius",
+  "nome": "Fungo dell'olivo",
+  "sci": "Omphalotus olearius",
+  "stato": "tossico",
+  "periodo": "Settembre-novembre",
+  "habitat": "Ceppi di olivo, quercia, castagno",
+  "riconoscimento": "Arancio intenso, a cespi su legno, lamelle vere decorrenti.",
+  "attenzione": "Si scambia con il gallinaccio e con l'orecchione."
+ },
+ {
+  "id": "sinuatum",
+  "nome": "Entoloma livido",
+  "sci": "Entoloma sinuatum",
+  "stato": "tossico",
+  "periodo": "Primavera-autunno",
+  "habitat": "Latifoglie",
+  "riconoscimento": "Bianco-grigiastro, odore di farina, lamelle gialle poi rosate.",
+  "attenzione": "Si confonde con il prugnolo. Provoca forti disturbi gastrointestinali."
+ },
+ {
+  "id": "satanas",
+  "nome": "Boleto Satana",
+  "sci": "Rubroboletus satanas",
+  "stato": "tossico",
+  "periodo": "Giugno-settembre",
+  "habitat": "Querceti caldi su calcare",
+  "riconoscimento": "Cappello biancastro, pori rossi, gambo bulboso reticolato rosso; carne che vira all'azzurro.",
+  "attenzione": "Si confonde con i porcini: pori rossi = non è un porcino."
+ },
+ {
+  "id": "pardinum",
+  "nome": "Agarico tigrino",
+  "sci": "Tricholoma pardinum",
+  "stato": "tossico",
+  "periodo": "Autunno",
+  "habitat": "Boschi montani",
+  "riconoscimento": "Cappello grigio con squame scure disposte a cerchio, lamelle bianche.",
+  "attenzione": "Provoca gravi gastroenteriti."
+ },
+ {
+  "id": "gyromitra",
+  "nome": "Falsa spugnola",
+  "sci": "Gyromitra esculenta",
+  "stato": "mortale",
+  "periodo": "Primavera",
+  "habitat": "Boschi di conifere",
+  "riconoscimento": "Cappello bruno cerebriforme (a cervello), non alveolato.",
+  "attenzione": "Contiene giromitrina, tossica anche in cottura se non trattata."
+ },
+ {
+  "id": "xanthodermus",
+  "nome": "Prataiolo giallescente",
+  "sci": "Agaricus xanthodermus",
+  "stato": "tossico",
+  "periodo": "Estate-autunno",
+  "habitat": "Prati e giardini",
+  "riconoscimento": "Bianco, ingiallisce alla base se grattato, odore di inchiostro o fenolo.",
+  "attenzione": "Si scambia con il prataiolo."
+ },
+ {
+  "id": "paxillus",
+  "nome": "Paxillo",
+  "sci": "Paxillus involutus",
+  "stato": "mortale",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi di betulla, conifere",
+  "riconoscimento": "Cappello bruno con margine arrotolato, lamelle decorrenti che anneriscono al tocco.",
+  "attenzione": "Pericoloso per sindrome emolitica anche dopo consumi ripetuti."
+ },
+ {
+  "id": "fasciculare",
+  "nome": "Falso chiodino",
+  "sci": "Hypholoma fasciculare",
+  "stato": "tossico",
+  "periodo": "Tutto l'anno",
+  "habitat": "Ceppi",
+  "riconoscimento": "Cespi giallo-zolfo, lamelle verdastre, sapore amaro.",
+  "attenzione": "Si scambia con il chiodino."
+ },
+ {
+  "id": "nebularis",
+  "nome": "Agarico nebbioso",
+  "sci": "Clitocybe nebularis",
+  "stato": "tossico",
+  "periodo": "Autunno",
+  "habitat": "Boschi",
+  "riconoscimento": "Grigio-cenere, carne compatta, odore dolciastro.",
+  "attenzione": "Tossico per molte persone (disturbi gastrici)."
+ },
+ {
+  "id": "emetica",
+  "nome": "Russola emetica",
+  "sci": "Russula emetica",
+  "stato": "tossico",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi umidi",
+  "riconoscimento": "Cappello rosso vivo, lamelle bianche, sapore molto acre.",
+  "attenzione": "Provoca vomito."
+ },
+ {
+  "id": "felleus",
+  "nome": "Boleto amaro",
+  "sci": "Tylopilus felleus",
+  "stato": "non commestibile",
+  "periodo": "Estate-autunno",
+  "habitat": "Conifere e latifoglie",
+  "riconoscimento": "Simile al porcino ma pori rosati e reticolo scuro, sapore amarissimo.",
+  "attenzione": "Non tossico ma rovina il piatto: si riconosce dal reticolo scuro e dai pori rosa."
+ },
+ {
+  "id": "scleroderma",
+  "nome": "Falso tartufo",
+  "sci": "Scleroderma citrinum",
+  "stato": "tossico",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi acidi",
+  "riconoscimento": "Globoso, giallo-bruno con squame, interno nero-violaceo compatto.",
+  "attenzione": "Non è un tartufo: è tossico."
+ },
+ {
+  "id": "baio",
+  "nome": "Boleto baio",
+  "sci": "Imleria badia",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Conifere e faggete acide",
+  "riconoscimento": "Cappello bruno-castano viscido-lucido, tubuli giallastri che virano al blu-verde al tocco.",
+  "attenzione": "Buon fungo; raccogli giovane, spesso parassitato."
+ },
+ {
+  "id": "porcinello",
+  "nome": "Porcinello",
+  "sci": "Leccinum scabrum / aurantiacum",
+  "stato": "commestibile previa cottura",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Betulle, pioppi, querce",
+  "riconoscimento": "Gambo snello con scagliette scure (granulosità), cappello bruno o arancio, carne che annerisce o vira.",
+  "attenzione": "Da consumare ben cotto; crudo o poco cotto può dare disturbi."
+ },
+ {
+  "id": "pinarolo",
+  "nome": "Pinarolo",
+  "sci": "Suillus luteus",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete",
+  "riconoscimento": "Cappello bruno viscido, anello membranoso sul gambo, tubuli giallo-limone.",
+  "attenzione": "Togli la cuticola viscida; può essere lassativo."
+ },
+ {
+  "id": "boletodorato",
+  "nome": "Boleto dorato",
+  "sci": "Xerocomellus chrysenteron",
+  "stato": "commestibile",
+  "periodo": "Giugno-novembre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello vellutato bruno che si screpola mostrando carne rosata; tubuli giallo-verdi.",
+  "attenzione": "Qualità mediocre, carne molle; consumo moderato."
+ },
+ {
+  "id": "boletoappendic",
+  "nome": "Boleto appendicolato",
+  "sci": "Butyriboletus appendiculatus",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Querceti e faggete calcaree",
+  "riconoscimento": "Cappello ocra-bruno, gambo giallo con reticolo, carne gialla che vira al blu pallido.",
+  "attenzione": "Buon commestibile; evita se pori rossi o viraggio intenso."
+ },
+ {
+  "id": "cantarello",
+  "nome": "Cantarello",
+  "sci": "Craterellus lutescens",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Conifere muschiose",
+  "riconoscimento": "Cappello brunastro e imbuto, gambo giallo-arancio cavo, falsa lamellatura a pieghe.",
+  "attenzione": "Ottimo; non confondere con Hygrophoropsis aurantiaca."
+ },
+ {
+  "id": "finferla",
+  "nome": "Finferla (trombetta di Gallo)",
+  "sci": "Craterellus tubaeformis",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Conifere e boschi muschiosi",
+  "riconoscimento": "Piccolo imbuto bruno-giallastro cavo, falsa lamellatura grigio-gialla.",
+  "attenzione": "Consumo cotto."
+ },
+ {
+  "id": "marzuolo",
+  "nome": "Marzuolo (ceppa)",
+  "sci": "Hygrophorus marzuolus",
+  "stato": "commestibile",
+  "periodo": "Febbraio-aprile",
+  "habitat": "Conifere montane, vicino alla neve",
+  "riconoscimento": "Cappello grigio-nerastro carnoso, lamelle bianche-grigiastre, gambo bianco robusto.",
+  "attenzione": "Fungo precoce; raccogli esemplari non marci."
+ },
+ {
+  "id": "gambesecche",
+  "nome": "Gambesecche",
+  "sci": "Marasmius oreades",
+  "stato": "commestibile",
+  "periodo": "Maggio-ottobre",
+  "habitat": "Prati e radure (cerchi delle streghe)",
+  "riconoscimento": "Cappello piccolo ocra campanulato, lamelle distanziate, gambo sottile e tenace.",
+  "attenzione": "Consuma solo i cappelli; non confondere con Clitocybe rivulosa (mortale) che spesso cresce nello stesso ambiente."
+ },
+ {
+  "id": "agaricosaeva",
+  "nome": "Agarico violetto (pie' blu)",
+  "sci": "Lepista saeva",
+  "stato": "commestibile",
+  "periodo": "Settembre-dicembre",
+  "habitat": "Prati e pascoli",
+  "riconoscimento": "Cappello bruno-beige, gambo violetto-azzurro alla base.",
+  "attenzione": "Va cotto; evita esemplari con odore sgradevole."
+ },
+ {
+  "id": "moretta",
+  "nome": "Moretta",
+  "sci": "Tricholoma terreum",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete",
+  "riconoscimento": "Cappello grigio feltrato conico, lamelle bianco-grigie, odore farinoso.",
+  "attenzione": "Non confondere con Tricholoma pardinum (tossico)."
+ },
+ {
+  "id": "tricolomagrigio",
+  "nome": "Tricoloma grigio",
+  "sci": "Tricholoma portentosum",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete sabbiose",
+  "riconoscimento": "Cappello grigio-violaceo con striature radiali, lamelle bianche con riflessi gialli.",
+  "attenzione": "Controlla l'odore: deve essere farinoso, non pungente."
+ },
+ {
+  "id": "equestre",
+  "nome": "Tricoloma equestre",
+  "sci": "Tricholoma equestre",
+  "stato": "tossico",
+  "periodo": "Settembre-novembre",
+  "habitat": "Pinete sabbiose",
+  "riconoscimento": "Cappello giallo-verdastro con centro bruno, lamelle gialle.",
+  "attenzione": "Un tempo consumato, oggi riconosciuto tossico (rabdomiolisi). Non mangiare."
+ },
+ {
+  "id": "geotropa",
+  "nome": "Imbutino (clitocibe geotropo)",
+  "sci": "Infundibulicybe geotropa",
+  "stato": "commestibile",
+  "periodo": "Ottobre-dicembre",
+  "habitat": "Prati e boschi radi, in cerchi",
+  "riconoscimento": "Grande imbuto crema-nocciola, gambo robusto sodo, odore di mandorla.",
+  "attenzione": "Consuma giovane; non confondere con Clitocybe rivulosa/dealbata."
+ },
+ {
+  "id": "mugnaio",
+  "nome": "Mugnaio",
+  "sci": "Clitopilus prunulus",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi e prati",
+  "riconoscimento": "Cappello bianco feltrato, lamelle decorrenti rosa a maturità, odore di farina.",
+  "attenzione": "Occhio a Clitocybe candicans e C. rivulosa, tossici."
+ },
+ {
+  "id": "mazzarosa",
+  "nome": "Mazza di tamburo rosata",
+  "sci": "Chlorophyllum rhacodes",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-ottobre",
+  "habitat": "Boschi, giardini",
+  "riconoscimento": "Cappello squamoso bruno, carne che vira al rosso-arancio, anello mobile.",
+  "attenzione": "Può causare disturbi digestivi; non confondere con Chlorophyllum molybdites e Lepiote tossiche."
+ },
+ {
+  "id": "vescia",
+  "nome": "Vescia perlata",
+  "sci": "Lycoperdon perlatum",
+  "stato": "commestibile",
+  "periodo": "Giugno-novembre",
+  "habitat": "Boschi e prati",
+  "riconoscimento": "Piccolo corpo a pera coperto da granulazioni, interno bianco compatto da giovane.",
+  "attenzione": "Mangia solo se l'interno è bianco puro, senza abbozzo di fungo (Amanita)."
+ },
+ {
+  "id": "vesciagigante",
+  "nome": "Vescia gigante",
+  "sci": "Calvatia gigantea",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Prati",
+  "riconoscimento": "Palla bianca enorme (20-50 cm), carne bianca compatta da giovane.",
+  "attenzione": "Consuma solo se bianca all'interno."
+ },
+ {
+  "id": "laetiporo",
+  "nome": "Pollo del bosco (laetiporo)",
+  "sci": "Laetiporus sulphureus",
+  "stato": "commestibile previa cottura",
+  "periodo": "Maggio-ottobre",
+  "habitat": "Tronchi di querce, salici, ciliegi",
+  "riconoscimento": "Mensole sovrapposte giallo-arancio vivo, carne tenera da giovane.",
+  "attenzione": "Solo esemplari giovani e ben cotti; può dare disturbi."
+ },
+ {
+  "id": "linguabue",
+  "nome": "Lingua di bue",
+  "sci": "Fistulina hepatica",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Castagni e querce",
+  "riconoscimento": "Corpo carnoso rosso-fegato a lingua, sanguinante al taglio.",
+  "attenzione": "Sapore acido: usata anche cruda in insalata."
+ },
+ {
+  "id": "barbaleone",
+  "nome": "Barba di leone",
+  "sci": "Hericium erinaceus",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Tronchi di latifoglie",
+  "riconoscimento": "Massa bianca con lunghi aculei penduli.",
+  "attenzione": "Giovane, bianco; non raccogliere se ingiallito."
+ },
+ {
+  "id": "cavolfiore",
+  "nome": "Cavolfiore (spugnola dei pini)",
+  "sci": "Sparassis crispa",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Base di pini",
+  "riconoscimento": "Ammasso crespo giallo-crema a forma di spugna ondulata.",
+  "attenzione": "Pulisci con cura: trattiene terra e aghi."
+ },
+ {
+  "id": "maitake",
+  "nome": "Ciuffo (maitake)",
+  "sci": "Grifola frondosa",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Base di querce e castagni",
+  "riconoscimento": "Ammasso a rosetta di lobi grigio-bruni con pori bianchi.",
+  "attenzione": "Giovane è tenero; cuoci a lungo."
+ },
+ {
+  "id": "famigliola",
+  "nome": "Famigliola buona",
+  "sci": "Kuehneromyces mutabilis",
+  "stato": "commestibile",
+  "periodo": "Marzo-novembre",
+  "habitat": "Ceppi di latifoglie",
+  "riconoscimento": "Cappello igrofano bruno, anello membranoso sul gambo, gruppi fitti.",
+  "attenzione": "Molto simile a Galerina marginata (mortale): non raccogliere se non sei esperto."
+ },
+ {
+  "id": "arvensis",
+  "nome": "Prataiolo maggiore",
+  "sci": "Agaricus arvensis",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Prati e pascoli",
+  "riconoscimento": "Grande cappello bianco, anello a doppio strato, odore di anice.",
+  "attenzione": "Evita varietà ingiallenti con odore di inchiostro (Agaricus xanthodermus)."
+ },
+ {
+  "id": "silvicola",
+  "nome": "Prataiolo dei boschi",
+  "sci": "Agaricus silvicola",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Conifere e latifoglie",
+  "riconoscimento": "Cappello bianco crema ingiallente, odore di anice.",
+  "attenzione": "Non confondere con Amanita (lamelle bianche e volva)."
+ },
+ {
+  "id": "rubescens",
+  "nome": "Tignosa vinata",
+  "sci": "Amanita rubescens",
+  "stato": "commestibile previa cottura",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello bruno-rosato con verruche grigie, carne che arrossa al taglio.",
+  "attenzione": "Tossica se cruda: sempre ben cotta. Occhio a Amanita pantherina."
+ },
+ {
+  "id": "russolavesca",
+  "nome": "Russola vesca",
+  "sci": "Russula vesca",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi di latifoglie",
+  "riconoscimento": "Cappello rosato-brunastro che lascia scoperto il bordo, lamelle bianche.",
+  "attenzione": "Controlla che il sapore sia dolce, non piccante."
+ },
+ {
+  "id": "lactariusvolemus",
+  "nome": "Lattario volemo",
+  "sci": "Lactarius volemus",
+  "stato": "commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi di latifoglie",
+  "riconoscimento": "Cappello arancio-bruno, latte bianco abbondante dolce, odore di pesce quando secco.",
+  "attenzione": "Non usare funghi dal latte amaro o acre."
+ },
+ {
+  "id": "latteloana",
+  "nome": "Latte lana",
+  "sci": "Lactarius torminosus",
+  "stato": "tossico",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Betulle",
+  "riconoscimento": "Cappello rosato con bordo lanuginoso, latte bianco acre.",
+  "attenzione": "Irritante per l'apparato digerente: non mangiare."
+ },
+ {
+  "id": "elvella",
+  "nome": "Elvella crespa",
+  "sci": "Helvella crispa",
+  "stato": "commestibile previa cottura",
+  "periodo": "Settembre-novembre",
+  "habitat": "Boschi radi",
+  "riconoscimento": "Cappello bianco crema a sella irregolare, gambo scanalato.",
+  "attenzione": "Solo cotta e in piccole quantità; da evitare per molte persone."
+ },
+ {
+  "id": "coprinoinchiostro",
+  "nome": "Coprino atramentario",
+  "sci": "Coprinopsis atramentaria",
+  "stato": "tossico",
+  "periodo": "Primavera-autunno",
+  "habitat": "Prati, ceppi",
+  "riconoscimento": "Cappello grigio ovale che si scioglie in liquido nero.",
+  "attenzione": "Tossico se consumato con alcol anche a distanza di giorni."
+ },
+ {
+  "id": "calopus",
+  "nome": "Boleto dal piede rosso",
+  "sci": "Caloboletus calopus",
+  "stato": "non commestibile",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Conifere",
+  "riconoscimento": "Gambo giallo con reticolo rosso, carne gialla che vira al blu, sapore amaro.",
+  "attenzione": "Amarissimo e non commestibile; possibile confusione con porcini."
+ },
+ {
+  "id": "legaliae",
+  "nome": "Boleto di Le Gal",
+  "sci": "Rubroboletus legaliae",
+  "stato": "tossico",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi di querce",
+  "riconoscimento": "Cappello rosato, tubuli e gambo con rete rossa, carne che vira al blu.",
+  "attenzione": "Tossico crudo e anche da cotto; non confondere con porcini."
+ },
+ {
+  "id": "scarpone",
+  "nome": "Boleto scarpone",
+  "sci": "Neoboletus luridiformis",
+  "stato": "commestibile previa cottura",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi misti",
+  "riconoscimento": "Cappello bruno velluto, tubuli e pori rossi, carne che vira al blu intenso.",
+  "attenzione": "Tossico crudo: sempre ben cotto. Non mangiare dopo alcol."
+ },
+ {
+  "id": "luridus",
+  "nome": "Boleto lurido",
+  "sci": "Suillellus luridus",
+  "stato": "commestibile previa cottura",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi di latifoglie",
+  "riconoscimento": "Pori arancio-rossi, gambo con reticolo rosso e carne che vira al blu.",
+  "attenzione": "Tossico se mangiato crudo o con alcol; consumo sconsigliato ai non esperti."
+ },
+ {
+  "id": "ramariabotrytis",
+  "nome": "Ramaria botrytis",
+  "sci": "Ramaria botrytis",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Boschi di latifoglie",
+  "riconoscimento": "Cespuglio ramificato con punte rosate, gambo bianco carnoso.",
+  "attenzione": "Specie simili tossiche: non raccogliere Ramaria con colori gialli o arancio intensi."
+ },
+ {
+  "id": "ramariaformosa",
+  "nome": "Ramaria formosa",
+  "sci": "Ramaria formosa",
+  "stato": "tossico",
+  "periodo": "Settembre-novembre",
+  "habitat": "Faggete",
+  "riconoscimento": "Rami rosa-arancio con apici giallastri, gambo bianco.",
+  "attenzione": "Lassativa e tossica."
+ },
+ {
+  "id": "hygrophoropsis",
+  "nome": "Finto gallinaccio",
+  "sci": "Hygrophoropsis aurantiaca",
+  "stato": "non commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Conifere",
+  "riconoscimento": "Cappello arancio con lamelle arancio fitte e ripetutamente biforcate.",
+  "attenzione": "Non commestibile; spesso scambiato per gallinaccio ma ha lamelle vere, non pieghe."
+ },
+ {
+  "id": "erubescens",
+  "nome": "Inocibe rosseggiante",
+  "sci": "Inocybe erubescens",
+  "stato": "mortale",
+  "periodo": "Maggio-agosto",
+  "habitat": "Boschi e parchi calcarei",
+  "riconoscimento": "Cappello conico bianco che si macchia di rosso, lamelle crema, odore di spermatico.",
+  "attenzione": "Muscarina in dosi mortali: non raccogliere piccoli funghi sconosciuti."
+ },
+ {
+  "id": "hebeloma",
+  "nome": "Hebeloma",
+  "sci": "Hebeloma crustuliniforme",
+  "stato": "tossico",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Boschi",
+  "riconoscimento": "Cappello color crema-ocra viscido, odore di rafano.",
+  "attenzione": "Gastroenterico: da evitare."
+ },
+ {
+  "id": "lepiotacristata",
+  "nome": "Lepiota crestata",
+  "sci": "Lepiota cristata",
+  "stato": "tossico",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi e prati",
+  "riconoscimento": "Cappello piccolo bianco con squame rosso-brune, odore di gomma.",
+  "attenzione": "Può essere mortale per amatossine: non mangiare lepiote piccole."
+ },
+ {
+  "id": "citrina",
+  "nome": "Tignosa citrina",
+  "sci": "Amanita citrina",
+  "stato": "non commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi",
+  "riconoscimento": "Cappello giallo-limone con residui del velo, odore di patata cruda.",
+  "attenzione": "Tossica; evita ogni Amanita non identificata con certezza."
+ },
+ {
+  "id": "mycenapura",
+  "nome": "Mycena pura",
+  "sci": "Mycena pura",
+  "stato": "tossico",
+  "periodo": "Settembre-novembre",
+  "habitat": "Boschi",
+  "riconoscimento": "Cappello rosa-lilla, odore di ravanello.",
+  "attenzione": "Contiene muscarina: non commestibile."
+ },
+ {
+  "id": "lucidum",
+  "nome": "Ganoderma lucido",
+  "sci": "Ganoderma lucidum",
+  "stato": "non commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Ceppi e radici di latifoglie",
+  "riconoscimento": "Mensola legnosa lucida rosso-bruna con pori bianchi.",
+  "attenzione": "Non commestibile (usato per estratti)."
+ },
+ {
+  "id": "versicolor",
+  "nome": "Coda di tacchino",
+  "sci": "Trametes versicolor",
+  "stato": "non commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Ceppi e tronchi",
+  "riconoscimento": "Ventagli sottili e concentrici di vari colori.",
+  "attenzione": "Non commestibile."
+ },
+ {
+  "id": "orecchiogiuda",
+  "nome": "Orecchio di Giuda",
+  "sci": "Auricularia auricula-judae",
+  "stato": "commestibile",
+  "periodo": "Autunno-inverno",
+  "habitat": "Sambuco e altre latifoglie",
+  "riconoscimento": "Gelatinoso, a forma di orecchio bruno-vinoso.",
+  "attenzione": "Si consuma cotto; usato in cucina orientale."
+ },
+ {
+  "id": "imbricato",
+  "nome": "Steccherino squamoso",
+  "sci": "Sarcodon imbricatus",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Conifere",
+  "riconoscimento": "Cappello con grandi squame brune, aculei grigio-brunastri al posto delle lamelle.",
+  "attenzione": "Può essere amaro: bollire e scartare l'acqua."
+ },
+ {
+  "id": "pratensis",
+  "nome": "Prataiolo ombrello",
+  "sci": "Cuphophyllus pratensis",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Prati e pascoli",
+  "riconoscimento": "Cappello arancio-camoscio ombrelliforme, lamelle decorrenti spaziate.",
+  "attenzione": "Ottimo; controlla di non confondere con piccoli Hygrophorus non commestibili."
+ },
+ {
+  "id": "decastes",
+  "nome": "Agarico a ciuffi",
+  "sci": "Lyophyllum decastes",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Margini di strade, campi",
+  "riconoscimento": "Cappello bruno-grigio in grandi ciuffi.",
+  "attenzione": "Cuoci bene; rischio confusione con Entoloma sinuatum."
+ },
+ {
+  "id": "volvarisguaina",
+  "nome": "Amanita vaginata",
+  "sci": "Amanita vaginata",
+  "stato": "commestibile con cautela",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi",
+  "riconoscimento": "Cappello grigio striato, senza anello, volva a guaina alla base.",
+  "attenzione": "Mangiare solo se esperto: confusione con amanite mortali. Sconsigliato per i principianti."
+ },
+ {
+  "id": "boleto-delle-betulle",
+  "nome": "Boleto delle betulle",
+  "sci": "Leccinum scabrum",
+  "stato": "commestibile",
+  "periodo": "Giugno-novembre",
+  "habitat": "Sotto le betulle, boschi e brughiere umide",
+  "riconoscimento": "Cappello bruno-grigiastro, tubuli bianchi, gambo con squame scure; carne bianca che con il taglio resta chiara.",
+  "attenzione": "Cuocilo sempre a lungo. Consumato in quantità o poco cotto può dare disturbi digestivi."
+ },
+ {
+  "id": "leccino-rosso",
+  "nome": "Leccino rosso",
+  "sci": "Leccinum aurantiacum",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Sotto pioppi tremuli e querce",
+  "riconoscimento": "Cappello arancio-rossastro, gambo con squame bruno-rossicce, carne che annerisce al taglio.",
+  "attenzione": "Commestibile solo ben cotto. Non confonderlo con boleti a pori rossi, che sono tossici."
+ },
+ {
+  "id": "pinarolo-bovino",
+  "nome": "Pinarolo bovino",
+  "sci": "Suillus bovinus",
+  "stato": "commestibile con cautela",
+  "periodo": "Agosto-novembre",
+  "habitat": "Pinete, spesso in gruppi",
+  "riconoscimento": "Cappello viscido ocra-rosato, pori larghi e angolosi gialli-olivastri, gambo senza anello.",
+  "attenzione": "Qualità mediocre, carne gommosa. Elimina la cuticola viscida e cuoci bene."
+ },
+ {
+  "id": "igroforo-eburneo",
+  "nome": "Igroforo eburneo",
+  "sci": "Hygrophorus eburneus",
+  "stato": "commestibile con cautela",
+  "periodo": "Ottobre-dicembre",
+  "habitat": "Faggete e boschi misti, fresco e umido",
+  "riconoscimento": "Interamente bianco, molto viscido, lamelle spaziate, odore lieve di limone.",
+  "attenzione": "Poco consigliato: confondibile con altri igrofori e funghi bianchi tossici. Fai controllare da un esperto."
+ },
+ {
+  "id": "igroforo-rosato",
+  "nome": "Igroforo rosato",
+  "sci": "Hygrophorus russula",
+  "stato": "commestibile con cautela",
+  "periodo": "Settembre-novembre",
+  "habitat": "Querceti e boschi caldi",
+  "riconoscimento": "Cappello rosso vinoso a chiazze, lamelle bianche con macchie rosse, carne compatta e amarognola.",
+  "attenzione": "Va sbollentato per attenuare l'amaro. Controlla sempre la specie."
+ },
+ {
+  "id": "russola-cianoxantha",
+  "nome": "Russola cianoxantha",
+  "sci": "Russula cyanoxantha",
+  "stato": "commestibile",
+  "periodo": "Giugno-ottobre",
+  "habitat": "Boschi di latifoglie",
+  "riconoscimento": "Cappello variabile viola-verdastro, lamelle bianche elastiche e untuose al tatto (non fragili).",
+  "attenzione": "Le russole si riconoscono dal gusto dolce: le acri o piccanti sono da scartare. Non assaggiare mai funghi incerti."
+ },
+ {
+  "id": "russola-integra",
+  "nome": "Russola integra",
+  "sci": "Russula integra",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Boschi di conifere e misti",
+  "riconoscimento": "Cappello bruno-rossastro, lamelle crema, sapore di nocciola, carne compatta.",
+  "attenzione": "Specie del gruppo russole, alcune simili sono tossiche. Scarta ogni russola dal sapore piccante."
+ },
+ {
+  "id": "mazza-di-tamburo-minore",
+  "nome": "Mazza di tamburo minore",
+  "sci": "Macrolepiota excoriata",
+  "stato": "commestibile",
+  "periodo": "Settembre-novembre",
+  "habitat": "Prati e pascoli, margini boschivi",
+  "riconoscimento": "Cappello bianco-crema che si screpola in squame, anello mobile, gambo liscio non zigrinato.",
+  "attenzione": "Non confonderla con le piccole Lepiota tossiche o mortali (squame brune, gambo liscio e anello fisso)."
+ },
+ {
+  "id": "boleto-pigna",
+  "nome": "Boleto pigna",
+  "sci": "Strobilomyces strobilaceus",
+  "stato": "commestibile con cautela",
+  "periodo": "Luglio-ottobre",
+  "habitat": "Boschi di latifoglie e conifere",
+  "riconoscimento": "Cappello e gambo coperti di squame nere cotonose a forma di pigna, carne bianca che vira al rosso e poi al nero.",
+  "attenzione": "Commestibile giovane e ben cotto, sapore modesto."
+ },
+ {
+  "id": "boleto-cianescente",
+  "nome": "Boleto cianescente",
+  "sci": "Gyroporus cyanescens",
+  "stato": "commestibile",
+  "periodo": "Agosto-ottobre",
+  "habitat": "Boschi acidi, castagneti, suoli sabbiosi",
+  "riconoscimento": "Giallo pallido, carne bianca che diventa blu intenso e subito al taglio, gambo cavo e fragile.",
+  "attenzione": "Specie in rarefazione, in alcune zone protetta: controlla le norme locali."
+ },
+ {
+  "id": "pleuroto-polmonare",
+  "nome": "Pleuroto polmonare",
+  "sci": "Pleurotus pulmonarius",
+  "stato": "commestibile",
+  "periodo": "Primavera-autunno",
+  "habitat": "Su tronchi e ceppi di latifoglie",
+  "riconoscimento": "Cappello a ventaglio bianco-grigiastro, lamelle decorrenti, gambo laterale cortissimo.",
+  "attenzione": "Raccogli esemplari giovani, i vecchi sono coriacei. Evita funghi su legno trattato."
+ },
+ {
+  "id": "fungo-dell-inverno",
+  "nome": "Fungo dell'inverno",
+  "sci": "Flammulina velutipes",
+  "stato": "commestibile",
+  "periodo": "Novembre-marzo",
+  "habitat": "Su ceppi e tronchi di latifoglie, anche con il gelo",
+  "riconoscimento": "Cappello arancio-bruno viscido, gambo vellutato bruno scuro, in ciuffi.",
+  "attenzione": "Rischio di confusione con Galerina marginata (mortale, spore brune). Controlla sempre la sporata."
+ },
+ {
+  "id": "agrocybe-precoce",
+  "nome": "Agrocybe precoce",
+  "sci": "Agrocybe praecox",
+  "stato": "commestibile",
+  "periodo": "Aprile-giugno",
+  "habitat": "Prati, giardini, bordi di strade",
+  "riconoscimento": "Cappello crema, lamelle bruno-tabacco, anello membranoso, odore farinoso.",
+  "attenzione": "Simile a funghi del genere Inocybe e Hebeloma, tossici. Raccoglila solo se certa."
+ },
+ {
+  "id": "stropharia-rugoso-annulata",
+  "nome": "Stropharia rugoso-annulata",
+  "sci": "Stropharia rugosoannulata",
+  "stato": "commestibile",
+  "periodo": "Maggio-ottobre",
+  "habitat": "Pacciame, trucioli di legno, orti",
+  "riconoscimento": "Cappello bruno-vinaccia, lamelle grigio-violacee, anello grande e rugoso a ruota dentata.",
+  "attenzione": "Raccogli esemplari giovani, e lontano da zone inquinate."
+ },
+ {
+  "id": "steccherino-rossastro",
+  "nome": "Steccherino rossastro",
+  "sci": "Hydnum rufescens",
+  "stato": "commestibile",
+  "periodo": "Agosto-novembre",
+  "habitat": "Boschi di conifere e latifoglie",
+  "riconoscimento": "Simile allo steccherino dorato ma più piccolo, arancio-rossastro, con aculei al posto delle lamelle.",
+  "attenzione": "Cuoci bene, il sapore può essere leggermente amaro nei vecchi."
+ },
+ {
+  "id": "poliporo-squamoso",
+  "nome": "Poliporo squamoso",
+  "sci": "Cerioporus squamosus",
+  "stato": "commestibile con cautela",
+  "periodo": "Aprile-giugno",
+  "habitat": "Ceppi e tronchi di latifoglie (frassino, olmo, acero)",
+  "riconoscimento": "Cappello a ventaglio ocra con squame brune concentriche, gambo laterale nero alla base, odore di cetriolo.",
+  "attenzione": "Mangiabile solo giovane e tenero, altrimenti legnoso."
+ },
+ {
+  "id": "orecchio-di-lepre",
+  "nome": "Orecchio di lepre",
+  "sci": "Otidea onotica",
+  "stato": "commestibile con cautela",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi di latifoglie e conifere, su suolo",
+  "riconoscimento": "Forma a orecchio allungato, arancio-rosato all'interno, esterno liscio più pallido.",
+  "attenzione": "Poco conosciuto: consumo solo se identificato con certezza e ben cotto."
+ },
+ {
+  "id": "pluteo-cervino",
+  "nome": "Pluteo cervino",
+  "sci": "Pluteus cervinus",
+  "stato": "commestibile con cautela",
+  "periodo": "Tutto l'anno",
+  "habitat": "Su ceppi e legno morto",
+  "riconoscimento": "Cappello bruno-fuligginoso, lamelle bianche poi rosate, spore rosa, gambo con fibrille.",
+  "attenzione": "Commestibile mediocre; odore di rafano. Non confonderlo con Entoloma e funghi tossici dalle lamelle rosa."
+ },
+ {
+  "id": "amanita-primaverile",
+  "nome": "Amanita primaverile",
+  "sci": "Amanita verna",
+  "stato": "mortale",
+  "periodo": "Maggio-settembre",
+  "habitat": "Boschi di latifoglie, soprattutto in aree calde",
+  "riconoscimento": "Tutta bianca con volva a sacco, anello membranoso, lamelle bianche. Simile agli champignon e alle Amanita commestibili.",
+  "attenzione": "MORTALE come l'Amanita phalloides (amatossine). Non raccogliere mai funghi bianchi con anello e volva."
+ },
+ {
+  "id": "cortinario-rosso-sangue",
+  "nome": "Cortinario rosso sangue",
+  "sci": "Cortinarius rubellus",
+  "stato": "mortale",
+  "periodo": "Settembre-novembre",
+  "habitat": "Boschi di conifere acidi e muschiosi",
+  "riconoscimento": "Cappello conico bruno-rossastro, lamelle color ruggine, cortina fugace sul gambo.",
+  "attenzione": "MORTALE (orellanina). I sintomi arrivano dopo 2-14 giorni e colpiscono i reni."
+ },
+ {
+  "id": "lepiota-di-helv",
+  "nome": "Lepiota di Helvé",
+  "sci": "Lepiota helveola",
+  "stato": "mortale",
+  "periodo": "Estate-autunno",
+  "habitat": "Prati, giardini, margini boschivi",
+  "riconoscimento": "Piccola (3-5 cm), cappello con squame rosa-brune su fondo chiaro, anello fugace, gambo sottile.",
+  "attenzione": "MORTALE (amatossine). Evita ogni piccola lepiota: la sicurezza di determinazione è difficilissima."
+ },
+ {
+  "id": "pholiota-squarrosa",
+  "nome": "Pholiota squarrosa",
+  "sci": "Pholiota squarrosa",
+  "stato": "tossico",
+  "periodo": "Settembre-novembre",
+  "habitat": "Alla base di latifoglie vive o morte, in ciuffi",
+  "riconoscimento": "Cappello giallo-ocra con squame brune ritte, lamelle giallastre poi brune, odore agliaceo.",
+  "attenzione": "Tossico (disturbi digestivi), peggiora con l'alcol. Simile a funghi commestibili del genere Kuehneromyces."
+ },
+ {
+  "id": "tricolomopsis-rutilante",
+  "nome": "Tricolomopsis rutilante",
+  "sci": "Tricholomopsis rutilans",
+  "stato": "non commestibile",
+  "periodo": "Luglio-novembre",
+  "habitat": "Su tronchi e ceppi di conifere",
+  "riconoscimento": "Cappello giallo con squamette porporine, lamelle gialle, gambo giallo punteggiato di porpora.",
+  "attenzione": "Sapore e odore sgradevoli (muffa, rapa). Non consigliata."
+ },
+ {
+  "id": "amanita-ovoidea",
+  "nome": "Amanita ovoidea",
+  "sci": "Amanita ovoidea",
+  "stato": "non commestibile",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi caldi, querceti e macchia mediterranea",
+  "riconoscimento": "Tutta bianca, grande, cappello con orlo appendicolato, anello a gonna, volva membranosa.",
+  "attenzione": "Considerata sospetta e causa di intossicazioni. Confondibile con Amanita virosa e A. verna (mortali)."
+ },
+ {
+  "id": "tignosa-grigia",
+  "nome": "Tignosa grigia",
+  "sci": "Amanita spissa",
+  "stato": "non commestibile",
+  "periodo": "Estate-autunno",
+  "habitat": "Boschi di conifere e latifoglie",
+  "riconoscimento": "Cappello grigio-brunastro con verruche grigie, anello striato in alto, bulbo con cercini di volva.",
+  "attenzione": "Sospetta, confondibile con Amanita pantherina (tossica). Non raccogliere."
+ },
+ {
+  "id": "fungo-dell-esca",
+  "nome": "Fungo dell'esca",
+  "sci": "Fomes fomentarius",
+  "stato": "non commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Su faggi e betulle, legno vivo e morto",
+  "riconoscimento": "Grande mensola a zoccolo, grigia con bande concentriche, durissima, carne feltrosa bruna.",
+  "attenzione": "Non commestibile, usato storicamente come esca per il fuoco."
+ },
+ {
+  "id": "poliporo-delle-betulle",
+  "nome": "Poliporo delle betulle",
+  "sci": "Piptoporus betulinus",
+  "stato": "non commestibile",
+  "periodo": "Tutto l'anno",
+  "habitat": "Su betulle morenti o morte",
+  "riconoscimento": "Mensola bianco-crema a semicerchio, spessa, con la superficie liscia e sotto una finissima rete di pori.",
+  "attenzione": "Non commestibile (amaro, coriaceo). Parassita delle betulle."
+ },
+ {
+  "id": "satirione",
+  "nome": "Satirione",
+  "sci": "Phallus impudicus",
+  "stato": "non commestibile",
+  "periodo": "Giugno-novembre",
+  "habitat": "Boschi, giardini, humus ricco",
+  "riconoscimento": "Dall'uovo bianco emerge un gambo spugnoso bianco con cappello mucillaginoso verde-oliva, odore fetido.",
+  "attenzione": "Non commestibile da adulto (si consuma talvolta lo stadio uovo in alcune tradizioni, non consigliato)."
+ },
+ {
+  "id": "fungo-gabbia",
+  "nome": "Fungo gabbia",
+  "sci": "Clathrus ruber",
+  "stato": "non commestibile",
+  "periodo": "Estate-autunno",
+  "habitat": "Prati, giardini, boschi radi",
+  "riconoscimento": "Struttura a rete rosso-arancio con gleba nerastra maleodorante.",
+  "attenzione": "Non commestibile, odore di carne in putrefazione."
+ }
 ]

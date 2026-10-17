@@ -22,7 +22,8 @@
     "@capacitor/share": "^8.0.3",
     "@capacitor/status-bar": "^8.0.4",
     "idb-keyval": "^6.2.1",
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "leaflet-rotate": "^0.2.8"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",

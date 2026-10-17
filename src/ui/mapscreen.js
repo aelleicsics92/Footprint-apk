@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import 'leaflet-rotate';
 import 'leaflet/dist/leaflet.css';
 import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, downloadArea } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
@@ -16,7 +17,6 @@ import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
 import { sunTimes } from '../lib/sun.js';
 import { notifyNow } from '../lib/notify.js';
 import { getCoverage } from '../lib/coverage.js';
-import { openTerrain } from './extras.js';
 
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
@@ -35,6 +35,9 @@ export function mountMap(el) {
       <div class="hud" id="hud"><div class="row2"><span>In attesa del GPS…</span></div></div>
     </div>
     <button class="wx-chip" id="wx-chip" aria-label="Meteo" hidden></button>
+    <button class="north-btn" id="btn-north" aria-label="Nord">
+      <svg viewBox="0 0 48 48" width="44" height="44" id="north-needle"><circle cx="24" cy="24" r="22" fill="rgba(255,253,246,.94)" stroke="#12372a" stroke-width="2"/><path d="M24 7l6 17H18z" fill="#c0392b"/><path d="M24 41l-6-17h12z" fill="#33403a"/><circle cx="24" cy="24" r="2.5" fill="#fff"/><text x="24" y="6.5" text-anchor="middle" font-size="7" font-weight="700" fill="#12372a" dy="5" style="display:none">N</text></svg>
+    </button>
     <div class="map-tools">
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
@@ -46,8 +49,18 @@ export function mountMap(el) {
 
   const s = getSettings();
   const saved = lsGet('fp.view');
-  map = L.map('map', { zoomControl: false, attributionControl: true, preferCanvas: true, worldCopyJump: false, zoomSnap: 0.5, zoomDelta: 1, maxZoom: 20, minZoom: 4 });
+  map = L.map('map', { zoomControl: false, attributionControl: true, preferCanvas: true, rotate: true, touchRotate: true, rotateControl: false, bearing: 0, worldCopyJump: false, zoomSnap: 0.5, zoomDelta: 1, maxZoom: 20, minZoom: 4 });
   map.attributionControl.setPrefix(false);
+  window.__fpmap = map;
+  const needle = root.querySelector('#north-needle');
+  const onRot = () => {
+    const b = map.getBearing ? map.getBearing() : 0;
+    needle.style.transform = `rotate(${-b}deg)`;
+    root.querySelector('#btn-north').classList.toggle('rot', Math.abs(b) > 0.5);
+    onHeading(lastHeading);
+  };
+  map.on('rotate', onRot);
+  root.querySelector('#btn-north').onclick = () => map.setBearing(0);
   map.setView(saved ? [saved.lat, saved.lng] : [42.3, 12.6], saved ? saved.zoom : 6);
   baseLayers = { sat: makeLayer('sat'), topo: makeLayer('topo') };
   trailsLayer = makeLayer('trails', { opacity: 0.95, zIndex: 5 });
@@ -189,9 +202,13 @@ function onPos(p) {
   updateHud();
 }
 
+let lastHeading = 0;
 function onHeading(h) {
+  if (h == null) return;
+  lastHeading = h;
   const c = userMarker && userMarker.getElement() && userMarker.getElement().querySelector('.cone');
-  if (c) c.style.transform = `rotate(${h}deg)`;
+  const b = map && map.getBearing ? map.getBearing() : 0;
+  if (c) c.style.transform = `rotate(${h - b}deg)`;
 }
 
 function updateHud() {
@@ -343,7 +360,6 @@ function openLayers() {
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Evidenzia le zone dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>In rosso i punti dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Terreno e sole</b><small>Pendenza ed esposizione al centro della mappa</small></div><button class="btn ghost small" id="ly-terrain">Apri</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Colora il bosco dove sei già passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
@@ -367,7 +383,6 @@ function openLayers() {
     renderWaypoints();
   };
   sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
-  sh.body.querySelector('#ly-terrain').onclick = () => { const c = map.getCenter(); sh.close(); openTerrain({ lat: c.lat, lon: c.lng }); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-year').onchange = filt;
