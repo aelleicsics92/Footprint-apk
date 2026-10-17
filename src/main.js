@@ -18,6 +18,7 @@ import { mountFungi } from './ui/fungiscreen.js';
 import { mountMore } from './ui/more.js';
 import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
+import { initIncomingFiles } from './lib/importer.js';
 
 const TABS = [
   ['map', 'Mappa', 'map'],
@@ -81,6 +82,7 @@ async function boot() {
   showTab('map');
 
   startWatch();
+  initIncomingFiles();
   startCompass();
   setWakeLock(getSettings().keepAwake);
   recover();

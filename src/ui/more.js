@@ -11,6 +11,7 @@ import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
 import { openRadar } from './extras.js';
+import { importTexts } from '../lib/importer.js';
 
 export function mountMore(el) {
   const items = [
@@ -20,6 +21,7 @@ export function mountMore(el) {
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
+    ['nav', 'Garmin GPSMAP', 'Importa ed esporta waypoint e tracce', openGarmin],
     ['upload', 'Importa file GPS', 'GPX, KML, GeoJSON, TCX, LOC (Garmin e altri)', importFiles],
     ['share', 'Esporta', 'Tutto o per periodo (es. Ottobre 2026), GPX o KML', exportAll],
     ['sliders', 'Impostazioni', 'Traccia, emergenza, AI, bussola', openSettings],
@@ -194,24 +196,23 @@ function importFiles() {
   inp.multiple = true;
   inp.accept = '*/*';
   inp.onchange = async () => {
-    let w = 0, t = 0, err = 0;
-    for (const f of Array.from(inp.files || [])) {
-      try {
-        if (/\.kmz$/i.test(f.name)) throw new Error('KMZ non supportato: esporta in KML');
-        const r = parseGpsText(await f.text(), f.name);
-        w += await mergeWaypoints(r.waypoints);
-        for (const tr of r.tracks) {
-          await saveTrack(tr);
-          t++;
-        }
-      } catch (e) {
-        err++;
-        console.warn(f.name, e);
-      }
-    }
-    toast(err && !w && !t ? 'Formato non riconosciuto' : `Importati ${w} waypoint e ${t} tracce${err ? ` (${err} file non letti)` : ''}`, 3800);
+    const files = [];
+    for (const f of Array.from(inp.files || [])) files.push({ name: f.name, text: await f.text() });
+    await importTexts(files);
   };
   inp.click();
+}
+
+// ---------- Garmin ----------
+function openGarmin() {
+  openPage('Garmin GPSMAP', (pg) => {
+    pg.body.innerHTML = `<div style="padding:14px" class="stack">
+      <div class="card"><h3>Dal Garmin a Footprint</h3><p style="margin:0 0 10px;line-height:1.5;font-size:.9rem"><b>Con cavo USB (OTG):</b> collega il GPSMAP al telefono, premi "Importa" e scegli i file nella memoria del Garmin: <i>Garmin/GPX</i> per i waypoint e <i>Garmin/GPX/Current/Current.gpx</i> per la traccia corrente (le registrate stanno in <i>Archive</i>).<br><b>Con Garmin Explore:</b> esporta un file GPX e scegli Footprint dal menu Condividi, si importa da solo.</p><button class="btn primary big" id="g-imp">${ico('upload', 18)} Importa dal Garmin</button></div>
+      <div class="card"><h3>Da Footprint al Garmin</h3><p style="margin:0 0 10px;line-height:1.5;font-size:.9rem">Crea un unico file GPX con i tuoi waypoint (con i simboli Garmin) e le tracce. Salvalo con USB nella cartella <i>Garmin/GPX</i> del GPSMAP: i punti compaiono nell'elenco waypoint dell'apparecchio.</p><button class="btn ghost big" id="g-exp">${ico('share', 18)} Prepara il file per il Garmin</button></div>
+      <div class="infobox">Il collegamento Bluetooth in tempo reale non è disponibile: il Bluetooth del GPSMAP 65s parla solo con le app Garmin. Servirebbe un'app Connect IQ sul Garmin.</div></div>`;
+    pg.body.querySelector('#g-imp').onclick = importFiles;
+    pg.body.querySelector('#g-exp').onclick = () => exportAll();
+  });
 }
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];

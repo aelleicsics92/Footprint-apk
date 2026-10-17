@@ -1,0 +1,99 @@
+package it.footprint.trail;
+
+import android.content.ClipData;
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Riceve file GPX/KML aperti o condivisi con Footprint (es. da Garmin Explore o dal file manager). */
+@CapacitorPlugin(name = "IntentFiles")
+public class IntentFilesPlugin extends Plugin {
+    private static final List<JSObject> pending = new ArrayList<>();
+    private static final int MAX_BYTES = 12 * 1024 * 1024;
+
+    public static synchronized List<JSObject> collect(Context ctx, Intent it) {
+        List<JSObject> found = new ArrayList<>();
+        if (it == null || it.getAction() == null) return found;
+        List<Uri> uris = new ArrayList<>();
+        String a = it.getAction();
+        try {
+            if (Intent.ACTION_VIEW.equals(a) && it.getData() != null) uris.add(it.getData());
+            else if (Intent.ACTION_SEND.equals(a)) {
+                Uri u = it.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (u != null) uris.add(u);
+            } else if (Intent.ACTION_SEND_MULTIPLE.equals(a)) {
+                ArrayList<Uri> l = it.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+                if (l != null) uris.addAll(l);
+            }
+            if (uris.isEmpty() && it.getClipData() != null) {
+                ClipData cd = it.getClipData();
+                for (int i = 0; i < cd.getItemCount(); i++) if (cd.getItemAt(i).getUri() != null) uris.add(cd.getItemAt(i).getUri());
+            }
+        } catch (Exception e) {
+            return found;
+        }
+        for (Uri u : uris) {
+            try {
+                String name = "file";
+                try (Cursor c = ctx.getContentResolver().query(u, null, null, null, null)) {
+                    if (c != null && c.moveToFirst()) {
+                        int i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                        if (i >= 0) name = c.getString(i);
+                    }
+                } catch (Exception ignore) {
+                    String p = u.getLastPathSegment();
+                    if (p != null) name = p;
+                }
+                try (InputStream in = ctx.getContentResolver().openInputStream(u)) {
+                    if (in == null) continue;
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    byte[] buf = new byte[16384];
+                    int n, total = 0;
+                    while ((n = in.read(buf)) > 0) {
+                        total += n;
+                        if (total > MAX_BYTES) break;
+                        out.write(buf, 0, n);
+                    }
+                    JSObject o = new JSObject();
+                    o.put("name", name);
+                    o.put("text", out.toString("UTF-8"));
+                    found.add(o);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        pending.addAll(found);
+        return found;
+    }
+
+    public void deliver() {
+        JSObject r = takeAll();
+        if (r.getJSONArray("files").length() > 0) notifyListeners("files", r, true);
+    }
+
+    private static synchronized JSObject takeAll() {
+        JSArray arr = new JSArray();
+        for (JSObject o : pending) arr.put(o);
+        pending.clear();
+        JSObject r = new JSObject();
+        r.put("files", arr);
+        return r;
+    }
+
+    @PluginMethod
+    public void getPending(PluginCall call) {
+        call.resolve(takeAll());
+    }
+}
