@@ -71,7 +71,9 @@ export function mountMap(el) {
   recLine = L.polyline([], { color: '#ff5a4a', weight: 5, opacity: 0.95 }).addTo(map);
   targetLine = L.polyline([], { color: '#d28a2c', weight: 4, dashArray: '2 9', lineCap: 'round' }).addTo(map);
 
-  map.on('dragstart', () => setFollow(false));
+  let refollowT = null;
+  map.on('dragstart', () => { setFollow(false); clearTimeout(refollowT); });
+  map.on('dragend', () => { clearTimeout(refollowT); refollowT = setTimeout(() => { const p = lastPos(); if (p && !followPts) { setFollow(true); map.panTo([p.lat, p.lon], { animate: true }); } }, 25000); });
   map.on('moveend', () => {
     const c = map.getCenter();
     lsSet('fp.view', { lat: c.lat, lng: c.lng, zoom: map.getZoom() });

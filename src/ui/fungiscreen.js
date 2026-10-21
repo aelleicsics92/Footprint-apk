@@ -18,12 +18,15 @@ export function mountFungi(el) {
   el.innerHTML = `
     <div class="sec-title">Previsione raccolta</div>
     <div class="chips" id="f-prof"></div>
+    <div class="f-search"><input id="f-q" type="text" placeholder="Cerca paese o città…" autocomplete="off" enterkeyhint="search" onfocus="this.select()"><button class="chip" id="f-gps">${ico('locate', 16)} Qui</button></div>
+    <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
     <div id="fungi-map"></div>
     <div class="legend">${LEVELS.map((l) => `<span><i style="background:${l.color}"></i>${l.label}</span>`).join('')}</div>
     <div class="infobox" style="margin:0 14px 18px">Indice stimato da pioggia degli ultimi 30 giorni, tempi dalla pioggia utile, temperature, gelo, bilancio idrico e stagionalità (corretta per quota). Tocca la mappa per un punto qualsiasi, tocca un giorno per vedere la previsione. È una stima: la presenza reale dipende dal bosco.</div>`;
   renderProfiles();
+  setupSearch();
   bus.on('pos', (p) => {
     if (shown && !state.point && !state.loading) {
       state.point = { lat: p.lat, lon: p.lon, name: '', gps: true };
@@ -33,6 +36,69 @@ export function mountFungi(el) {
   bus.on('nav:tab', (t) => {
     if (t === 'fungi') onShow();
   });
+}
+
+async function geocode(q) {
+  const loc = CITIES.filter((c) => c[0].toLowerCase().startsWith(q.toLowerCase())).slice(0, 5).map((c) => ({ name: c[0], lat: c[1], lon: c[2], sub: 'Italia' }));
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=7&language=it&format=json`, { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    const net = (j.results || []).map((x) => ({ name: x.name, lat: x.latitude, lon: x.longitude, sub: [x.admin2 || x.admin1, x.country].filter(Boolean).join(', ') }));
+    return net.length ? net : loc;
+  } catch {
+    return loc;
+  }
+}
+
+async function pickPlace(c) {
+  state.point = { lat: c.lat, lon: c.lon, name: c.name, manual: true };
+  root.querySelector('#f-sug').innerHTML = '';
+  root.querySelector('#f-q').value = c.name;
+  root.querySelector('#f-q').blur();
+  if (fmap) {
+    if (selMarker) fmap.removeLayer(selMarker);
+    selMarker = L.circleMarker([c.lat, c.lon], { radius: 9, color: '#fff', weight: 3, fillColor: '#12372a', fillOpacity: 1 }).addTo(fmap);
+    fmap.setView([c.lat, c.lon], Math.max(fmap.getZoom(), 8));
+  }
+  root.querySelector('#f-card').innerHTML = `<div class="gauge-card"><div class="place">Calcolo l'indice per ${esc(c.name)}…</div><div class="progress"><i style="width:60%"></i></div></div>`;
+  await loadPoint();
+  renderCard();
+}
+
+function setupSearch() {
+  const inp = root.querySelector('#f-q'), sug = root.querySelector('#f-sug');
+  let t = null, list = [];
+  const run = async () => {
+    const q = inp.value.trim();
+    if (q.length < 2) return (sug.innerHTML = '');
+    list = await geocode(q);
+    sug.innerHTML = list.length ? list.map((c, i) => `<button class="item" data-i="${i}"><div class="ti"><b>${esc(c.name)}</b><small>${esc(c.sub || '')}</small></div></button>`).join('') : '<div class="empty" style="padding:8px">Nessun risultato</div>';
+  };
+  inp.addEventListener('input', () => (clearTimeout(t), (t = setTimeout(run, 350))));
+  inp.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    clearTimeout(t);
+    await run();
+    if (list[0]) pickPlace(list[0]);
+  });
+  sug.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]');
+    if (b) pickPlace(list[Number(b.dataset.i)]);
+  });
+  root.querySelector('#f-gps').onclick = async () => {
+    const p = lastPos();
+    if (!p) return toast('GPS non ancora pronto');
+    inp.value = '';
+    sug.innerHTML = '';
+    if (selMarker && fmap) fmap.removeLayer(selMarker);
+    state.point = { lat: p.lat, lon: p.lon, name: '', gps: true };
+    await loadPoint();
+    renderCard();
+  };
 }
 
 function renderProfiles() {

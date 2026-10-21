@@ -361,3 +361,8 @@ html.night .muted{color:var(--muted)}
 html.night .chip.sel,html.night .seg button.sel{background:#4f8f5c;border-color:#86b04f;color:#fff}
 html.night .round.on{background:#4f8f5c}
 .wo-grip{padding:10px 8px;margin:-6px -2px}
+
+.f-search{display:flex;gap:8px;margin:4px 14px 6px}
+.f-search input{flex:1;min-width:0;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:10px 14px;font-size:.95rem}
+.f-sug{margin:0 14px}
+.f-sug .item{width:100%}
