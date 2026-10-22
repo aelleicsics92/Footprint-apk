@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet-rotate';
 import 'leaflet/dist/leaflet.css';
+import { Fog } from '../lib/fog.js';
 import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
@@ -42,11 +43,13 @@ export function mountMap(el) {
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}</button>
+      <button class="round" id="btn-trip" aria-label="Computer di viaggio">${ico('gauge', 22)}</button>
       <button class="round" id="btn-3d" aria-label="Mappa 3D" style="font-weight:800;font-size:.8rem">3D</button>
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
     <div class="rec-chip hidden" id="rec-chip"></div>
     <div class="dl-chip hidden" id="dl-chip"></div>
+    <div class="ov-legend hidden" id="ov-legend"></div>
     <button class="fab" id="btn-wp" aria-label="Nuovo waypoint">${ico('pinplus', 30)}</button>`;
 
   const s = getSettings();
@@ -85,6 +88,7 @@ export function mountMap(el) {
   setupSosHold(root.querySelector('#btn-sos'));
   setupCar(root.querySelector('#btn-car'));
   root.querySelector('#btn-3d').onclick = () => { const c = map.getCenter(); import('./map3d.js').then((m) => m.openMap3D([c.lng, c.lat])); };
+  root.querySelector('#btn-trip').onclick = () => import('./trip.js').then((m) => m.openTrip());
   setupWeatherChip(root.querySelector('#wx-chip'));
   root.querySelector('#btn-locate').onclick = () => {
     const p = lastPos();
@@ -375,9 +379,9 @@ function openLayers() {
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Evidenzia le zone dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>In rosso i punti dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Colora il bosco dove sei già passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Aree verdi dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>Puntini rossi dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Leggera nebbia su tutta la mappa che si dissolve entro 6 m da dove sei passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
     </div>`,
@@ -627,42 +631,45 @@ function checkSunset(p) {
   notifyNow('Tramonto vicino', msg);
 }
 
-// ---------- heatmap personale e zone battute ----------
+// ---------- heatmap personale, zone senza campo e foschia delle zone battute ----------
+let fog = null;
 function drawOverlays() {
   const s = getSettings();
   if (!heatGroup) {
     heatGroup = L.layerGroup();
     covGroup = L.layerGroup();
-    exploredGroup = L.layerGroup();
+  }
+  if (!fog) {
+    fog = new Fog(map);
+    bus.on('walked:changed', () => fog.on && fog.schedule());
+    bus.on('rec:point', () => fog.on && fog.schedule());
+    bus.on('tracks:changed', () => fog.on && fog.reload());
+    bus.on('pos', () => fog.on && fog.schedule());
   }
   heatGroup.clearLayers();
-  exploredGroup.clearLayers();
   covGroup.clearLayers();
   map.removeLayer(covGroup);
-  if (s.showNoSignal) getCoverage().then((pts) => { pts.filter((q) => !q[2]).forEach((q) => L.circle([q[0], q[1]], { radius: 70, stroke: false, fillColor: '#d33', fillOpacity: 0.3, interactive: false }).addTo(covGroup)); covGroup.addTo(map); });
   map.removeLayer(heatGroup);
-  map.removeLayer(exploredGroup);
+  if (s.showNoSignal) {
+    getCoverage().then((pts) => {
+      pts.filter((q) => !q[2]).forEach((q) => L.circle([q[0], q[1]], { radius: 22, stroke: false, fillColor: '#d93025', fillOpacity: 0.55, interactive: false }).addTo(covGroup));
+      covGroup.addTo(map);
+    });
+  }
   if (s.showHeat) {
     for (const w of getWaypoints()) {
       if (['parcheggio', 'acqua', 'pericolo', 'panorama'].includes(w.icon)) continue;
-      L.circle([w.lat, w.lon], { radius: 150, stroke: false, fillColor: '#e4572e', fillOpacity: 0.13, interactive: false }).addTo(heatGroup);
+      L.circle([w.lat, w.lon], { radius: 45, stroke: false, fillColor: '#1fa34a', fillOpacity: 0.22, interactive: false }).addTo(heatGroup);
     }
     heatGroup.addTo(map);
   }
-  if (s.showExplored) {
-    const since = Date.now() - 24 * 3600 * 1000;
-    const add = (pts) => {
-      let last = null;
-      for (const q of pts) {
-        if (last && haversine({ lat: last[0], lon: last[1] }, { lat: q[0], lon: q[1] }) < 12) continue;
-        last = q;
-        L.circle([q[0], q[1]], { radius: 20, stroke: false, fillColor: '#2f9e5a', fillOpacity: 0.28, interactive: false }).addTo(exploredGroup);
-      }
-    };
-    (async () => {
-      for (const t of getTracks().filter((t) => t.start >= since)) add(await loadTrackPoints(t.id));
-      exploredGroup.addTo(map);
-    })();
-  }
+  fog.setActive(!!s.showExplored);
+  const lg = root.querySelector('#ov-legend');
+  const rows = [];
+  if (s.showHeat) rows.push('<span><i style="background:#1fa34a"></i>Ritrovamenti (più verde = più punti)</span>');
+  if (s.showNoSignal) rows.push('<span><i style="background:#d93025"></i>Senza campo dati</span>');
+  if (s.showExplored) rows.push('<span><i style="background:#c9d3d6"></i>Nebbia = non ancora battuto oggi</span>');
+  lg.innerHTML = rows.join('');
+  lg.classList.toggle('hidden', !rows.length);
 }
 bus.on('cov:changed', () => { if (map && getSettings().showNoSignal) drawOverlays(); });

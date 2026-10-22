@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.provider.OpenableColumns;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -96,5 +99,37 @@ public class IntentFilesPlugin extends Plugin {
     @PluginMethod
     public void getPending(PluginCall call) {
         call.resolve(takeAll());
+    }
+
+    @PluginMethod
+    public void batteryStatus(PluginCall call) {
+        JSObject r = new JSObject();
+        boolean ok = true;
+        try {
+            if (Build.VERSION.SDK_INT >= 23) {
+                PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+                ok = pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+            }
+        } catch (Exception e) {}
+        r.put("ignoring", ok);
+        r.put("maker", Build.MANUFACTURER);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void requestBatteryExemption(PluginCall call) {
+        try {
+            Intent it = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            it.setData(Uri.parse("package:" + getContext().getPackageName()));
+            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(it);
+        } catch (Exception e) {
+            try {
+                Intent it2 = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                it2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(it2);
+            } catch (Exception e2) {}
+        }
+        call.resolve();
     }
 }

@@ -378,3 +378,19 @@ html.night .round.on{background:#4f8f5c}
 
 .m3d-leg{left:auto !important;right:8px;bottom:100px !important}
 .m3d-leg[hidden]{display:none}
+
+.fog-cv{position:absolute;left:0;top:0;z-index:450;pointer-events:none}
+.ov-legend{position:absolute;right:8px;bottom:62px;z-index:500;display:flex;flex-direction:column;gap:3px;background:rgba(255,253,246,.92);color:#1c2a22;border-radius:10px;padding:5px 9px;font-size:.7rem;box-shadow:0 2px 6px rgba(0,0,0,.25);max-width:62%}
+.ov-legend.hidden{display:none}
+.ov-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.trip{padding:10px 12px 24px}
+.trip-state{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:8px 12px;font-weight:600;margin-bottom:10px}
+.trip-state.on{border-color:#2f9e5a}.trip-state.on::before{content:'';width:9px;height:9px;border-radius:50%;background:#e0382a;margin-right:8px;animation:blink 1.2s infinite}
+.trip-state.pause{border-color:#e0a63a}
+.trip-state .chip{margin-left:auto}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tc{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px}
+.tc span{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.tc b{display:block;font-size:1.25rem;font-variant-numeric:tabular-nums;margin-top:2px}
+.tc.big b{font-size:1.9rem}
+.ov-legend{right:auto;left:10px;bottom:100px;max-width:70%}

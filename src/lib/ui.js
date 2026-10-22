@@ -150,6 +150,7 @@ export function installInputBehaviour() {
   // Seleziona tutto il contenuto al focus
   document.addEventListener('focusin', (e) => {
     const t = e.target;
+    if (t.dataset && t.dataset.noselect !== undefined) return;
     if (t.matches && t.matches('input[type=text],input[type=number],input[type=tel],input[type=search],input[type=password],input:not([type])')) {
       setTimeout(() => {
         try {

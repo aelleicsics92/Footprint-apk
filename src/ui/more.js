@@ -1,3 +1,4 @@
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid } from '../lib/util.js';
 import { openPage, openSheet, toast, confirmBox } from '../lib/ui.js';
@@ -18,6 +19,7 @@ export function mountMore(el) {
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
+    ['gauge', 'Computer di viaggio', 'Km, dislivello, quota, velocità in tempo reale', () => import('./trip.js').then((m) => m.openTrip())],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
@@ -295,6 +297,7 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
+      <div class="list"><button class="item" id="bat-ex"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Registrazione in background</b><small id="bat-s">Controllo…</small></div></button></div>
       <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Icone waypoint</b><small>Ordine (trascina) e icone da nascondere</small></div></button></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
@@ -333,6 +336,15 @@ function openSettings() {
       b.disabled = false;
     };
     pg.body.querySelector('#wp-order').onclick = openWpOrder;
+    (async () => {
+      const bs = pg.body.querySelector('#bat-s');
+      try {
+        const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
+        const st = await IF.batteryStatus();
+        bs.textContent = st.ignoring ? 'Ottimizzazione batteria disattivata: la traccia continua a schermo bloccato.' : `Tocca per permettere a Footprint di lavorare a schermo spento.${/xiaomi|redmi|poco/i.test(st.maker || '') ? ' Su Xiaomi: Impostazioni > App > Footprint > Risparmio energetico: "Nessuna restrizione", e blocca l\'app nei recenti.' : ''}`;
+        pg.body.querySelector('#bat-ex').onclick = async () => { await IF.requestBatteryExemption(); };
+      } catch { bs.textContent = 'Disponibile solo nell\'app Android.'; }
+    })();
     pg.body.querySelectorAll('[data-k]').forEach((inp) => {
       inp.addEventListener('change', async () => {
         const k = inp.dataset.k;

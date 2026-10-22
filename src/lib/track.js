@@ -1,7 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 import { kvGet, kvSet, kvDel } from './store.js';
 import { bus, haversine, uid, fmtDate } from './util.js';
-import { isNative, lastPos, ensurePermission } from './geo.js';
+import { isNative, lastPos, ensurePermission, getOnce } from './geo.js';
 import { buildTrack } from './gpsio.js';
 
 const BG = registerPlugin('BackgroundGeolocation');
@@ -61,10 +61,10 @@ function accept(p) {
   } else if (cur[2] != null) rec.lastAlt = cur[2];
   rec.points.push(cur);
   bus.emit('rec:point', cur);
-  if (rec.points.length % 10 === 0) persistCurrent();
+  if (rec.points.length % 3 === 0) persistCurrent();
 }
 
-const persistCurrent = () => kvSet('rec:current', { ...rec });
+const persistCurrent = () => kvSet('rec:current', { ...rec, live: rec.status === 'rec', savedAt: Date.now() });
 
 export function elapsed() {
   if (rec.status === 'idle') return 0;
@@ -157,3 +157,15 @@ export async function recoverSave(cur) {
 export async function discardRecovery() {
   await kvDel('rec:current');
 }
+
+// Salva subito quando l'app va in secondo piano; al ritorno aggancia la posizione attuale (riempie eventuali buchi)
+try {
+  document.addEventListener('visibilitychange', async () => {
+    if (rec.status === 'idle') return;
+    if (document.hidden) persistCurrent();
+    else if (rec.status === 'rec') {
+      try { accept(await getOnce(8000)); } catch {}
+    }
+  });
+  window.addEventListener('pagehide', () => rec.status !== 'idle' && persistCurrent());
+} catch {}

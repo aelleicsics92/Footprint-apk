@@ -18,6 +18,7 @@ import { mountFungi } from './ui/fungiscreen.js';
 import { mountMore } from './ui/more.js';
 import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
+import { initWalked } from './lib/walked.js';
 import { initIncomingFiles } from './lib/importer.js';
 
 const TABS = [
@@ -75,41 +76,28 @@ async function boot() {
   mountAI($('#screen-ai'));
   mountFungi($('#screen-fungi'));
   mountMore($('#screen-more'));
-  initNotifications();
-  initPinned();
-  initCoverage();
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); } catch {}
   showTab('map');
-
   startWatch();
-  initIncomingFiles();
-  startCompass();
-  setWakeLock(getSettings().keepAwake);
+  initWalked();
   recover();
+  setTimeout(() => {
+    initNotifications();
+    initPinned();
+    initCoverage();
+    initIncomingFiles();
+    startCompass();
+    setWakeLock(getSettings().keepAwake);
+  }, 400);
 }
 
 async function recover() {
   const cur = await pendingRecovery();
   if (cur) {
-    const s = openSheet({
-      title: 'Traccia interrotta',
-      body: `<p class="confirm-msg">Hai una traccia non salvata (${fmtDist(cur.dist || 0)}). Cosa vuoi fare?</p>
-        <div class="stack"><button class="btn primary big" data-a="resume">Riprendi la registrazione</button><button class="btn ghost big" data-a="save">Salva così com'è</button><button class="btn ghost big danger-t" data-a="drop">Scarta</button></div>`,
-    });
-    s.body.addEventListener('click', async (e) => {
-      const b = e.target.closest('[data-a]');
-      if (!b) return;
-      s.close();
-      if (b.dataset.a === 'resume') await startRecording({ id: cur.id, name: cur.name, start: cur.start, points: cur.points, dist: cur.dist, up: cur.up, down: cur.down, paused: (cur.paused || 0) + Math.max(0, Date.now() - (cur.points[cur.points.length - 1][3] || Date.now())), lastAlt: cur.lastAlt });
-      else if (b.dataset.a === 'save') {
-        await recoverSave(cur);
-        toast('Traccia salvata');
-        if (getSettings().recordTrack) startRecording();
-      } else {
-        await discardRecovery();
-        if (getSettings().recordTrack) startRecording();
-      }
-    });
+    // ripresa automatica: nessuna domanda, la traccia continua da dove era
+    const gap = Math.max(0, Date.now() - (cur.savedAt || cur.points[cur.points.length - 1][3] || Date.now()));
+    await startRecording({ id: cur.id, name: cur.name, start: cur.start, points: cur.points, dist: cur.dist, up: cur.up, down: cur.down, paused: (cur.paused || 0) + (gap > 30 * 60000 ? gap : 0), lastAlt: cur.lastAlt });
+    toast(`Registrazione ripresa (${fmtDist(cur.dist || 0)})`);
     return;
   }
   if (getSettings().recordTrack) startRecording();

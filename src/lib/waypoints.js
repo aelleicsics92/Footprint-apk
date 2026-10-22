@@ -94,7 +94,7 @@ function formHTML({ wp, pos, title, icon }) {
   const acc = pos && pos.acc != null ? `±${Math.round(pos.acc)} m` : '';
   return `<div class="wp-form" data-enter-scope>
     <div class="icon-grid">${grid}</div>
-    <label class="field"><span>Titolo</span><input id="wp-title" type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
+    <label class="field"><span>Titolo</span><input id="wp-title" data-noselect type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
     <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
@@ -173,6 +173,7 @@ export async function openNewWaypoint() {
   const pos = await currentFix();
   const title = nextTitle('fungo');
   const s = openSheet({ title: 'Nuovo waypoint', body: formHTML({ pos, title, icon: 'fungo' }), full: true });
+  setTimeout(() => { try { document.activeElement && document.activeElement.blur(); } catch {} }, 50);
   // aggiorna le coordinate se il fix arriva dopo
   let fix = pos;
   const off = bus.on('pos', (p) => {
