@@ -136,6 +136,27 @@ export function mountMap(el) {
       else map.setView([w.lat, w.lon], 16);
     }
   });
+  bus.on('wp:pick', ({ lat, lon, done }) => {
+    bus.emit('nav:tab', 'map');
+    setFollow(false);
+    map.setView([lat, lon], Math.max(map.getZoom(), 17));
+    const c = map.getContainer();
+    const cross = document.createElement('div');
+    cross.className = 'pick-cross';
+    cross.innerHTML = '<svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#d93025" stroke-width="3" stroke-linecap="round"><circle cx="22" cy="22" r="11"/><path d="M22 2v12M22 30v12M2 22h12M30 22h12"/></svg>';
+    const bar = document.createElement('div');
+    bar.className = 'pick-bar';
+    bar.innerHTML = '<span>Sposta la mappa: la mira è la nuova posizione</span><button class="btn ghost" data-a="no">Annulla</button><button class="btn primary" data-a="ok">Conferma</button>';
+    c.appendChild(cross); c.appendChild(bar);
+    L.DomEvent.disableClickPropagation(bar);
+    bar.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-a]');
+      if (!a) return;
+      const ctr = map.getCenter();
+      cross.remove(); bar.remove();
+      done(a.dataset.a === 'ok' ? { lat: ctr.lat, lon: ctr.lng } : null);
+    });
+  });
   bus.on('wp:goto', (id) => {
     const w = getWaypoint(id);
     if (w) {

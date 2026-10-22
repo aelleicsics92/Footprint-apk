@@ -85,6 +85,7 @@ const WP_IMG = import.meta.glob('../assets/wp/*.png', { eager: true, query: '?ur
 const wpImg = (id) => `<img class="wpimg" src="${WP_IMG['../assets/wp/' + id + '.png']}" alt="" draggable="false">`;
 const WP_DEF = [
   ['porcino', 'Porcino', '#8a4b21'],
+  ['regius', 'Porcino reale', '#c0463a'],
   ['galletto', 'Gallinaccio', '#e2a017'],
   ['ovulo', 'Ovulo buono', '#e2531f'],
   ['prugnolo', 'Prugnolo', '#d9cfae'],
@@ -132,6 +133,7 @@ export const GARMIN_SYM = {
   panorama: 'Scenic Area',
   orma: 'Trail Head',
   porcino: 'Forest',
+  regius: 'Forest',
   galletto: 'Forest',
   ovulo: 'Forest',
   russola: 'Forest',

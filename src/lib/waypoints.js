@@ -99,13 +99,14 @@ function formHTML({ wp, pos, title, icon }) {
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
     <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
     <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
-    <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small></div>
+    <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small>${wp ? `<div class="row gap" style="margin-top:8px"><button type="button" class="btn ghost grow" id="wp-here">Posizione attuale</button><button type="button" class="btn ghost grow" id="wp-pick">Sposta sulla mappa</button></div>` : ''}</div>
     <div class="save-bar"><button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button></div>
   </div>`;
 }
 
 function wireForm(s, { wp, pos, onSave }) {
   let icon = wp ? wp.icon : 'fungo';
+  let np = null;
   let titleEdited = !!wp;
   const titleEl = s.body.querySelector('#wp-title');
   titleEl.addEventListener('input', () => (titleEdited = true));
@@ -116,6 +117,21 @@ function wireForm(s, { wp, pos, onSave }) {
     s.body.querySelectorAll('.icon-opt').forEach((x) => x.classList.toggle('sel', x === b));
     if (!titleEdited) titleEl.value = nextTitle(icon);
     s.body.querySelector('#wp-dog-row').hidden = !TRUFFLE_ICONS.includes(icon);
+  });
+  const cb = s.body.querySelector('.coords-box b'), cs = s.body.querySelector('.coords-box small');
+  const showNp = () => { cb.textContent = fmtCoord(np.lat, np.lon); cs.textContent = 'nuova posizione (salva per applicare)'; };
+  const draft = () => ({ title: titleEl.value, desc: s.body.querySelector('#wp-desc').value, icon, qty: Number(s.body.querySelector('#wp-qty').value) || 0, kg: Number(s.body.querySelector('#wp-kg').value) || 0, dog: s.body.querySelector('#wp-dog').value, ...(np || {}) });
+  const hereB = s.body.querySelector('#wp-here'), pickB = s.body.querySelector('#wp-pick');
+  if (hereB) hereB.addEventListener('click', async () => {
+    const p = await currentFix();
+    if (!p) return toast('GPS non ancora pronto');
+    np = { lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc };
+    showNp();
+  });
+  if (pickB) pickB.addEventListener('click', () => {
+    const d = draft(), at = np || wp;
+    s.close();
+    bus.emit('wp:pick', { lat: at.lat, lon: at.lon, done: (pt) => openEditWaypoint(wp, pt ? { ...d, lat: pt.lat, lon: pt.lon, alt: null, acc: null } : d) });
   });
   let memo = null, rec = null;
   const vb = s.body.querySelector('#wp-voice'), vo = s.body.querySelector('#wp-voice-out');
@@ -164,7 +180,7 @@ function wireForm(s, { wp, pos, onSave }) {
     const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
     const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
     const dog = TRUFFLE_ICONS.includes(icon) ? s.body.querySelector('#wp-dog').value.trim() : '';
-    await onSave({ title, desc, icon, qty, kg, memo, dog });
+    await onSave({ title, desc, icon, qty, kg, memo, dog, np });
     s.close();
   });
 }
@@ -197,14 +213,20 @@ export async function openNewWaypoint() {
   });
 }
 
-export function openEditWaypoint(w) {
-  const s = openSheet({ title: 'Modifica waypoint', body: formHTML({ wp: w, pos: w, title: w.title, icon: w.icon }), full: true });
+export function openEditWaypoint(w, draft) {
+  const v = draft ? { ...w, ...draft } : w;
+  const s = openSheet({ title: 'Modifica waypoint', body: formHTML({ wp: v, pos: v, title: v.title, icon: v.icon }), full: true });
+  if (draft && draft.lat !== w.lat) {
+    const cb = s.body.querySelector('.coords-box b'), cs = s.body.querySelector('.coords-box small');
+    cb.textContent = fmtCoord(draft.lat, draft.lon); cs.textContent = 'nuova posizione (salva per applicare)';
+  }
   wireForm(s, {
-    wp: w,
-    pos: w,
-    onSave: async ({ title, desc, icon, qty, kg, memo, dog }) => {
+    wp: v,
+    pos: v,
+    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np }) => {
       if (memo) await kvSet('memo:' + w.id, memo);
-      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, ...(memo ? { memo: true } : {}) });
+      const moved = np || (draft && draft.lat !== w.lat ? { lat: draft.lat, lon: draft.lon, alt: draft.alt, acc: draft.acc } : null);
+      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, ...(moved || {}), ...(memo ? { memo: true } : {}) });
       toast('Modificato');
     },
   });
