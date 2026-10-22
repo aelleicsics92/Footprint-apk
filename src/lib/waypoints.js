@@ -86,6 +86,13 @@ export async function saveParking() {
 
 const dogs = () => [...new Set([...(getSettings().dogName || '').split(',').map((x) => x.trim()), ...list.map((w) => w.dog)].filter(Boolean))];
 
+const TAGS = [
+  ['Albero', ['Castagno', 'Faggio', 'Quercia', 'Abete', 'Pino', 'Pioppo', 'Nocciolo']],
+  ['Sottobosco', ['Felci', 'Muschio', 'Mirtillo', 'Aghi di pino', 'Erba']],
+  ['Terreno', ['Umido', 'Secco', 'Sotto roccia']],
+];
+const STATI = [['verde', '🟢 In cacciata'], ['giallo', '🟡 A fine cacciata'], ['rosso', '🔴 Finito / secco']];
+
 function formHTML({ wp, pos, title, icon }) {
   const hid = getSettings().wpHidden || [];
   const grid = orderedIcons(getSettings().wpOrder).filter((i) => !hid.includes(i.id) || i.id === icon).map(
@@ -97,10 +104,12 @@ function formHTML({ wp, pos, title, icon }) {
     <div class="icon-grid">${grid}</div>
     <label class="field"><span>Titolo</span><input id="wp-title" data-noselect type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
+    <div class="field"><span>Stato della fungaia</span><div class="tagrow" id="wp-stato">${STATI.map(([k, l]) => `<button type="button" class="tagc ${wp && wp.stato === k ? 'sel' : ''}" data-st="${k}">${l}</button>`).join('')}</div></div>
+    <div class="field"><span>Habitat</span>${TAGS.map(([g, a]) => `<div class="tagrow"><small>${g}</small>${a.map((t) => `<button type="button" class="tagc ${wp && (wp.tags || []).includes(t) ? 'sel' : ''}" data-tag="${t}">${t}</button>`).join('')}</div>`).join('')}</div>
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
     <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
     <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
-    <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small>${wp ? `<div class="row gap" style="margin-top:8px"><button type="button" class="btn ghost grow" id="wp-here">Posizione attuale</button><button type="button" class="btn ghost grow" id="wp-pick">Sposta sulla mappa</button></div>` : ''}</div>
+    <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small>${wp ? `<div class="row gap" style="margin-top:8px"><button type="button" class="btn ghost grow" id="wp-here">Posizione attuale</button><button type="button" class="btn ghost grow" id="wp-pick">Sposta sulla mappa</button></div>` : ''}<button type="button" class="btn ghost" id="wp-exif" style="margin-top:8px">Posizione da una foto (GPS)</button><input type="file" accept="image/*" id="wp-exif-f" hidden></div>
     <div class="save-bar"><button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button></div>
   </div>`;
 }
@@ -108,6 +117,21 @@ function formHTML({ wp, pos, title, icon }) {
 function wireForm(s, { wp, pos, onSave }) {
   let icon = wp ? wp.icon : 'fungo';
   let np = null;
+  let stato = wp ? wp.stato || '' : '';
+  const tags = new Set(wp ? wp.tags || [] : []);
+  s.body.querySelector('#wp-stato').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-st]');
+    if (!b) return;
+    stato = stato === b.dataset.st ? '' : b.dataset.st;
+    s.body.querySelectorAll('[data-st]').forEach((x) => x.classList.toggle('sel', x.dataset.st === stato));
+  });
+  s.body.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tag]');
+    if (!b) return;
+    const t = b.dataset.tag;
+    tags.has(t) ? tags.delete(t) : tags.add(t);
+    b.classList.toggle('sel', tags.has(t));
+  });
   let titleEdited = !!wp;
   const titleEl = s.body.querySelector('#wp-title');
   titleEl.addEventListener('input', () => (titleEdited = true));
@@ -121,7 +145,7 @@ function wireForm(s, { wp, pos, onSave }) {
   });
   const cb = s.body.querySelector('.coords-box b'), cs = s.body.querySelector('.coords-box small');
   const showNp = () => { cb.textContent = fmtCoord(np.lat, np.lon); cs.textContent = 'nuova posizione (salva per applicare)'; };
-  const draft = () => ({ title: titleEl.value, desc: s.body.querySelector('#wp-desc').value, icon, qty: Number(s.body.querySelector('#wp-qty').value) || 0, kg: Number(s.body.querySelector('#wp-kg').value) || 0, dog: s.body.querySelector('#wp-dog').value, ...(np || {}) });
+  const draft = () => ({ stato, tags: [...tags], title: titleEl.value, desc: s.body.querySelector('#wp-desc').value, icon, qty: Number(s.body.querySelector('#wp-qty').value) || 0, kg: Number(s.body.querySelector('#wp-kg').value) || 0, dog: s.body.querySelector('#wp-dog').value, ...(np || {}) });
   const hereB = s.body.querySelector('#wp-here'), pickB = s.body.querySelector('#wp-pick');
   if (hereB) hereB.addEventListener('click', async () => {
     const p = await currentFix();
@@ -133,6 +157,23 @@ function wireForm(s, { wp, pos, onSave }) {
     const d = draft(), at = np || wp;
     s.close();
     bus.emit('wp:pick', { lat: at.lat, lon: at.lon, done: (pt) => openEditWaypoint(wp, pt ? { ...d, lat: pt.lat, lon: pt.lon, alt: null, acc: null } : d) });
+  });
+  const exB = s.body.querySelector('#wp-exif'), exF = s.body.querySelector('#wp-exif-f');
+  exB.addEventListener('click', () => exF.click());
+  exF.addEventListener('change', async () => {
+    const f = exF.files && exF.files[0];
+    if (!f) return;
+    try {
+      const { gps } = await import('exifr');
+      const g = await gps(f);
+      if (!g || g.latitude == null) return toast('La foto non contiene la posizione GPS');
+      np = { lat: g.latitude, lon: g.longitude, alt: null, acc: null };
+      showNp();
+      const sv = s.body.querySelector('#wp-save');
+      if (sv) sv.disabled = false;
+    } catch {
+      toast('Impossibile leggere la foto');
+    }
   });
   let memo = null, rec = null;
   const vb = s.body.querySelector('#wp-voice'), vo = s.body.querySelector('#wp-voice-out');
@@ -181,7 +222,7 @@ function wireForm(s, { wp, pos, onSave }) {
     const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
     const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
     const dog = TRUFFLE_ICONS.includes(icon) ? s.body.querySelector('#wp-dog').value.trim() : '';
-    await onSave({ title, desc, icon, qty, kg, memo, dog, np });
+    await onSave({ title, desc, icon, qty, kg, memo, dog, np, stato, tags: [...tags] });
     s.close();
   });
 }
@@ -204,9 +245,10 @@ export async function openNewWaypoint() {
   s.onClose = off;
   wireForm(s, {
     pos,
-    onSave: async ({ title, desc, icon, qty, kg, memo, dog }) => {
-      if (!fix) return;
-      const w = { id: uid(), title, desc, icon, qty, kg, dog, memo: !!memo, lat: fix.lat, lon: fix.lon, alt: fix.alt, acc: fix.acc, ts: Date.now() };
+    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np, stato, tags }) => {
+      const at = np || fix;
+      if (!at) return;
+      const w = { id: uid(), title, desc, icon, qty, kg, dog, stato, tags, memo: !!memo, lat: at.lat, lon: at.lon, alt: at.alt, acc: at.acc, ts: Date.now() };
       if (memo) await kvSet('memo:' + w.id, memo);
       await addWaypoint(w);
       toast(`Salvato: ${title}`);
@@ -224,10 +266,10 @@ export function openEditWaypoint(w, draft) {
   wireForm(s, {
     wp: v,
     pos: v,
-    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np, stato, tags }) => {
       if (memo) await kvSet('memo:' + w.id, memo);
       const moved = np || (draft && draft.lat !== w.lat ? { lat: draft.lat, lon: draft.lon, alt: draft.alt, acc: draft.acc } : null);
-      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, ...(moved || {}), ...(memo ? { memo: true } : {}) });
+      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, stato, tags, ...(moved || {}), ...(memo ? { memo: true } : {}) });
       toast('Modificato');
     },
   });
@@ -265,6 +307,7 @@ export function openWaypoint(w) {
       <div class="wp-head"><span class="ic big">${ic.svg}</span><div><h3>${esc(w.title)}</h3><small>${esc(ic.label)} · ${fmtDate(w.ts)}</small></div></div>
       ${w.desc ? `<p class="wp-desc">${esc(w.desc)}</p>` : ''}
       ${w.qty || w.kg || w.dog ? `<p class="muted" style="margin:4px 0">${[w.qty ? w.qty + ' pz' : '', w.kg ? w.kg + ' kg' : '', w.dog ? '🐕 ' + esc(w.dog) : ''].filter(Boolean).join(' · ')}</p>` : ''}
+      ${w.stato || (w.tags || []).length ? `<p class="muted" style="margin:4px 0">${[w.stato ? STATI.find((x) => x[0] === w.stato)[1] : '', ...(w.tags || [])].filter(Boolean).join(' · ')}</p>` : ''}
       <p class="muted" id="wp-terr" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
       <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>

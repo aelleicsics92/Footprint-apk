@@ -451,3 +451,8 @@ html.hc body{font-weight:600}
 html.hc .muted,html.hc small{color:#10211a!important;font-weight:600}
 html.hc .tc span,html.hc .tsec{color:#10211a}
 html.hc .round,html.hc .chip{border-width:2.5px;border-color:#12372a}
+.bt-arrow{font-size:3.4rem;line-height:1;color:#ffb23e;transition:transform .25s;text-shadow:0 2px 4px rgba(0,0,0,.5)}
+.st-dot{position:absolute;right:-2px;top:-2px;width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}.st-verde{background:#2fb35a}.st-giallo{background:#f0b429}.st-rosso{background:#d93025}.wp-marker .pin{position:relative}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;align-items:center}.tagrow small{width:100%;color:var(--muted);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.tagc{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 11px;font-size:.8rem;font-weight:600;color:var(--forest)}.tagc.sel{background:var(--forest2);border-color:var(--forest2);color:#fff}html.night .tagc{color:var(--ink)}html.night .tagc.sel{color:#fff}
+.dday{text-align:center;margin-top:8px;font-weight:700;color:#ffd48a;font-size:.92rem}
+.md-overlay{position:fixed;inset:0;z-index:9999;background:rgba(160,20,10,.96);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center}.md-box{padding:24px;max-width:340px}.md-box b{font-size:1.4rem}.md-n{font-size:5rem;font-family:var(--serif);font-weight:700;margin:8px 0}

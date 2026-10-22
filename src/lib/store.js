@@ -10,6 +10,8 @@ export const kvKeys = () => keys(kv);
 const ENV = import.meta.env || {};
 const DEFAULTS = {
   hiContrast: false,
+  altOn: false, altMin: 800, altMax: 1200, wpTag: '',
+  permitExpiry: '', permitName: '', dogChip: '', dogVaccine: '', dogParasite: '', dogVet: '', manDown: false,
   volumeWp: false,
   sosNumber: '112',
   sosName: 'Emergenze',

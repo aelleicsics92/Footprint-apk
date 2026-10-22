@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet-rotate';
 import 'leaflet/dist/leaflet.css';
 import { Fog } from '../lib/fog.js';
+import { makeAltLayer } from '../lib/altband.js';
 import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
@@ -125,7 +126,7 @@ export function mountMap(el) {
   root.querySelector('#hud').addEventListener('click', async () => { if (!lastPos() && ['denied', 'off'].includes(gpsStatus().state)) { await ensurePermission(); restartWatch(); } });
   bus.on('heading', onHeading);
   bus.on('wp:changed', () => { renderWaypoints(); if (map && getSettings().showHeat) drawOverlays(); });
-  setTimeout(drawOverlays, 800);
+  setTimeout(() => { applyAlt(); drawOverlays(); }, 800);
   bus.on('wp:target', (id) => {
     setTarget(id);
     bus.emit('nav:tab', 'map');
@@ -299,6 +300,14 @@ function updateTargetLine() {
   targetLine.setLatLngs(p && w ? [[p.lat, p.lon], [w.lat, w.lon]] : []);
 }
 
+let altLayer = null;
+function applyAlt() {
+  if (!map) return;
+  if (altLayer) { map.removeLayer(altLayer); altLayer = null; }
+  const s = getSettings();
+  if (s.altOn) { altLayer = makeAltLayer(Number(s.altMin) || 0, Number(s.altMax) || 9000); altLayer.addTo(map); }
+}
+
 function renderWaypoints() {
   if (!wpGroup) return;
   wpGroup.clearLayers();
@@ -311,11 +320,12 @@ function renderWaypoints() {
       if (fy && String(d.getFullYear()) !== String(fy)) continue;
       if (fm && d.getMonth() + 1 !== fm) continue;
     }
+    if (getSettings().wpTag && !(w.tags || []).includes(getSettings().wpTag)) continue;
     const ic = wpIcon(w.icon);
     const m = L.marker([w.lat, w.lon], {
       icon: L.divIcon({
         className: 'wp-marker' + (w.id === tid ? ' target' : ''),
-        html: `<div class="pin" style="--c:${ic.color}"><div class="bd">${ic.svg}</div></div>`,
+        html: `<div class="pin" style="--c:${ic.color}"><div class="bd">${ic.svg}</div>${w.stato ? `<i class="st-dot st-${w.stato}"></i>` : ''}</div>`,
         iconSize: [42, 50],
         iconAnchor: [21, 48],
       }),
@@ -411,6 +421,9 @@ function openLayers() {
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Aree verdi dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>Puntini rossi dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Leggera nebbia su tutta la mappa che si dissolve entro 6 m da dove sei passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Fascia di quota</b><small>Colora di giallo solo le zone tra due altitudini (m)</small></div><label class="switch"><input type="checkbox" id="ly-alt" ${s.altOn ? 'checked' : ''}><i></i></label></div>
+      <div class="row gap"><input id="ly-amin" class="grow" type="number" inputmode="numeric" value="${s.altMin || 800}" onfocus="this.select()"><input id="ly-amax" class="grow" type="number" inputmode="numeric" value="${s.altMax || 1200}" onfocus="this.select()"></div>
+      <div><b style="font-size:.95rem">Filtra per habitat</b><select id="ly-tag" style="width:100%;margin-top:4px"><option value="">Tutti i waypoint</option>${[...new Set(getWaypoints().flatMap((w) => w.tags || []))].sort().map((t) => `<option ${s.wpTag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
     </div>`,
@@ -435,6 +448,9 @@ function openLayers() {
   sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
+  const alt = () => { setSetting('altOn', sh.body.querySelector('#ly-alt').checked); setSetting('altMin', Number(sh.body.querySelector('#ly-amin').value) || 0); setSetting('altMax', Number(sh.body.querySelector('#ly-amax').value) || 9000); applyAlt(); drawOverlays(); };
+  ['#ly-alt', '#ly-amin', '#ly-amax'].forEach((q) => (sh.body.querySelector(q).onchange = alt));
+  sh.body.querySelector('#ly-tag').onchange = (e) => { setSetting('wpTag', e.target.value); renderWaypoints(); };
   sh.body.querySelector('#ly-year').onchange = filt;
   sh.body.querySelector('#ly-month').onchange = filt;
   sh.body.querySelector('#ly-wp').onchange = (e) => {
@@ -697,6 +713,7 @@ function drawOverlays() {
   const rows = [];
   if (s.showHeat) rows.push('<span><i style="background:#1fa34a"></i>Ritrovamenti (più verde = più punti)</span>');
   if (s.showNoSignal) rows.push('<span><i style="background:#d93025"></i>Senza campo dati</span>');
+  if (s.altOn) rows.push(`<span><i style="background:#ffc400"></i>Quota ${Number(s.altMin) || 0}-${Number(s.altMax) || 9000} m</span>`);
   if (s.showExplored) rows.push('<span><i style="background:#c9d3d6"></i>Nebbia = non ancora battuto oggi</span>');
   lg.innerHTML = rows.join('');
   lg.classList.toggle('hidden', !rows.length);

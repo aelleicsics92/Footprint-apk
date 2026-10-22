@@ -252,18 +252,27 @@ function renderCard() {
   else if (o.score >= 45) advice = 'Buone possibilità nelle zone adatte (esposizione e quota giuste).';
   else if (o.score < 22) advice = 'Poco probabile: manca pioggia utile o la temperatura è fuori range.';
   if (o.closed) advice += ` Attenzione: fuori dal periodo tipico di raccolta (da ${o.opens}). Verifica il regolamento della tua regione prima di cercare.`;
+  let dday = '';
+  if (best.score >= 45 && best.i > 0 && o.score < best.score - 8) dday = `Picco stimato tra ${Math.max(1, best.i - 1)} e ${best.i + 1} giorni (indice ${best.score}).`;
+  else if (best.score >= 45 && best.i === 0) dday = 'Picco stimato: adesso e nei prossimi giorni.';
+  else if (best.score < 45) dday = 'Nessun picco previsto nei prossimi giorni.';
+  const wv = (series.w || []).slice(Math.max(0, PAST + day - 5), PAST + day).filter((v) => v != null);
+  const wavg = wv.length ? wv.reduce((a, b) => a + b, 0) / wv.length : null;
+  const windTxt = wavg == null ? '–' : `${Math.round(wavg)} km/h ${wavg > 30 ? '(terreno asciugato)' : wavg > 18 ? '(asciuga un po\')' : '(calmo)'}`;
   const place = state.point && state.point.gps ? 'Sei qui' : 'Zona';
   card.innerHTML = `<div class="gauge-card">
     <div class="place">${ico('locate', 16)} ${place}: <b style="color:#fff">${esc(title)}</b> · ${Math.round(elev)} m</div>
     <div class="gauge">${gaugeSVG(o.score, lv.color)}<div class="val"><b>${o.score}</b><span style="color:${lv.color === '#b9553a' ? '#ffb199' : '#fff'}">${lv.label}</span></div></div>
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
+    ${dday ? `<div class="dday">📅 ${esc(dday)}</div>` : ''}
     <div class="stats">
       <div><span>Pioggia 14 giorni</span>${Math.round(o.R14)} mm</div>
       <div><span>Pioggia 30 giorni</span>${Math.round(o.R30)} mm</div>
       <div><span>Temp. media 7 giorni</span>${o.tmean.toFixed(1)} °C</div>
       <div><span>Gelo recente</span>${o.frostMin != null && o.frostMin < 0 ? 'sì (' + o.frostMin.toFixed(0) + ' °C)' : 'no'}</div>
       <div><span>Ultima pioggia utile</span>${o.lag != null ? o.lag + ' giorni fa' : 'nessuna'}</div>
+      <div><span>Vento medio (5 giorni)</span>${windTxt}</div>
       <div><span>Stagione</span>${Math.round(o.season * 100)}%</div>
     </div>
     ${rainChart(series)}

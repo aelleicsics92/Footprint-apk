@@ -14,11 +14,23 @@ import { openDiary } from './diary.js';
 import { openRadar } from './extras.js';
 import { importTexts } from '../lib/importer.js';
 
+function openDog() {
+  openPage('Profilo cane', (pg) => {
+    const s = getSettings();
+    const f = (k, l, type = 'text', ph = '') => `<div class="set-row"><div class="ti"><b>${l}</b></div><input type="${type}" data-k="${k}" value="${esc(s[k] || '')}" placeholder="${ph}" onfocus="this.select&&this.select()"></div>`;
+    pg.body.innerHTML = `<div class="list" style="margin-top:12px">${f('dogName', 'Nome (più cani: separati da virgola)')}${f('dogChip', 'Numero microchip')}${f('dogVaccine', 'Scadenza vaccini', 'date')}${f('dogParasite', 'Scadenza antiparassitario', 'date')}${f('dogVet', 'Veterinario di fiducia (telefono)', 'tel')}</div>
+      <p class="muted" style="margin:10px 18px;font-size:.82rem">Ti avviso 30 giorni prima delle scadenze. Dati salvati solo sul telefono.</p>
+      ${s.dogVet ? `<div style="padding:0 16px"><a class="btn primary big" href="tel:${esc(s.dogVet)}">Chiama il veterinario</a></div>` : ''}`;
+    pg.body.querySelectorAll('[data-k]').forEach((i) => i.addEventListener('change', () => { setSetting(i.dataset.k, i.value.trim()); bus.emit('settings:changed', i.dataset.k); toast('Salvato', 1200); }));
+  });
+}
+
 export function mountMore(el) {
   const items = [
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
+    ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
@@ -294,6 +306,8 @@ function openSettings() {
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Sole diretto (alto contrasto)</b><small>Testi più neri e più spessi, per leggere con la luce forte</small></div><label class="switch"><input type="checkbox" data-k="hiContrast" ${s.hiContrast ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Tasto volume giù = waypoint rapido</b><small>Con l'app aperta, senza toccare lo schermo (mani sporche)</small></div><label class="switch"><input type="checkbox" data-k="volumeWp" ${s.volumeWp ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Uomo a terra</b><small>Durante la registrazione, se resti fermo 15 minuti parte un conto alla rovescia e poi un allarme sonoro. Funziona con l'app aperta e lo schermo acceso.</small></div><label class="switch"><input type="checkbox" data-k="manDown" ${s.manDown ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Scadenza tesserino / permesso</b><small>Ti avviso 30 giorni prima</small></div><input type="date" data-k="permitExpiry" value="${esc(s.permitExpiry)}" onfocus="this.select&&this.select()"></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>

@@ -1,4 +1,5 @@
 import './style.css';
+import { initManDown } from './lib/mandown.js';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -106,6 +107,7 @@ async function recover() {
 }
 
 window.addEventListener('hwvolume', () => { if (getSettings().volumeWp) quickWaypoint(); });
+setTimeout(() => { try { initManDown(); } catch {} }, 3000);
 setTimeout(() => { try { if (getSettings().volumeWp) ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).setVolumeKey({ enabled: true }); } catch {} }, 1500);
 
 boot();

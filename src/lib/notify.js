@@ -49,7 +49,32 @@ export async function scheduleFungiAlerts(lat, lon) {
   }
 }
 
+// Promemoria scadenze: tesserino/permesso, vaccini e antiparassitario del cane
+export async function scheduleReminders() {
+  try {
+    const s = getSettings();
+    await LocalNotifications.cancel({ notifications: [{ id: 7300 }, { id: 7301 }, { id: 7302 }] });
+    const items = [[7300, s.permitExpiry, 'Tesserino / permesso di raccolta'], [7301, s.dogVaccine, 'Vaccini del cane'], [7302, s.dogParasite, 'Antiparassitario del cane']];
+    const due = [];
+    const notes = [];
+    for (const [id, d, label] of items) {
+      if (!d) continue;
+      const exp = new Date(d + 'T09:00:00');
+      const days = Math.ceil((exp.getTime() - Date.now()) / 86400000);
+      if (days <= 30) due.push(`${label}: ${days < 0 ? 'scaduto' : days === 0 ? 'scade oggi' : 'scade tra ' + days + ' giorni'}`);
+      const at = new Date(exp.getTime() - 30 * 86400000);
+      if (at.getTime() > Date.now()) notes.push({ id, title: 'Scadenza in arrivo', body: `${label} scade il ${exp.toLocaleDateString('it-IT')}`, schedule: { at }, smallIcon: 'ic_stat_footprint' });
+    }
+    if (notes.length) { const p = await LocalNotifications.checkPermissions(); if (p.display === 'granted') await LocalNotifications.schedule({ notifications: notes }); }
+    return due;
+  } catch { return []; }
+}
+
 export function initNotifications() {
+  setTimeout(async () => {
+    const due = await scheduleReminders();
+    if (due.length) { const { toast } = await import('./ui.js'); toast(due[0], 5000); }
+  }, 3500);
   let done = false;
   const run = () => {
     const p = lastPos();
@@ -63,6 +88,7 @@ export function initNotifications() {
   });
   bus.on('settings:changed', (k) => {
     if (k === 'notifFungi' || k === 'fungiProfile') run();
+    if (['permitExpiry', 'dogVaccine', 'dogParasite'].includes(k)) scheduleReminders();
   });
 }
 

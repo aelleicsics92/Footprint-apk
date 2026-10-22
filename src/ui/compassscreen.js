@@ -4,6 +4,9 @@ import { getHeading, compassAlive } from '../lib/compass.js';
 import { lastPos, gpsStatus } from '../lib/geo.js';
 import { getTarget, setTarget } from '../lib/state.js';
 import { getWaypoint } from '../lib/waypoints.js';
+import { getRec, getTracks, loadTrackPoints } from '../lib/track.js';
+
+let bt = null; // {pts} traccia inversa attiva
 
 let root, rot, tgtMark;
 
@@ -39,10 +42,23 @@ export function mountCompass(el) {
     <div class="compass-head" id="c-deg">--°</div>
     <div class="compass-sub" id="c-card">BUSSOLA</div>
     <div class="dial"><div class="needle"></div>${dialSVG()}</div>
+    <button class="btn ghost" id="c-back" style="margin-top:12px;color:#fff;border-color:rgba(255,255,255,.4)">↩ Torna indietro sui tuoi passi</button>
+    <div class="target-card hidden" id="c-bt"></div>
     <div class="target-card hidden" id="c-target"></div>
     <div class="gps-grid" id="c-gps"></div>
     <p class="muted" id="c-note" style="color:#a6c4b1;text-align:center;font-size:.8rem;margin-top:14px">Tieni il telefono in piano. Per calibrare, muovilo disegnando un otto.</p>
   </div>`;
+  el.querySelector('#c-back').onclick = async () => {
+    if (bt) { bt = null; updateInfo(); return; }
+    let pts = getRec().points;
+    if (!pts || pts.length < 2) {
+      const t = getTracks()[0];
+      pts = t ? await loadTrackPoints(t.id) : [];
+    }
+    if (!pts || pts.length < 2) return alert('Nessuna traccia registrata da seguire a ritroso.');
+    bt = { pts };
+    updateInfo();
+  };
   rot = el.querySelector('#dial-rot');
   tgtMark = el.querySelector('#tgt-mark');
   bus.on('heading', onHeading);
@@ -55,8 +71,10 @@ export function mountCompass(el) {
   updateInfo();
 }
 
+let btT = 0;
 function onHeading(h) {
   if (!rot) return;
+  if (bt && Date.now() - btT > 250) { btT = Date.now(); updateInfo(); }
   rot.style.transform = `rotate(${-h}deg)`;
   root.querySelector('#c-deg').textContent = `${Math.round(h)}°`;
   root.querySelector('#c-card').textContent = cardinal(h);
@@ -67,6 +85,32 @@ function updateInfo() {
   const p = lastPos();
   const w = getTarget() && getWaypoint(getTarget());
   const card = root.querySelector('#c-target');
+  const btc = root.querySelector('#c-bt'), btb = root.querySelector('#c-back');
+  btb.textContent = bt ? '✖ Ferma il ritorno' : '↩ Torna indietro sui tuoi passi';
+  if (bt && p) {
+    const pts = bt.pts, P2 = (q) => ({ lat: q[0], lon: q[1] });
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < pts.length; i++) { const d = haversine(p, P2(pts[i])); if (d < bd) { bd = d; bi = i; } }
+    let j = bi, acc = 0;
+    while (j > 0 && acc < 30) { acc += haversine(P2(pts[j]), P2(pts[j - 1])); j--; }
+    let left = 0;
+    for (let i = bi; i > 0; i--) left += haversine(P2(pts[i]), P2(pts[i - 1]));
+    left += bd;
+    if (bi === 0 && bd < 20) {
+      tgtMark.style.display = 'none';
+      btc.classList.remove('hidden');
+      btc.innerHTML = '<b style="font-size:1.2rem">Sei tornato al punto di partenza</b>';
+    } else {
+      const br = bearing(p, P2(pts[j])), h = getHeading();
+      tgtMark.style.display = '';
+      tgtMark.setAttribute('transform', `rotate(${br} 150 150)`);
+      btc.classList.remove('hidden');
+      btc.innerHTML = `<div class="bt-arrow" style="transform:rotate(${Math.round(br - (h || 0))}deg)">⬆</div><div style="flex:1"><b style="font-size:1.3rem">${fmtDist(left)} alla partenza</b><small>segui la freccia lungo il tuo percorso${bd > 40 ? ` · sei a ${Math.round(bd)} m dalla traccia` : ''}</small></div>`;
+    }
+    card.classList.add('hidden');
+    return updateGps(p);
+  }
+  btc.classList.add('hidden');
   if (w && p) {
     const br = bearing(p, w);
     tgtMark.style.display = '';
@@ -79,6 +123,10 @@ function updateInfo() {
     if (tgtMark) tgtMark.style.display = 'none';
     card.classList.add('hidden');
   }
+  updateGps(p);
+}
+
+function updateGps(p) {
   const g = root.querySelector('#c-gps');
   g.innerHTML = p
     ? `<div><span>Latitudine</span><b>${p.lat.toFixed(6)}</b></div><div><span>Longitudine</span><b>${p.lon.toFixed(6)}</b></div><div><span>Quota</span><b>${p.alt != null ? Math.round(p.alt) + ' m' : '—'}</b></div><div><span>Velocità</span><b>${p.speed != null ? (p.speed * 3.6).toFixed(1) + ' km/h' : '—'}</b></div>`
