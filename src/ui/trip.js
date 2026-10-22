@@ -112,6 +112,7 @@ export function mountTrip(root) {
         ${cell('Dalla partenza', 'flag', s.start != null ? fmtDist(s.start) : '–')}
       </div>`;
     el.querySelector('#trip-toggle').onclick = async () => {
+      navigator.vibrate && navigator.vibrate(s.rec ? [120, 60, 120] : 150);
       if (s.rec) await stopRecording();
       else await startRecording();
       draw();

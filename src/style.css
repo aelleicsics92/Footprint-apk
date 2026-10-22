@@ -417,3 +417,37 @@ html.night .tv,html.night .tc span{color:var(--leaf)}
 .pick-cross{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:900;pointer-events:none}
 .pick-bar{position:absolute;left:10px;right:10px;bottom:16px;z-index:900;display:flex;align-items:center;gap:8px;background:rgba(18,55,42,.95);color:#fff;border-radius:16px;padding:10px 12px;font-size:.82rem}
 .pick-bar span{flex:1}
+
+/* --- migliorie UX --- */
+.leaflet-control-scale-line{background:#fffdf6;border-radius:0 0 8px 8px;box-shadow:0 2px 6px rgba(18,55,42,.25)}
+.ov-legend{bottom:132px}
+.icon-opt small{font-size:.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-height:1.1em;padding:0 2px}
+#c-gps div{text-align:center}
+.chat-input{align-items:center;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.item small.muted,.item .badge+small{color:#3f5a4c;font-weight:600}
+.trip-state.on{background:#2f9e5a;border-color:#1f7a44;color:#fff}
+.trip-state.on .chip{background:#fff;color:#1f7a44;border-color:#fff}
+.trip-state.pause{background:#fdecc4}
+.days div{color:#e3f1e8}
+.accwarn{font-size:.74rem;color:#ffb199;padding:2px 14px 6px}
+.acc-bad{color:#ff9a6a;font-weight:700;text-decoration:none}
+.hud u{text-decoration:none}
+.car-b{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);background:#12372a;color:#fff;border-radius:9px;font-style:normal;font-size:.6rem;font-weight:700;padding:1px 6px;white-space:nowrap;display:flex;gap:3px;align-items:center;pointer-events:none}
+.car-b[hidden]{display:none}
+.car-b i{font-style:normal;font-size:.55rem;display:inline-block}
+#btn-car{position:relative;overflow:visible}
+.rainh{margin-top:12px}
+.rh-t{display:flex;justify-content:space-between;font-size:.74rem;color:#c3dccb}
+.rh-b{display:flex;align-items:flex-end;gap:2px;height:64px;margin-top:4px}
+.rh-b i{flex:1;border-radius:2px 2px 0 0;min-height:2px}
+.rh-l{display:flex;justify-content:space-between;font-size:.66rem;color:#c3dccb;margin-top:2px}
+.paniere{margin:12px 14px 0;background:var(--forest);color:#fff;border-radius:14px;padding:12px 14px;font-size:.88rem;line-height:1.4}
+.paniere .pn-t{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin:2px 0}
+.qbar{flex:1;height:10px;background:var(--line);border-radius:5px;margin:0 10px;overflow:hidden}
+.qbar i{display:block;height:100%;background:var(--moss,#5a8f3a);border-radius:5px}
+/* sole diretto */
+html.hc{--muted:#1d2b24;--line:#8a9a8f}
+html.hc body{font-weight:600}
+html.hc .muted,html.hc small{color:#10211a!important;font-weight:600}
+html.hc .tc span,html.hc .tsec{color:#10211a}
+html.hc .round,html.hc .chip{border-width:2.5px;border-color:#12372a}

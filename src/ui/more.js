@@ -288,15 +288,16 @@ function openSettings() {
     };
     pg.body.innerHTML = `
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Registra traccia</b><small>Registra il percorso anche a schermo spento</small></div><label class="switch"><input type="checkbox" data-k="recordTrack" ${s.recordTrack ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Sole diretto (alto contrasto)</b><small>Testi più neri e più spessi, per leggere con la luce forte</small></div><label class="switch"><input type="checkbox" data-k="hiContrast" ${s.hiContrast ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Tasto volume giù = waypoint rapido</b><small>Con l'app aperta, senza toccare lo schermo (mani sporche)</small></div><label class="switch"><input type="checkbox" data-k="volumeWp" ${s.volumeWp ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
-      <div class="list"><button class="item" id="bat-ex"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Registrazione in background</b><small id="bat-s">Controllo…</small></div></button></div>
+      <div class="list"><button class="item" id="bat-ex"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Registrazione in background</b><small>La traccia si avvia solo dal Computer di viaggio.</small><small id="bat-s">Controllo…</small></div></button></div>
       <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Icone waypoint</b><small>Ordine (trascina) e icone da nascondere</small></div></button></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
@@ -349,14 +350,9 @@ function openSettings() {
         const k = inp.dataset.k;
         let v = inp.type === 'checkbox' ? inp.checked : inp.type === 'number' ? Number(inp.value) || 0 : inp.value.trim();
         setSetting(k, v);
-        if (k === 'recordTrack') {
-          if (v && getRec().status === 'idle') startRecording();
-          else if (!v && getRec().status !== 'idle') {
-            const t = await stopRecording();
-            toast(t ? `Traccia salvata: ${fmtDist(t.dist)}` : 'Traccia troppo corta: non salvata');
-          }
-        }
         if (k === 'keepAwake') setWakeLock(v);
+        if (k === 'hiContrast') document.documentElement.classList.toggle('hc', !!v);
+        if (k === 'volumeWp') { try { const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles'); IF.setVolumeKey({ enabled: !!v }); } catch {} }
         if (k === 'nightMode') document.documentElement.classList.toggle('night', !!v);
         if (k === 'statusNotif' && v && !(await askNotifPermission())) {
           setSetting(k, false);

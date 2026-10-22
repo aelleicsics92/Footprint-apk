@@ -96,6 +96,14 @@ public class IntentFilesPlugin extends Plugin {
         return r;
     }
 
+    public static volatile boolean volumeKey = false;
+
+    @PluginMethod
+    public void setVolumeKey(PluginCall call) {
+        volumeKey = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        call.resolve();
+    }
+
     @PluginMethod
     public void getPending(PluginCall call) {
         call.resolve(takeAll());

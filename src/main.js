@@ -1,5 +1,5 @@
 import './style.css';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { $, bus, esc, fmtDist, fmtDur } from './lib/util.js';
@@ -8,7 +8,7 @@ import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast } 
 import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
-import { loadWaypoints } from './lib/waypoints.js';
+import { loadWaypoints, quickWaypoint } from './lib/waypoints.js';
 import { loadTracks, startRecording, stopRecording, pendingRecovery, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
 import { mountMap, invalidate } from './ui/mapscreen.js';
@@ -79,7 +79,7 @@ async function boot() {
   mountFungi($('#screen-fungi'));
   mountTrip($('#screen-trip'));
   mountMore($('#screen-more'));
-  try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); } catch {}
+  try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); } catch {}
   showTab('map');
   startWatch();
   initWalked();
@@ -103,7 +103,9 @@ async function recover() {
     toast(`Registrazione ripresa (${fmtDist(cur.dist || 0)})`);
     return;
   }
-  if (getSettings().recordTrack) startRecording();
 }
+
+window.addEventListener('hwvolume', () => { if (getSettings().volumeWp) quickWaypoint(); });
+setTimeout(() => { try { if (getSettings().volumeWp) ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).setVolumeKey({ enabled: true }); } catch {} }, 1500);
 
 boot();

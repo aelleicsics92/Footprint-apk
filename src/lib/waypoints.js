@@ -1,4 +1,5 @@
 import { kvGet, kvSet, getSettings, setSetting } from './store.js';
+import { getTerrain, terrainText } from './terrain.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
 import { openSheet, toast, confirmBox } from './ui.js';
 import { orderedIcons, wpIcon, ico, TRUFFLE_ICONS } from './icons.js';
@@ -78,7 +79,7 @@ export async function saveParking() {
   if (!p) return toast('GPS non ancora pronto');
   const w = { id: uid(), title: 'Auto parcheggiata', desc: 'Parcheggio', icon: 'parcheggio', lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: Date.now() };
   await addWaypoint(w);
-  navigator.vibrate && navigator.vibrate(40);
+  navigator.vibrate && navigator.vibrate([90, 50, 90]);
   toast('Parcheggio salvato: ora puoi farti guidare all\'auto');
   return w;
 }
@@ -264,6 +265,7 @@ export function openWaypoint(w) {
       <div class="wp-head"><span class="ic big">${ic.svg}</span><div><h3>${esc(w.title)}</h3><small>${esc(ic.label)} · ${fmtDate(w.ts)}</small></div></div>
       ${w.desc ? `<p class="wp-desc">${esc(w.desc)}</p>` : ''}
       ${w.qty || w.kg || w.dog ? `<p class="muted" style="margin:4px 0">${[w.qty ? w.qty + ' pz' : '', w.kg ? w.kg + ' kg' : '', w.dog ? '🐕 ' + esc(w.dog) : ''].filter(Boolean).join(' · ')}</p>` : ''}
+      <p class="muted" id="wp-terr" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
       <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>
       <div class="row gap wrap">
@@ -275,6 +277,7 @@ export function openWaypoint(w) {
         <button class="btn ghost grow danger-t" data-a="del">${ico('trash', 18)} Elimina</button>
       </div></div>`,
   });
+  if (navigator.onLine) getTerrain(w.lat, w.lon).then((t) => { const el = s.body.querySelector('#wp-terr'); if (el) el.textContent = terrainText(t); }).catch(() => {});
   if (w.memo) kvGet('memo:' + w.id).then((b) => {
     const el = s.body.querySelector('#wp-memo');
     if (b && el) el.innerHTML = `<audio controls style="width:100%" src="${URL.createObjectURL(b)}"></audio>`;

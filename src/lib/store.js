@@ -9,7 +9,8 @@ export const kvKeys = () => keys(kv);
 
 const ENV = import.meta.env || {};
 const DEFAULTS = {
-  recordTrack: false,
+  hiContrast: false,
+  volumeWp: false,
   sosNumber: '112',
   sosName: 'Emergenze',
   declination: 3.5,

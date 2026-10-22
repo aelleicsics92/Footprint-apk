@@ -5,6 +5,7 @@ import truffles from '../data/truffles.json';
 import { esc } from '../lib/util.js';
 import { openSheet } from '../lib/ui.js';
 import { hydratePhotos } from '../lib/photos.js';
+import { findSound } from '../lib/sounds.js';
 
 export const DB = {
   animali: animals.map((x) => ({ ...x, _k: 'animali' })),
@@ -58,7 +59,8 @@ function cucinaHTML(x) {
 export function schedaHTML(x) {
   if (x._k === 'animali') {
     return `<div>${photoBox(x)}<h3 style="font-size:1.4rem">${esc(x.nome)}</h3><small class="muted"><i>${esc(x.sci)}</i> · ${esc(x.gruppo)}</small>
-      <dl class="kv" style="margin-top:12px">${row('Habitat', x.habitat)}${row('Impronta', x.orma)}${row('Escrementi', x.escrementi)}${row('Verso', x.verso)}${row('Note', x.nota)}</dl></div>`;
+      <dl class="kv" style="margin-top:12px">${row('Habitat', x.habitat)}${row('Impronta', x.orma)}${row('Escrementi', x.escrementi)}${row('Verso', x.verso)}${row('Note', x.nota)}</dl>
+      <button class="btn ghost big" id="snd-btn" style="margin-top:12px">🔊 Ascolta verso</button><div id="snd-out" class="muted" style="font-size:.8rem;margin-top:6px"></div></div>`;
   }
   const extra = x._k === 'erbe' ? row('Parte usata', x.parte) + row('Periodo', x.periodo) + row('Ambiente', x.ambiente) : row('Periodo', x.periodo) + row('Habitat', x.habitat);
   const warn =
@@ -72,4 +74,14 @@ export function schedaHTML(x) {
 export function openScheda(x) {
   const sh = openSheet({ body: schedaHTML(x), full: false });
   hydratePhotos(sh.body, findByKey);
+  const sb = sh.body.querySelector('#snd-btn');
+  if (sb) sb.onclick = async () => {
+    const o = sh.body.querySelector('#snd-out');
+    sb.disabled = true;
+    o.textContent = 'Cerco la registrazione…';
+    const r = navigator.onLine ? await findSound(x.sci, x.nome) : null;
+    sb.disabled = false;
+    if (!r) { o.textContent = navigator.onLine ? 'Nessuna registrazione trovata per questa specie.' : 'Serve internet per ascoltare i versi.'; return; }
+    o.innerHTML = `<audio controls autoplay style="width:100%" src="${esc(r.url)}"></audio>Fonte: Wikimedia Commons (${esc(r.title)})`;
+  };
 }

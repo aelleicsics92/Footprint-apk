@@ -6,12 +6,21 @@ import { bus, esc, clamp } from '../lib/util.js';
 import { ico } from '../lib/icons.js';
 import { toast } from '../lib/ui.js';
 import { lastPos } from '../lib/geo.js';
-import { PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
+import { PAST, PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
 
 let root, fmap, zoneLayer, youMarker, selMarker, cityLayer, heat;
 let state = { day: 0, point: null, ptData: null, zones: null, loading: false };
 let nameCache = {};
+
+function rainChart(series) {
+  const p = (series.p || []).slice(0, PAST + 1).map((v) => v || 0);
+  if (p.length < 5) return '';
+  const mx = Math.max(10, ...p);
+  const d0 = new Date(series.time[0] + 'T12:00:00'), d1 = new Date(series.time[p.length - 1] + 'T12:00:00');
+  const f = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  return `<div class="rainh"><div class="rh-t"><span>Pioggia giorno per giorno (30 giorni)</span><span>max ${Math.round(Math.max(...p))} mm</span></div><div class="rh-b">${p.map((v, i) => `<i title="${series.time[i]}: ${v.toFixed(1)} mm" style="height:${v > 0 ? Math.max(4, (v / mx) * 100) : 2}%;${v >= 10 ? 'background:#4aa3e8' : v > 0 ? 'background:#8cc6f0' : 'background:rgba(255,255,255,.25)'}"></i>`).join('')}</div><div class="rh-l"><span>${f(d0)}</span><span>${f(d1)}</span></div></div>`;
+}
 
 export function mountFungi(el) {
   root = el;
@@ -257,6 +266,7 @@ function renderCard() {
       <div><span>Ultima pioggia utile</span>${o.lag != null ? o.lag + ' giorni fa' : 'nessuna'}</div>
       <div><span>Stagione</span>${Math.round(o.season * 100)}%</div>
     </div>
+    ${rainChart(series)}
     <div class="days">${out.map((x, i) => `<div data-day="${i}" style="${i === day ? 'opacity:1' : 'opacity:.62'}"><b>${x.score}</b><i style="height:${Math.max(6, x.score * 0.6)}px;background:${levelOf(x.score).color};${i === day ? 'outline:2px solid #fff' : ''}"></i><span>${i === 0 ? 'Oggi' : new Date(x.date + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>`).join('')}</div>
   </div>`;
   card.querySelectorAll('[data-day]').forEach(

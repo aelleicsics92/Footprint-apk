@@ -14,6 +14,17 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (IntentFilesPlugin.volumeKey && keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (event.getRepeatCount() == 0 && getBridge() != null) {
+                getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new Event('hwvolume'))", null));
+            }
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         IntentFilesPlugin.collect(this, intent);

@@ -42,7 +42,7 @@ export function mountMap(el) {
     <div class="map-tools">
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
-      <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}</button>
+      <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}<em class="car-b" id="car-b" hidden></em></button>
       <button class="round" id="btn-3d" aria-label="Mappa 3D" style="font-weight:800;font-size:.8rem">3D</button>
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
@@ -252,11 +252,23 @@ function onHeading(h) {
   if (c) c.style.transform = `rotate(${h - b}deg)`;
 }
 
+function updateCarBadge(p) {
+  const el = root.querySelector('#car-b');
+  if (!el) return;
+  const car = getWaypoints().filter((w) => w.icon === 'parcheggio').sort((a, b) => b.ts - a.ts)[0];
+  if (!car || !p) { el.hidden = true; return; }
+  const brg = bearing(p, car), h = getHeading();
+  const rot = Math.round(brg - (h == null || isNaN(h) ? 0 : h));
+  el.hidden = false;
+  el.innerHTML = `<i style="transform:rotate(${rot}deg)">▲</i>${fmtDist(haversine(p, car))}`;
+}
+
 function updateHud() {
   const hud = root.querySelector('#hud');
   const p = lastPos();
+  updateCarBadge(p);
   let html = p
-    ? `<div class="row2"><b>${fmtCoord(p.lat, p.lon)}</b><span>${p.alt != null ? Math.round(p.alt) + ' m' : '— m'} · ±${Math.round(p.acc || 0)} m</span></div>`
+    ? `<div class="row2"><b>${fmtCoord(p.lat, p.lon)}</b><span>${p.alt != null ? Math.round(p.alt) + ' m' : '— m'} · <u class="${(p.acc || 0) > 20 ? 'acc-bad' : ''}">±${Math.round(p.acc || 0)} m</u></span></div>${(p.acc || 0) > 20 ? '<div class="accwarn">Segnale GPS debole: attendi qualche secondo prima di salvare il punto</div>' : ''}`
     : `<div class="row2"><span style="white-space:normal;line-height:1.25">${esc(gpsStatus().msg || 'In attesa del GPS…')}</span></div>`;
   const tid = getTarget();
   const w = tid && getWaypoint(tid);
@@ -318,12 +330,9 @@ function renderWaypoints() {
 function renderRec() {
   const chip = root.querySelector('#rec-chip');
   const r = getRec();
-  const enabled = getSettings().recordTrack;
   if (r.status === 'idle') {
     recLine.setLatLngs([]);
-    chip.classList.toggle('hidden', !enabled);
-    chip.className = 'rec-chip' + (enabled ? '' : ' hidden');
-    chip.innerHTML = `<span>Traccia ferma</span><button data-r="start" aria-label="Avvia">${ico('play', 18)}</button>`;
+    chip.className = 'rec-chip hidden';
   } else {
     chip.className = 'rec-chip' + (r.status === 'pause' ? ' pause' : '');
     chip.innerHTML = `<span class="dot"></span><span id="rec-t"></span><button data-r="${r.status === 'pause' ? 'resume' : 'pause'}" aria-label="Pausa/riprendi">${ico(r.status === 'pause' ? 'play' : 'pause', 18)}</button><button class="stop" data-r="stop" aria-label="Stop e salva">${ico('stop', 16)}</button>`;
