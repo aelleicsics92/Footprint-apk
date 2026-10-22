@@ -57,16 +57,18 @@ export function openMap3D(center) {
     pg.body.style.cssText = 'padding:0;position:relative';
     pg.body.innerHTML = `<div id="m3d" style="position:absolute;inset:0"></div>
       <div class="m3d-bar">
-        <button class="chip sel" data-t="slope">Pendenza</button>
-        <button class="chip" data-t="sat">Satellite</button>
+        <button class="chip" data-t="slope">Pendenza</button>
+        <button class="chip sel" data-t="sat">Satellite</button>
         <button class="chip" data-t="ex">Rilievo x2</button>
         <button class="chip" data-t="me">Io</button>
       </div>
-      <div class="m3d-leg"><i style="background:#78c85a"></i>15°<i style="background:#fad732"></i>25°<i style="background:#f5821e"></i>30°<i style="background:#d72828"></i>35°<i style="background:#781e96"></i>40°+</div>
+      <div class="m3d-leg" id="m3d-leg" hidden><i style="background:#78c85a"></i>15°<i style="background:#fad732"></i>25°<i style="background:#f5821e"></i>30°<i style="background:#d72828"></i>35°<i style="background:#781e96"></i>40°+</div>
+      <button class="north-btn m3d-north" id="m3d-north" aria-label="Nord"><svg viewBox="0 0 48 48" width="46" height="46" id="m3d-needle"><circle cx="24" cy="24" r="22" fill="rgba(255,253,246,.94)" stroke="#12372a" stroke-width="2"/><path d="M24 7l6 17H18z" fill="#c0392b"/><path d="M24 41l-6-17h12z" fill="#33403a"/><circle cx="24" cy="24" r="2.5" fill="#fff"/></svg></button>
+      <button class="btn primary m3d-back" id="m3d-back">← Indietro</button>
       <div class="m3d-info" id="m3d-info">Tocca il rilievo per quota e pendenza. Due dita per inclinare e ruotare.</div>`;
     const me = lastPos();
     const c = center || (me ? [me.lon, me.lat] : [12.5, 42]);
-    let sat = false, ex = 1.4, slopeOn = true;
+    let sat = true, ex = 1.4, slopeOn = false;
     const map = new maplibregl.Map({
       container: pg.body.querySelector('#m3d'),
       center: c,
@@ -83,16 +85,15 @@ export function openMap3D(center) {
           slope: { type: 'raster', tiles: ['slope://{z}/{x}/{y}'], tileSize: 256, maxzoom: 14 },
         },
         layers: [
-          { id: 'topo', type: 'raster', source: 'topo' },
-          { id: 'sat', type: 'raster', source: 'sat', layout: { visibility: 'none' } },
+          { id: 'topo', type: 'raster', source: 'topo', layout: { visibility: 'none' } },
+          { id: 'sat', type: 'raster', source: 'sat' },
           { id: 'hill', type: 'hillshade', source: 'dem', paint: { 'hillshade-exaggeration': 0.35, 'hillshade-shadow-color': '#1c2a20' } },
-          { id: 'slope', type: 'raster', source: 'slope', paint: { 'raster-opacity': 0.7 } },
+          { id: 'slope', type: 'raster', source: 'slope', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.7 } },
           { id: 'rec', type: 'line', source: 'rec', paint: { 'line-color': '#e0381e', 'line-width': 4 } },
         ].filter((l) => l.id !== 'rec'),
         terrain: { source: 'dem', exaggeration: ex },
       },
     });
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true, showZoom: false }), 'top-right');
     const markers = [];
     const drawWp = () => {
       markers.splice(0).forEach((m) => m.remove());
@@ -120,6 +121,10 @@ export function openMap3D(center) {
       pg.recT = setInterval(upd, 4000);
       drawWp();
     });
+    const needle = pg.body.querySelector('#m3d-needle');
+    map.on('rotate', () => (needle.style.transform = `rotate(${-map.getBearing()}deg)`));
+    pg.body.querySelector('#m3d-north').onclick = () => map.easeTo({ bearing: 0, duration: 500 });
+    pg.body.querySelector('#m3d-back').onclick = () => pg.close();
     const info = pg.body.querySelector('#m3d-info');
     map.on('click', (e) => {
       try {
@@ -137,7 +142,7 @@ export function openMap3D(center) {
       const b = e.target.closest('[data-t]');
       if (!b) return;
       const t = b.dataset.t;
-      if (t === 'slope') (slopeOn = !slopeOn), map.setLayoutProperty('slope', 'visibility', slopeOn ? 'visible' : 'none'), b.classList.toggle('sel', slopeOn);
+      if (t === 'slope') (slopeOn = !slopeOn), map.setLayoutProperty('slope', 'visibility', slopeOn ? 'visible' : 'none'), b.classList.toggle('sel', slopeOn), (pg.body.querySelector('#m3d-leg').hidden = !slopeOn);
       if (t === 'sat') (sat = !sat), map.setLayoutProperty('sat', 'visibility', sat ? 'visible' : 'none'), map.setLayoutProperty('topo', 'visibility', sat ? 'none' : 'visible'), b.classList.toggle('sel', sat);
       if (t === 'ex') (ex = ex > 1.5 ? 1.4 : 2.6), map.setTerrain({ source: 'dem', exaggeration: ex }), (b.textContent = ex > 1.5 ? 'Rilievo x2' : 'Rilievo x1'), b.classList.toggle('sel', ex > 1.5);
       if (t === 'me') {

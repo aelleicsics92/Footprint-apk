@@ -6,7 +6,7 @@ import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
 import { toGPX, shareFile, safeName, parseGpsText } from '../lib/gpsio.js';
-import { listAreas, deleteArea, fmtMB } from '../lib/offline.js';
+import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
@@ -155,7 +155,9 @@ function openOffline() {
         const e = await navigator.storage.estimate();
         usage = `Spazio usato dall'app: ${fmtMB(e.usage || 0)}`;
       } catch {}
-      pg.body.innerHTML = `<div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca il pulsante ${ico('download', 16)}. ${usage}</div>
+      const qq = getQueue();
+      const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
+      pg.body.innerHTML = `<div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
             ? `<div class="list">${areas
@@ -166,6 +168,7 @@ function openOffline() {
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
+      pg.body.querySelectorAll('[data-cancel]').forEach((b) => (b.onclick = () => cancelDownload(b.dataset.cancel)));
       pg.body.querySelectorAll('[data-del]').forEach(
         (b) =>
           (b.onclick = async () => {
@@ -186,6 +189,9 @@ function openOffline() {
       );
     };
     draw();
+    const o1 = bus.on('dl:update', () => draw());
+    const o2 = bus.on('dl:done', () => draw());
+    pg.onClose = () => (o1 && o1(), o2 && o2());
   });
 }
 

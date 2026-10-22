@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet-rotate';
 import 'leaflet/dist/leaflet.css';
-import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, downloadArea } from '../lib/offline.js';
+import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
@@ -46,6 +46,7 @@ export function mountMap(el) {
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
     <div class="rec-chip hidden" id="rec-chip"></div>
+    <div class="dl-chip hidden" id="dl-chip"></div>
     <button class="fab" id="btn-wp" aria-label="Nuovo waypoint">${ico('pinplus', 30)}</button>`;
 
   const s = getSettings();
@@ -107,6 +108,16 @@ export function mountMap(el) {
   });
 
   bus.on('pos', onPos);
+  initQueue();
+  const dlChip = root.querySelector('#dl-chip');
+  bus.on('dl:update', (qq) => {
+    if (!qq.length) return dlChip.classList.add('hidden');
+    const r = qq.find((j) => j.status === 'running') || qq[0];
+    dlChip.classList.remove('hidden');
+    dlChip.textContent = `Mappe: ${Math.round(((r.done || 0) / (r.total || 1)) * 100)}%${qq.length > 1 ? ` · ${qq.length - 1} in coda` : ''}`;
+  });
+  bus.on('dl:done', (d) => toast(`Mappa salvata: ${d.name} (${fmtMB(d.bytes)})`, 3500));
+  bus.on('dl:error', (d) => toast(d.msg, 4000));
   bus.on('gps:status', updateHud);
   root.querySelector('#hud').addEventListener('click', async () => { if (!lastPos() && ['denied', 'off'].includes(gpsStatus().state)) { await ensurePermission(); restartWatch(); } });
   bus.on('heading', onHeading);
@@ -411,7 +422,7 @@ function openDownload() {
     title: 'Scarica mappa offline',
     full: true,
     body: `<div data-enter-scope>
-      <p class="muted" style="margin:0 0 4px">Verrà scaricata l'area attualmente visibile, per usarla anche senza rete.</p>
+      <p class="muted" style="margin:0 0 4px">L'area visibile viene messa in coda e scaricata in background. Puoi inquadrare altre zone e aggiungerle: si scaricano una dopo l'altra.</p>
       <label class="field"><span>Nome area</span><input id="dl-name" type="text" value="${esc(defName)}" maxlength="60"></label>
       <label class="field"><span>Dettaglio massimo: zoom <b id="dl-zl"></b></span><input id="dl-z" type="range" min="12" max="17" value="${clamp(cur + 1, 13, 17)}" style="width:100%"></label>
       <div class="chips" style="padding:0 0 8px">
@@ -420,9 +431,7 @@ function openDownload() {
         <button class="chip ${s.overlayTrails ? 'sel' : ''}" data-s="trails">Sentieri</button>
       </div>
       <div class="infobox" id="dl-info"></div>
-      <div class="progress hidden" id="dl-prog"><i></i></div>
-      <p class="muted hidden" id="dl-status" style="margin:0 0 8px"></p>
-      <button class="btn primary big" data-primary id="dl-go">${ico('download', 20)} Scarica</button>
+            <button class="btn primary big" data-primary id="dl-go">${ico('download', 20)} Aggiungi alla coda</button>
     </div>`,
   });
   const q = (x) => sh.body.querySelector(x);
@@ -445,34 +454,12 @@ function openDownload() {
   sh.body.querySelectorAll('[data-s]').forEach((c) => (c.onclick = () => (c.classList.toggle('sel'), upd())));
   q('#dl-z').oninput = upd;
   upd();
-  let ctrl = null;
   q('#dl-go').onclick = async () => {
-    if (ctrl) {
-      ctrl.abort();
-      return;
-    }
-    ctrl = new AbortController();
-    const btn = q('#dl-go');
-    btn.innerHTML = `${ico('close', 18)} Annulla`;
-    q('#dl-prog').classList.remove('hidden');
-    q('#dl-status').classList.remove('hidden');
     try {
-      const r = await downloadArea({
-        name: q('#dl-name').value.trim() || defName,
-        bounds,
-        zmin: zmin(),
-        zmax: Number(q('#dl-z').value),
-        sources: srcSel(),
-        signal: ctrl.signal,
-        onProgress: (p) => {
-          q('#dl-prog i').style.width = `${Math.round((p.done / p.total) * 100)}%`;
-          q('#dl-status').textContent = `${p.done.toLocaleString('it-IT')} / ${p.total.toLocaleString('it-IT')} tile · ${fmtMB(p.bytes)}${p.fail ? ` · ${p.fail} non disponibili` : ''}`;
-        },
-      });
-      if (r.aborted) toast('Download annullato');
-      else toast(`Mappa salvata (${fmtMB(r.bytes)})`);
+      await enqueueDownload({ name: q('#dl-name').value.trim() || defName, bounds, zmin: zmin(), zmax: Number(q('#dl-z').value), sources: srcSel() });
+      toast(`In coda (${getQueue().length}). Scarico in background: puoi aggiungere altre aree.`, 3500);
     } catch (e) {
-      toast(e.message || 'Download non riuscito', 4000);
+      toast(e.message || 'Impossibile aggiungere', 4000);
     }
     sh.close();
   };

@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import { get, set, del } from 'idb-keyval';
 import { tileStore, kvGet, kvSet } from './store.js';
-import { uid, sleep } from './util.js';
+import { uid, sleep, bus } from './util.js';
 
 export const SOURCES = {
   sat: {
@@ -185,3 +185,57 @@ export async function deleteArea(id) {
 
 export const fmtMB = (b) => (b / 1048576 >= 10 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + ' MB';
 export const estimateBytes = (tiles, srcs) => tiles * srcs.reduce((a, s) => a + (s === 'sat' ? 22000 : s === 'topo' ? 18000 : 4000), 0);
+
+// ---------- coda di download in background ----------
+let queue = [];
+let current = null; // { job, ctrl }
+let qLoaded = false;
+export const getQueue = () => queue;
+const persist = () => kvSet('dlqueue', queue.map((j) => ({ ...j, status: 'queued' })));
+const emit = () => bus.emit('dl:update', queue);
+
+export async function initQueue() {
+  if (qLoaded) return;
+  qLoaded = true;
+  queue = ((await kvGet('dlqueue')) || []).map((j) => ({ ...j, status: 'queued', done: 0 }));
+  emit();
+  pump();
+}
+export async function enqueueDownload(job) {
+  await initQueue();
+  const total = countTiles(job.bounds, job.zmin, job.zmax) * job.sources.length;
+  if (total > MAX_TILES) throw new Error(`Area troppo grande (${total} tile).`);
+  queue.push({ id: uid(), status: 'queued', done: 0, total, bytes: 0, fail: 0, ...job });
+  persist();
+  emit();
+  pump();
+}
+export function cancelDownload(id) {
+  if (current && current.job.id === id) current.ctrl.abort();
+  queue = queue.filter((j) => j.id !== id);
+  persist();
+  emit();
+}
+async function pump() {
+  if (current) return;
+  const job = queue.find((j) => j.status === 'queued');
+  if (!job) return;
+  job.status = 'running';
+  const ctrl = new AbortController();
+  current = { job, ctrl };
+  emit();
+  try {
+    const r = await downloadArea({
+      name: job.name, bounds: job.bounds, zmin: job.zmin, zmax: job.zmax, sources: job.sources, signal: ctrl.signal,
+      onProgress: (p) => { job.done = p.done; job.total = p.total; job.bytes = p.bytes; job.fail = p.fail; emit(); },
+    });
+    if (!r.aborted) bus.emit('dl:done', { name: job.name, bytes: r.bytes, fail: r.fail });
+  } catch (e) {
+    bus.emit('dl:error', { name: job.name, msg: String(e.message || e) });
+  }
+  queue = queue.filter((j) => j !== job);
+  current = null;
+  persist();
+  emit();
+  pump();
+}

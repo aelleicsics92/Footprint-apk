@@ -366,3 +366,15 @@ html.night .round.on{background:#4f8f5c}
 .f-search input{flex:1;min-width:0;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:10px 14px;font-size:.95rem}
 .f-sug{margin:0 14px}
 .f-sug .item{width:100%}
+
+.dl-chip{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sat) + 96px);z-index:600;background:#12372ae6;color:#fff;border-radius:999px;padding:5px 12px;font-size:.78rem;font-weight:600;pointer-events:none}
+.dl-chip.hidden{display:none}
+
+.m3d-north{left:10px;bottom:96px;z-index:4}
+.m3d-north svg{transition:transform .1s}
+.m3d-back{position:absolute;left:50%;transform:translateX(-50%);bottom:52px;z-index:4;padding:10px 22px;border-radius:999px;box-shadow:0 3px 10px #0006}
+.m3d-leg{bottom:100px !important}
+.m3d-info{bottom:8px}
+
+.m3d-leg{left:auto !important;right:8px;bottom:100px !important}
+.m3d-leg[hidden]{display:none}
