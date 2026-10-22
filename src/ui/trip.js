@@ -1,6 +1,6 @@
 // Computer di viaggio: km, dislivello, quota, velocità e passo in tempo reale
-import { bus, fmtDist, fmtDur, haversine, cardinal } from '../lib/util.js';
-import { getRec, elapsed, startRecording, stopRecording } from '../lib/track.js';
+import { bus, fmtDist, fmtDur, haversine, bearing, cardinal } from '../lib/util.js';
+import { getRec, elapsed, startRecording, stopRecording, pauseRecording, resumeRecording } from '../lib/track.js';
 import { lastPos } from '../lib/geo.js';
 import { getWaypoints } from '../lib/waypoints.js';
 
@@ -34,6 +34,7 @@ function stats() {
     avg, pace: avg ? 60 / avg : null, slope,
     heading: p && p.heading != null && !isNaN(p.heading) ? p.heading : null,
     car: car && p ? haversine(p, car) : null,
+    carBr: car && p ? bearing(p, car) : null,
     start: first && p ? haversine(p, { lat: first[0], lon: first[1] }) : null,
     acc: p ? p.acc : null,
   };
@@ -67,50 +68,39 @@ function profile() {
   const step = Math.max(1, Math.floor(pts.length / 120));
   const a = pts.filter((_, i) => i % step === 0).map((q) => q[2]);
   const lo = Math.min(...a), hi = Math.max(...a), h = Math.max(hi - lo, 10);
-  const W = 300, H = 70;
+  const W = 300, H = 40;
   const xy = a.map((v, i) => `${(i / (a.length - 1)) * W},${H - 4 - ((v - lo) / h) * (H - 12)}`);
-  return `<div class="tprof"><span>Profilo altimetrico</span><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${xy.join(' ')} ${W},${H}" fill="rgba(47,158,90,.22)"/><polyline points="${xy.join(' ')}" fill="none" stroke="#2f9e5a" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><div class="tpr"><i>${Math.round(lo)} m</i><i>${Math.round(hi)} m</i></div></div>`;
+  return `<div class="tprof"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${xy.join(' ')} ${W},${H}" fill="rgba(47,158,90,.22)"/><polyline points="${xy.join(' ')}" fill="none" stroke="#2f9e5a" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg></div>`;
 }
 
 export function mountTrip(root) {
   root.innerHTML = '<header class="trip-head">Computer di viaggio</header><div id="trip" class="trip"></div>';
   const el = root.querySelector('#trip');
-  const cell = (l, ic, v, big) => `<div class="tc ${big ? 'big' : ''}"><span>${l}</span><div class="tv">${svg(ic)}<b>${v}</b></div></div>`;
   let visible = false;
+  const accTxt = (a) => (a == null ? '–' : `±${Math.round(a)} m (${a <= 5 ? 'Ottimo' : a <= 10 ? 'Buono' : a <= 20 ? 'Medio' : 'Debole'})`);
   const draw = () => {
     if (!visible) return;
     const s = stats();
+    const rot = s.carBr != null ? Math.round(s.carBr - (s.heading || 0)) : 0;
     el.innerHTML = `
       <div class="trip-state ${s.rec ? (s.paused ? 'pause' : 'on') : ''}"><span>${s.rec ? (s.paused ? 'In pausa' : 'Registrazione in corso') : 'Traccia non in registrazione'}</span>
-        <button class="chip" id="trip-toggle">${s.rec ? 'Ferma' : 'Avvia'}</button></div>
-      <div class="tg">
-        ${cell('Distanza', 'dist', fmtDist(s.dist), true)}
-        ${cell('Tempo', 'time', fmtDur(s.el), true)}
+        ${s.rec ? `<button class="chip" id="trip-pause">${s.paused ? 'Riprendi' : 'Pausa'}</button>` : ''}<button class="chip" id="trip-toggle">${s.rec ? 'Ferma' : 'Avvia'}</button></div>
+      <div class="hero2">
+        <div><span>Distanza</span><b>${fmtDist(s.dist)}</b></div>
+        <div><span>Tempo</span><b>${fmtDur(s.el)}</b></div>
       </div>
-      ${profile()}
-      <h4 class="tsec">Quota</h4>
-      <div class="tg">
-        ${cell('Quota attuale', 'alt', n(s.alt, 0, ' m'), true)}
-        ${cell('Pendenza', 'slope', n(s.slope, 0, ' %'), true)}
-        ${cell('Dislivello +', 'up', n(s.up, 0, ' m'))}
-        ${cell('Dislivello −', 'down', n(s.down, 0, ' m'))}
-        ${cell('Quota max', 'max', n(s.maxA, 0, ' m'))}
-        ${cell('Quota min', 'min', n(s.minA, 0, ' m'))}
-      </div>
-      <h4 class="tsec">Ritmo</h4>
-      <div class="tg">
-        ${cell('Velocità', 'speed', n(s.speed, 1, ' km/h'))}
-        ${cell('Media', 'avg', n(s.avg, 1, ' km/h'))}
-        ${cell('Passo medio', 'pace', pace(s.pace))}
-        ${cell('In movimento', 'move', fmtDur(s.moving))}
-      </div>
-      <h4 class="tsec">Posizione</h4>
-      <div class="tg">
-        ${cell('Direzione', 'dir', s.heading != null ? `${Math.round(s.heading)}° ${cardinal(s.heading)}` : '–')}
-        ${cell('Precisione GPS', 'gps', s.acc != null ? '±' + Math.round(s.acc) + ' m' : '–')}
-        ${cell("Dall'auto", 'car', s.car != null ? fmtDist(s.car) : '–')}
-        ${cell('Dalla partenza', 'flag', s.start != null ? fmtDist(s.start) : '–')}
-      </div>`;
+      <div class="blk"><h4>${svg('alt')} Altimetria</h4>
+        <div class="two"><div><span>Quota attuale</span><b>${n(s.alt, 0, ' m')}</b></div><div><span>Dislivello +</span><b>${n(s.up, 0, ' m')}</b></div><div><span>Pendenza</span><b>${n(s.slope, 0, ' %')}</b></div></div>
+        ${profile()}
+        <div class="sub">D− ${n(s.down, 0, ' m')} · Min ${n(s.minA, 0, ' m')} · Max ${n(s.maxA, 0, ' m')}</div></div>
+      <div class="blk"><h4>${svg('speed')} Ritmo</h4>
+        <div class="two"><div><span>Vel. media</span><b>${n(s.avg, 1, ' km/h')}</b></div><div><span>In movimento</span><b>${fmtDur(s.moving)}</b></div></div>
+        <div class="sub">Ora ${n(s.speed, 1, ' km/h')} · Passo ${pace(s.pace)}</div></div>
+      <div class="blk"><h4>${svg('gps')} Rientro e GPS</h4>
+        <div class="two"><div><span>Dall'auto</span><b>${s.car != null ? `<i class="car-ar" style="transform:rotate(${rot}deg)">▲</i> ${fmtDist(s.car)} <small>${cardinal(s.carBr)}</small>` : '–'}</b></div><div><span>GPS</span><b style="font-size:1rem">${accTxt(s.acc)}</b></div></div>
+        ${s.start != null ? `<div class="sub">Dalla partenza ${fmtDist(s.start)}${s.heading != null ? ` · Direzione ${Math.round(s.heading)}° ${cardinal(s.heading)}` : ''}</div>` : ''}</div>`;
+    const pb = el.querySelector('#trip-pause');
+    if (pb) pb.onclick = () => { s.paused ? resumeRecording() : pauseRecording(); draw(); };
     el.querySelector('#trip-toggle').onclick = async () => {
       navigator.vibrate && navigator.vibrate(s.rec ? [120, 60, 120] : 150);
       if (s.rec) await stopRecording();
