@@ -99,6 +99,13 @@ public class IntentFilesPlugin extends Plugin {
     public static volatile boolean volumeKey = false;
 
     @PluginMethod
+    public void takeQuick(PluginCall call) {
+        JSObject r = new JSObject();
+        try { r.put("items", new JSArray(QuickSave.take(getContext()))); } catch (Exception e) { r.put("items", new JSArray()); }
+        call.resolve(r);
+    }
+
+    @PluginMethod
     public void setVolumeKey(PluginCall call) {
         volumeKey = Boolean.TRUE.equals(call.getBoolean("enabled", false));
         call.resolve();

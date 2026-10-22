@@ -59,6 +59,17 @@
 
         </activity>
 
+        <service android:name=".WpTileService" android:exported="true" android:label="Salva waypoint" android:icon="@drawable/ic_tile_pin" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service android:name=".CarTileService" android:exported="true" android:label="Segna auto" android:icon="@drawable/ic_tile_car" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <receiver android:name=".QuickWidget" android:exported="true" android:label="Footprint rapido">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

@@ -84,6 +84,21 @@ export async function saveParking() {
   return w;
 }
 
+// Punti salvati da tile Quick Settings o widget mentre l'app era chiusa
+export async function importQuick(items) {
+  let n = 0;
+  for (const it of items) {
+    let p = it;
+    if (it.needFix || it.lat == null) p = await currentFix();
+    if (!p) continue;
+    const car = it.type === 'car';
+    const icon = car ? 'parcheggio' : 'fungo';
+    await addWaypoint({ id: uid(), title: car ? 'Auto parcheggiata' : nextTitle(icon), desc: car ? 'Parcheggio' : '', icon, lat: p.lat, lon: p.lon, alt: p.alt, acc: p.acc, ts: it.ts || Date.now() });
+    n++;
+  }
+  if (n) toast(n === 1 ? 'Punto rapido aggiunto' : `${n} punti rapidi aggiunti`);
+}
+
 const dogs = () => [...new Set([...(getSettings().dogName || '').split(',').map((x) => x.trim()), ...list.map((w) => w.dog)].filter(Boolean))];
 
 const TAGS = [

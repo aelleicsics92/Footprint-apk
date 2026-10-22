@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center"
+    android:padding="6dp"
+    android:background="@drawable/widget_bg">
+    <TextView android:id="@+id/w_wp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Waypoint" android:textColor="#FFB23E" android:textStyle="bold" android:textSize="14sp" />
+    <TextView android:id="@+id/w_car" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Auto" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp" />
+    <TextView android:id="@+id/w_open" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Apri" android:textColor="#C3DCCB" android:textStyle="bold" android:textSize="14sp" />
+</LinearLayout>

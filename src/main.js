@@ -9,7 +9,7 @@ import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast } 
 import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
-import { loadWaypoints, quickWaypoint } from './lib/waypoints.js';
+import { loadWaypoints, quickWaypoint, importQuick } from './lib/waypoints.js';
 import { loadTracks, startRecording, stopRecording, pendingRecovery, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
 import { mountMap, invalidate } from './ui/mapscreen.js';
@@ -109,5 +109,15 @@ async function recover() {
 window.addEventListener('hwvolume', () => { if (getSettings().volumeWp) quickWaypoint(); });
 setTimeout(() => { try { initManDown(); } catch {} }, 3000);
 setTimeout(() => { try { if (getSettings().volumeWp) ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).setVolumeKey({ enabled: true }); } catch {} }, 1500);
+
+async function pullQuick() {
+  try {
+    if (!Capacitor.isNativePlatform()) return;
+    const r = await ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).takeQuick();
+    if (r && r.items && r.items.length) await importQuick(r.items);
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullQuick(); });
+setTimeout(pullQuick, 1200);
 
 boot();
