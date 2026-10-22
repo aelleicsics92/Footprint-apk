@@ -1,4 +1,8 @@
 import './style.css';
+import { initWidgetSync } from './lib/widgetsync.js';
+import { openSOS } from './ui/sos.js';
+import { saveParking, openNewWaypoint, getWaypoints } from './lib/waypoints.js';
+import { setTarget } from './lib/state.js';
 import { initManDown } from './lib/mandown.js';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -110,14 +114,32 @@ window.addEventListener('hwvolume', () => { if (getSettings().volumeWp) quickWay
 setTimeout(() => { try { initManDown(); } catch {} }, 3000);
 setTimeout(() => { try { if (getSettings().volumeWp) ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).setVolumeKey({ enabled: true }); } catch {} }, 1500);
 
+async function runAction(a) {
+  if (a === 'wp') { showTab('map'); bus.emit('nav:tab', 'map'); openNewWaypoint(); }
+  else if (a === 'car') {
+    showTab('map'); bus.emit('nav:tab', 'map');
+    const car = getWaypoints().filter((w) => w.icon === 'parcheggio').sort((x, y) => y.ts - x.ts)[0];
+    if (car) { setTarget(car.id); bus.emit('wp:target', car.id); }
+    else await saveParking();
+  } else if (a === 'rec') {
+    if (getRec().status === 'idle') { await startRecording(); toast('Registrazione avviata'); }
+    else { const t = await stopRecording(); toast(t ? 'Traccia salvata' : 'Traccia troppo corta: non salvata'); }
+  } else if (a === 'sos') { showTab('map'); bus.emit('nav:tab', 'map'); openSOS(); }
+  else if (a === 'fungi') { showTab('fungi'); bus.emit('nav:tab', 'fungi'); }
+}
+window.addEventListener('fpaction', () => pullQuick());
+
 async function pullQuick() {
   try {
     if (!Capacitor.isNativePlatform()) return;
     const r = await ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).takeQuick();
     if (r && r.items && r.items.length) await importQuick(r.items);
+    if (r && r.action) await runAction(r.action);
   } catch {}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullQuick(); });
 setTimeout(pullQuick, 1200);
+setTimeout(pullQuick, 3500);
+setTimeout(() => { try { initWidgetSync(); } catch {} }, 2500);
 
 boot();

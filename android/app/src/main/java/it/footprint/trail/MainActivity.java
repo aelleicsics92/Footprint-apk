@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(IntentFilesPlugin.class);
         super.onCreate(savedInstanceState);
         IntentFilesPlugin.collect(this, getIntent());
+        if (getIntent() != null && getIntent().hasExtra("fp_action")) IntentFilesPlugin.action = getIntent().getStringExtra("fp_action");
     }
 
     @Override
@@ -28,9 +29,11 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         IntentFilesPlugin.collect(this, intent);
+        if (intent != null && intent.hasExtra("fp_action")) IntentFilesPlugin.action = intent.getStringExtra("fp_action");
         try {
             PluginHandle h = getBridge().getPlugin("IntentFiles");
             if (h != null) ((IntentFilesPlugin) h.getInstance()).deliver();
+            getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new Event('fpaction'))", null));
         } catch (Exception ignore) {
         }
     }

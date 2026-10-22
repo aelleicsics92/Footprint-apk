@@ -97,12 +97,23 @@ public class IntentFilesPlugin extends Plugin {
     }
 
     public static volatile boolean volumeKey = false;
+    public static volatile String action = null;
 
     @PluginMethod
     public void takeQuick(PluginCall call) {
         JSObject r = new JSObject();
         try { r.put("items", new JSArray(QuickSave.take(getContext()))); } catch (Exception e) { r.put("items", new JSArray()); }
+        r.put("action", action);
+        action = null;
         call.resolve(r);
+    }
+
+    @PluginMethod
+    public void setWidgetData(PluginCall call) {
+        String json = call.getString("json", "{}");
+        getContext().getSharedPreferences(MainWidget.PREFS, Context.MODE_PRIVATE).edit().putString("data", json).apply();
+        MainWidget.refresh(getContext());
+        call.resolve();
     }
 
     @PluginMethod

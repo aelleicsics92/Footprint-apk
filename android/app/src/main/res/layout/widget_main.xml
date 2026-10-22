@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="@drawable/widget_bg2">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="FOOTPRINT" android:textColor="#F5F2EB" android:textStyle="bold" android:textSize="12sp" android:letterSpacing="0.1" />
+        <TextView android:id="@+id/w_place" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textColor="#C3DCCB" android:textSize="12sp" android:singleLine="true" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:layout_marginTop="6dp" android:layout_marginBottom="6dp">
+        <LinearLayout android:id="@+id/w_card1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:padding="8dp" android:background="@drawable/card_bg">
+            <ImageView android:id="@+id/w_icon" android:layout_width="38dp" android:layout_height="38dp" android:src="@drawable/w_porcino" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="INDICE CACCIATA" android:textColor="#5B6B60" android:textSize="9sp" android:textStyle="bold" />
+                <TextView android:id="@+id/w_score" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textColor="#12372A" android:textStyle="bold" android:textSize="20sp" />
+                <TextView android:id="@+id/w_prof" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#5B6B60" android:textSize="10sp" android:singleLine="true" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/w_card2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical" android:padding="8dp" android:layout_marginStart="8dp" android:background="@drawable/card_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LUCE NEL BOSCO" android:textColor="#5B6B60" android:textSize="9sp" android:textStyle="bold" />
+            <TextView android:id="@+id/w_sun" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="--" android:textColor="#12372A" android:textStyle="bold" android:textSize="15sp" />
+            <TextView android:id="@+id/w_left" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#5B6B60" android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="46dp" android:orientation="horizontal">
+        <LinearLayout android:id="@+id/w_wp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/btn_bg">
+            <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_ic_pin" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Waypoint" android:textColor="#FFFFFF" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/w_car" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:layout_marginStart="6dp" android:background="@drawable/btn_bg">
+            <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_ic_car" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Auto" android:textColor="#FFFFFF" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/w_rec" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:layout_marginStart="6dp" android:background="@drawable/btn_bg">
+            <ImageView android:id="@+id/w_rec_ic" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/w_ic_play" />
+            <TextView android:id="@+id/w_rec_t" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Traccia" android:textColor="#FFFFFF" android:textSize="10sp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/w_sos" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:layout_marginStart="6dp" android:background="@drawable/btn_sos_bg">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SOS" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
