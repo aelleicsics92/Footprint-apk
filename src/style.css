@@ -395,10 +395,10 @@ html.night .round.on{background:#4f8f5c}
 .tc.big b{font-size:1.9rem}
 .ov-legend{right:auto;left:10px;bottom:100px;max-width:70%}
 
-.leaflet-bottom.leaflet-left{left:50%;transform:translateX(-50%);bottom:30px;pointer-events:none}
+.leaflet-bottom.leaflet-left{left:auto;right:12px;bottom:198px;pointer-events:none}
 .leaflet-bottom.leaflet-left .leaflet-control{margin:0}
 .leaflet-control-scale-line{background:rgba(255,253,246,.88);color:#12372a;font-weight:700;font-size:.72rem;border:2px solid #12372a;border-top:0;padding:1px 8px;white-space:nowrap}
-.trip-head{background:var(--forest);color:#fff;font-family:var(--serif);font-size:1.45rem;font-weight:700;padding:calc(var(--sat) + 18px) 18px 16px}
+.trip-head{background:var(--forest);color:#fff;font-family:var(--serif);font-size:1.45rem;font-weight:700;padding:calc(var(--sat) + 4px) 18px 10px;font-size:1.25rem}
 .trip{padding:12px 12px 24px}
 .tc{box-shadow:0 2px 8px rgba(18,55,42,.12)}
 .tc span{font-size:.74rem;color:var(--forest)}
@@ -406,3 +406,10 @@ html.night .round.on{background:#4f8f5c}
 .tv .tci{flex:none}
 .tv b{margin-top:0;color:var(--ink)}
 html.night .tv,html.night .tc span{color:var(--leaf)}
+
+.tsec{margin:14px 4px 6px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tprof{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 8px rgba(18,55,42,.12)}
+.tprof span{font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--forest);font-weight:600}
+.tprof svg{width:100%;height:70px;display:block;margin-top:4px}
+.tpr{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted)}.tpr i{font-style:normal}
+.tg .tc:not(.big) b{font-size:1.1rem}

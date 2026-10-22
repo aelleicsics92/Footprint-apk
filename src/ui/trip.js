@@ -61,6 +61,17 @@ const I = {
 };
 const svg = (k) => `<svg class="tci" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
 
+function profile() {
+  const pts = getRec().points.filter((q) => q[2] != null);
+  if (pts.length < 3) return '';
+  const step = Math.max(1, Math.floor(pts.length / 120));
+  const a = pts.filter((_, i) => i % step === 0).map((q) => q[2]);
+  const lo = Math.min(...a), hi = Math.max(...a), h = Math.max(hi - lo, 10);
+  const W = 300, H = 70;
+  const xy = a.map((v, i) => `${(i / (a.length - 1)) * W},${H - 4 - ((v - lo) / h) * (H - 12)}`);
+  return `<div class="tprof"><span>Profilo altimetrico</span><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${xy.join(' ')} ${W},${H}" fill="rgba(47,158,90,.22)"/><polyline points="${xy.join(' ')}" fill="none" stroke="#2f9e5a" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><div class="tpr"><i>${Math.round(lo)} m</i><i>${Math.round(hi)} m</i></div></div>`;
+}
+
 export function mountTrip(root) {
   root.innerHTML = '<header class="trip-head">Computer di viaggio</header><div id="trip" class="trip"></div>';
   const el = root.querySelector('#trip');
@@ -75,20 +86,30 @@ export function mountTrip(root) {
       <div class="tg">
         ${cell('Distanza', 'dist', fmtDist(s.dist), true)}
         ${cell('Tempo', 'time', fmtDur(s.el), true)}
-        ${cell('Dislivello +', 'up', n(s.up, 0, ' m'))}
-        ${cell('Dislivello −', 'down', n(s.down, 0, ' m'))}
+      </div>
+      ${profile()}
+      <h4 class="tsec">Quota</h4>
+      <div class="tg">
         ${cell('Quota attuale', 'alt', n(s.alt, 0, ' m'), true)}
         ${cell('Pendenza', 'slope', n(s.slope, 0, ' %'), true)}
-        ${cell('Velocità', 'speed', n(s.speed, 1, ' km/h'))}
-        ${cell('Velocità media', 'avg', n(s.avg, 1, ' km/h'))}
-        ${cell('Passo medio', 'pace', pace(s.pace))}
-        ${cell('In movimento', 'move', fmtDur(s.moving))}
+        ${cell('Dislivello +', 'up', n(s.up, 0, ' m'))}
+        ${cell('Dislivello −', 'down', n(s.down, 0, ' m'))}
         ${cell('Quota max', 'max', n(s.maxA, 0, ' m'))}
         ${cell('Quota min', 'min', n(s.minA, 0, ' m'))}
+      </div>
+      <h4 class="tsec">Ritmo</h4>
+      <div class="tg">
+        ${cell('Velocità', 'speed', n(s.speed, 1, ' km/h'))}
+        ${cell('Media', 'avg', n(s.avg, 1, ' km/h'))}
+        ${cell('Passo medio', 'pace', pace(s.pace))}
+        ${cell('In movimento', 'move', fmtDur(s.moving))}
+      </div>
+      <h4 class="tsec">Posizione</h4>
+      <div class="tg">
         ${cell('Direzione', 'dir', s.heading != null ? `${Math.round(s.heading)}° ${cardinal(s.heading)}` : '–')}
+        ${cell('Precisione GPS', 'gps', s.acc != null ? '±' + Math.round(s.acc) + ' m' : '–')}
         ${cell("Dall'auto", 'car', s.car != null ? fmtDist(s.car) : '–')}
         ${cell('Dalla partenza', 'flag', s.start != null ? fmtDist(s.start) : '–')}
-        ${cell('Precisione GPS', 'gps', s.acc != null ? '±' + Math.round(s.acc) + ' m' : '–')}
       </div>`;
     el.querySelector('#trip-toggle').onclick = async () => {
       if (s.rec) await stopRecording();
