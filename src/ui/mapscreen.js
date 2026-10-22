@@ -44,8 +44,7 @@ export function mountMap(el) {
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}<em class="car-b" id="car-b" hidden></em></button>
-      <button class="round" id="btn-3d" aria-label="Mappa 3D" style="font-weight:800;font-size:.8rem">3D</button>
-      <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
+      <button class="round" id="btn-3d" hidden>3D</button><button class="round" id="btn-dl" hidden></button>
     </div>
     <div class="rec-chip hidden" id="rec-chip"></div>
     <div class="dl-chip hidden" id="dl-chip"></div>
@@ -340,6 +339,7 @@ function renderWaypoints() {
 function renderRec() {
   const chip = root.querySelector('#rec-chip');
   const r = getRec();
+  root.classList.toggle('rec-on', r.status !== 'idle');
   if (r.status === 'idle') {
     recLine.setLatLngs([]);
     chip.className = 'rec-chip hidden';
@@ -410,11 +410,13 @@ async function showTrack({ id, name }) {
 }
 
 // ---------- livelli ----------
+let legendHTML = '';
 function openLayers() {
   const s = getSettings();
   const sh = openSheet({
     title: 'Livelli mappa',
     body: `<div class="stack">
+      <div class="row gap"><button class="btn primary grow" id="ly-3d">Mappa 3D</button><button class="btn ghost grow" id="ly-dl">Scarica offline</button></div>
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
@@ -453,6 +455,9 @@ function openLayers() {
   sh.body.querySelector('#ly-tag').onchange = (e) => { setSetting('wpTag', e.target.value); renderWaypoints(); };
   sh.body.querySelector('#ly-year').onchange = filt;
   sh.body.querySelector('#ly-month').onchange = filt;
+  sh.body.querySelector('#ly-3d').onclick = () => { sh.close(); root.querySelector('#btn-3d').click(); };
+  sh.body.querySelector('#ly-dl').onclick = () => { sh.close(); root.querySelector('#btn-dl').click(); };
+  if (legendHTML) { const d = document.createElement('div'); d.className = 'ov-legend-in'; d.innerHTML = '<b style="font-size:.95rem">Legenda</b>' + legendHTML; sh.body.querySelector('.stack').appendChild(d); }
   sh.body.querySelector('#ly-wp').onchange = (e) => {
     setSetting('showWaypoints', e.target.checked);
     renderWaypoints();
@@ -715,7 +720,7 @@ function drawOverlays() {
   if (s.showNoSignal) rows.push('<span><i style="background:#d93025"></i>Senza campo dati</span>');
   if (s.altOn) rows.push(`<span><i style="background:#ffc400"></i>Quota ${Number(s.altMin) || 0}-${Number(s.altMax) || 9000} m</span>`);
   if (s.showExplored) rows.push('<span><i style="background:#c9d3d6"></i>Nebbia = non ancora battuto oggi</span>');
-  lg.innerHTML = rows.join('');
-  lg.classList.toggle('hidden', !rows.length);
+  legendHTML = rows.join('');
+  lg.classList.add('hidden');
 }
 bus.on('cov:changed', () => { if (map && getSettings().showNoSignal) drawOverlays(); });

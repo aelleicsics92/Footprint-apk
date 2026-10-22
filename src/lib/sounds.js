@@ -6,10 +6,13 @@ export async function findSound(sci, nome) {
   const latin = (sci || '').split(' ').slice(0, 2).join(' ');
   for (const q of [latin, nome].filter(Boolean)) {
     try {
-      const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch=${encodeURIComponent('filetype:audio ' + q)}&prop=imageinfo&iiprop=url|mime`;
+      const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=20&gsrsearch=${encodeURIComponent('filetype:audio ' + q)}&prop=imageinfo&iiprop=url|mime`;
       const j = await (await fetch(u)).json();
       const pages = Object.values((j.query && j.query.pages) || {}).sort((a, b) => a.index - b.index);
-      const hit = pages.find((p) => p.imageinfo && /audio|ogg/.test(p.imageinfo[0].mime));
+      const gs = latin.toLowerCase().split(' ');
+      const nm = (nome || '').toLowerCase();
+      const ok = (t) => { const x = t.toLowerCase(); return (gs.length === 2 && x.includes(gs[0]) && x.includes(gs[1])) || (nm.length > 3 && x.includes(nm)); };
+      const hit = pages.find((p) => p.imageinfo && /audio|ogg/.test(p.imageinfo[0].mime) && ok(p.title));
       if (hit) {
         const r = { url: hit.imageinfo[0].url, title: hit.title.replace(/^File:/, '') };
         cache.set(key, r);

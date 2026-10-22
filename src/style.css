@@ -456,3 +456,21 @@ html.hc .round,html.hc .chip{border-width:2.5px;border-color:#12372a}
 .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;align-items:center}.tagrow small{width:100%;color:var(--muted);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.tagc{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 11px;font-size:.8rem;font-weight:600;color:var(--forest)}.tagc.sel{background:var(--forest2);border-color:var(--forest2);color:#fff}html.night .tagc{color:var(--ink)}html.night .tagc.sel{color:#fff}
 .dday{text-align:center;margin-top:8px;font-weight:700;color:#ffd48a;font-size:.92rem}
 .md-overlay{position:fixed;inset:0;z-index:9999;background:rgba(160,20,10,.96);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center}.md-box{padding:24px;max-width:340px}.md-box b{font-size:1.4rem}.md-n{font-size:5rem;font-family:var(--serif);font-weight:700;margin:8px 0}
+
+/* --- mappa: layout riordinato --- */
+.sos-btn{width:40px;height:40px;font-size:.62rem;border-width:2.5px}
+.map-top{gap:10px}
+.hud{padding:6px 12px}
+.wx-chip{top:calc(var(--sat) + 62px);padding:5px 11px}
+.map-tools{top:calc(var(--sat) + 70px)}
+.map-tools .round,.map-tools .round.on{background:rgba(255,253,246,.94);color:#12372a;box-shadow:0 2px 8px rgba(0,0,0,.28)}
+.map-tools .round.on{outline:2.5px solid #2f9e5a;outline-offset:-2.5px}
+.north-btn{bottom:16px;width:42px;height:42px}
+.rec-on .north-btn{bottom:80px}
+.leaflet-bottom.leaflet-left{left:10px;right:auto;transform:none;bottom:66px}
+.rec-on .leaflet-bottom.leaflet-left{bottom:130px}
+.leaflet-control-scale-line{font-size:.62rem;padding:0 6px;border-width:1.5px}
+.fab{background:var(--forest);color:var(--amber);border-color:var(--amber)}
+.ov-legend-in{display:flex;flex-direction:column;gap:5px;font-size:.84rem;padding:8px 2px}
+.ov-legend-in i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.map-tools [hidden]{display:none!important}
