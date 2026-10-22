@@ -28,8 +28,8 @@ const TABS = [
   ['compass', 'Bussola', 'compass'],
   ['ai', 'Identifica', 'camera'],
   ['trip', 'Viaggio', 'gauge'],
-  ['fungi', 'Previsione', 'mushroom'],
   ['more', 'Altro', 'more'],
+  ['fungi', 'Previsione', 'mushroom'],
 ];
 let current = 'map';
 
@@ -40,13 +40,13 @@ function showTab(id) {
   $('#app').classList.toggle('on-map', id === 'map');
   $('#nav')
     .querySelectorAll('button')
-    .forEach((b) => b.classList.toggle('active', b.dataset.t === id));
+    .forEach((b) => b.classList.toggle('active', b.dataset.t === (id === 'fungi' ? 'more' : id)));
   if (id === 'map') setTimeout(invalidate, 50);
 }
 
 async function boot() {
   installInputBehaviour();
-  $('#nav').innerHTML = TABS.map(([k, l, i]) => `<button data-t="${k}">${ico(i, 24)}<span>${l}</span></button>`).join('');
+  $('#nav').innerHTML = TABS.filter((t) => t[0] !== 'fungi').map(([k, l, i]) => `<button data-t="${k}">${ico(i, 24)}<span>${l}</span></button>`).join('');
   $('#nav').addEventListener('click', (e) => {
     const b = e.target.closest('[data-t]');
     if (b) {

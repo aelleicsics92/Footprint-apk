@@ -27,6 +27,7 @@ function openDog() {
 
 export function mountMore(el) {
   const items = [
+    ['mushroom', 'Previsione raccolta', 'Indice funghi e tartufi, pioggia, mappa d\'Italia', () => bus.emit('nav:tab', 'fungi')],
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
@@ -36,7 +37,7 @@ export function mountMore(el) {
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
     ['nav', 'Garmin GPSMAP', 'Importa ed esporta waypoint e tracce', openGarmin],
     ['upload', 'Importa file GPS', 'GPX, KML, GeoJSON, TCX, LOC (Garmin e altri)', importFiles],
-    ['share', 'Esporta', 'Tutto o per periodo (es. Ottobre 2026), GPX o KML', exportAll],
+    ['share', 'Esporta', 'Tutto o per periodo, GPX, KML, GeoJSON, TCX, LOC', exportAll],
     ['sliders', 'Impostazioni', 'Traccia, emergenza, AI, bussola', openSettings],
     ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
   ];
@@ -45,6 +46,16 @@ export function mountMore(el) {
       .map(([i, t, s], n) => `<button class="item" data-n="${n}"><span class="lead">${ico(i, 22)}</span><div class="ti"><b>${t}</b><small>${s}</small></div><span class="chev">${ico('back', 18).replace('<svg ', '<svg style="transform:rotate(180deg)" ')}</span></button>`)
       .join('')}</div>`;
   el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => items[Number(b.dataset.n)][3]()));
+  const refreshBadge = () => {
+    const s = getSettings(), now = Date.now();
+    const due = [s.dogVaccine, s.dogParasite].some((d) => d && new Date(d + 'T23:59:59').getTime() - now < 30 * 86400000);
+    const idx = items.findIndex((i) => i[1] === 'Profilo cane');
+    const b = el.querySelector(`[data-n="${idx}"] .lead`);
+    if (b) { b.querySelector('.dot-b')?.remove(); if (due) b.insertAdjacentHTML('beforeend', '<i class="dot-b"></i>'); }
+  };
+  refreshBadge();
+  bus.on('settings:changed', refreshBadge);
+  bus.on('nav:tab', (t) => t === 'more' && refreshBadge());
 }
 
 // ---------- tracce ----------
@@ -127,7 +138,7 @@ function openWaypointList() {
       let q = '';
       const draw = () => {
         const s = q.trim().toLowerCase();
-        const list = getWaypoints().filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s)).sort((a, b) => b.ts - a.ts);
+        const list = getWaypoints().filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s) || wpIcon(w.icon).label.toLowerCase().includes(s) || (w.tags || []).some((t) => t.toLowerCase().includes(s))).sort((a, b) => b.ts - a.ts);
         pg.body.querySelector('#wl').innerHTML = list.length
           ? list
               .map((w) => `<button class="item" data-id="${w.id}"><span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
@@ -135,7 +146,7 @@ function openWaypointList() {
           : `<div class="empty">${ico('pinplus', 40)}<p>Nessun waypoint.<br>Usa il pulsante sulla mappa per salvarne uno.</p></div>`;
         pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => openWaypoint(getWaypoints().find((w) => w.id === b.dataset.id))));
       };
-      pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca waypoint…"></div><div class="list" id="wl"></div>`;
+      pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div><div class="list" id="wl"></div>`;
       pg.body.querySelector('#wq').oninput = (e) => ((q = e.target.value), draw());
       draw();
       const off = bus.on('wp:changed', draw);
@@ -253,7 +264,7 @@ function exportAll() {
       <div class="row gap"><select id="ex-y" class="grow"><option value="">Tutti gli anni</option>${years.map((y) => `<option>${y}</option>`).join('')}</select><select id="ex-m" class="grow"><option value="0">Tutti i mesi</option>${MESI.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select></div>
       <label class="field"><span>Contenuto</span><select id="ex-w"><option value="all">Waypoint e tracce</option><option value="wp">Solo waypoint</option><option value="tr">Solo tracce</option></select></label>
       <p class="muted" id="ex-n" style="margin:0;font-size:.85rem"></p>
-      <div class="row gap"><button class="btn primary grow" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn ghost grow" id="ex-kml">${ico('share', 18)} KML</button></div></div>`,
+      <div class="row gap"><button class="btn primary grow" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn ghost grow" id="ex-kml">${ico('share', 18)} KML</button><select id="ex-more" class="grow"><option value="">Altri formati</option><option value="geojson">GeoJSON</option><option value="tcx">TCX</option><option value="loc">LOC</option></select></div></div>`,
   });
   const q = (i) => sh.body.querySelector(i);
   const pick = () => {
@@ -273,7 +284,7 @@ function exportAll() {
   };
   ['#ex-y', '#ex-m', '#ex-w'].forEach((i) => (q(i).onchange = upd));
   upd();
-  const go = async (kml) => {
+  const go = async (fmt) => {
     const { wps, metas, label } = pick();
     if (!wps.length && !metas.length) return toast('Nessun dato nel periodo');
     const tracks = [];
@@ -281,12 +292,16 @@ function exportAll() {
     sh.close();
     try {
       const base = safeName(label) || 'footprint';
-      if (kml) await shareFile(`${base}.kml`, toKML(wps, tracks, label), { title: label, mime: 'application/vnd.google-earth.kml+xml' });
+      if (fmt === 'kml') await shareFile(`${base}.kml`, toKML(wps, tracks, label), { title: label, mime: 'application/vnd.google-earth.kml+xml' });
+      else if (fmt === 'geojson') await shareFile(`${base}.geojson`, JSON.stringify({ type: 'FeatureCollection', features: [...wps.map((w) => ({ type: 'Feature', properties: { name: w.title, desc: w.desc || '', icon: w.icon }, geometry: { type: 'Point', coordinates: [w.lon, w.lat, w.alt || 0] } })), ...tracks.map((t) => ({ type: 'Feature', properties: { name: t.name }, geometry: { type: 'LineString', coordinates: t.points.map((p) => [p[1], p[0], p[2] || 0]) } }))] }), { title: label, mime: 'application/geo+json' });
+      else if (fmt === 'loc') await shareFile(`${base}.loc`, `<?xml version="1.0" encoding="UTF-8"?><loc version="1.0" src="Footprint">${wps.map((w, i) => `<waypoint><name id="FP${i + 1}"><![CDATA[${w.title || 'Waypoint'}]]></name><coord lat="${w.lat}" lon="${w.lon}"/><type>Geocache</type></waypoint>`).join('')}</loc>`, { title: label, mime: 'application/xml' });
+      else if (fmt === 'tcx') await shareFile(`${base}.tcx`, `<?xml version="1.0" encoding="UTF-8"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities>${tracks.map((t) => `<Activity Sport="Other"><Id>${new Date(t.start || Date.now()).toISOString()}</Id><Lap StartTime="${new Date(t.start || Date.now()).toISOString()}"><Track>${t.points.map((p) => `<Trackpoint><Time>${new Date(p[3] || t.start || Date.now()).toISOString()}</Time><Position><LatitudeDegrees>${p[0]}</LatitudeDegrees><LongitudeDegrees>${p[1]}</LongitudeDegrees></Position>${p[2] != null ? `<AltitudeMeters>${p[2]}</AltitudeMeters>` : ''}</Trackpoint>`).join('')}</Track></Lap></Activity>`).join('')}</Activities></TrainingCenterDatabase>`, { title: label, mime: 'application/vnd.garmin.tcx+xml' });
       else await shareFile(`${base}.gpx`, toGPX({ waypoints: wps, tracks, name: label }), { title: label });
     } catch {}
   };
-  q('#ex-gpx').onclick = () => go(false);
-  q('#ex-kml').onclick = () => go(true);
+  q('#ex-gpx').onclick = () => go('gpx');
+  q('#ex-kml').onclick = () => go('kml');
+  q('#ex-more').onchange = (e) => { if (e.target.value) go(e.target.value); };
 }
 
 // ---------- impostazioni ----------
@@ -296,7 +311,7 @@ function openSettings() {
     const keyHint = (n) => {
       const k = apiKey(n);
       if (!k) return 'Incolla la chiave API';
-      return s[n + 'Key'] ? 'Chiave personale in uso' : `Chiave integrata attiva (${k.slice(0, 4)}…${k.slice(-3)})`;
+      return s[n + 'Key'] ? 'Chiave personale in uso' : 'Chiave integrata attiva';
     };
     pg.body.innerHTML = `
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
@@ -310,30 +325,30 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Scadenza tesserino / permesso</b><small>Ti avviso 30 giorni prima</small></div><input type="date" data-k="permitExpiry" value="${esc(s.permitExpiry)}" onfocus="this.select&&this.select()"></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
+      <div class="set-row col"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
       <div class="list"><button class="item" id="bat-ex"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Registrazione in background</b><small>La traccia si avvia solo dal Computer di viaggio.</small><small id="bat-s">Controllo…</small></div></button></div>
       <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Icone waypoint</b><small>Ordine (trascina) e icone da nascondere</small></div></button></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
-      <div class="set-row"><div class="ti"><b>Allergie</b></div><input type="text" data-k="iceAllergies" value="${esc(s.iceAllergies)}" maxlength="80" onfocus="this.select()"></div>
-      <div class="set-row"><div class="ti"><b>Contatto ICE</b><small>Salvati solo sul telefono, mostrati e inviati nel messaggio SOS</small></div><input type="tel" data-k="icePhone" value="${esc(s.icePhone)}" maxlength="20" onfocus="this.select()"></div></div>
+      <div class="list"><div class="set-row col"><div class="ti"><b>Gruppo sanguigno</b></div><input type="text" data-k="iceBlood" value="${esc(s.iceBlood)}" maxlength="8" onfocus="this.select()"></div>
+      <div class="set-row col"><div class="ti"><b>Allergie</b></div><input type="text" data-k="iceAllergies" value="${esc(s.iceAllergies)}" maxlength="80" onfocus="this.select()"></div>
+      <div class="set-row col"><div class="ti"><b>Contatto ICE</b><small>Salvati solo sul telefono, mostrati e inviati nel messaggio SOS</small></div><input type="tel" data-k="icePhone" value="${esc(s.icePhone)}" maxlength="20" onfocus="this.select()"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Emergenza</div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Nome contatto</b></div><input type="text" data-k="sosName" value="${esc(s.sosName)}" maxlength="30"></div>
-      <div class="set-row"><div class="ti"><b>Numero da chiamare</b><small>Pulsante SOS sulla mappa</small></div><input type="tel" data-k="sosNumber" value="${esc(s.sosNumber)}" maxlength="20"></div></div>
+      <div class="list"><div class="set-row col"><div class="ti"><b>Nome contatto</b></div><input type="text" data-k="sosName" value="${esc(s.sosName)}" maxlength="30"></div>
+      <div class="set-row col"><div class="ti"><b>Numero da chiamare</b><small>Pulsante SOS sulla mappa</small></div><input type="tel" data-k="sosNumber" value="${esc(s.sosNumber)}" maxlength="20"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Bussola</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Declinazione magnetica (°)</b><small>Italia circa +3,5 (Est)</small></div><input type="number" step="0.1" data-k="declination" value="${s.declination}"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Intelligenza artificiale</div>
       <div class="list">
-        <div class="set-row"><div class="ti"><b>Gemini</b><small>${keyHint('gemini')}</small></div><input type="password" data-k="geminiKey" value="${esc(s.geminiKey)}" autocomplete="off"></div>
-        <div class="set-row"><div class="ti"><b>OpenRouter</b><small>${keyHint('openrouter')} (riserva)</small></div><input type="password" data-k="openrouterKey" value="${esc(s.openrouterKey)}" autocomplete="off"></div>
-        <div class="set-row"><div class="ti"><b>Groq</b><small>${keyHint('groq')} (riserva)</small></div><input type="password" data-k="groqKey" value="${esc(s.groqKey)}" autocomplete="off"></div>
+        <div class="set-row col"><div class="ti"><b>Gemini</b><small>${keyHint('gemini')}</small></div><input type="password" data-k="geminiKey" value="${esc(s.geminiKey)}" autocomplete="off"></div>
+        <div class="set-row col"><div class="ti"><b>OpenRouter</b><small>${keyHint('openrouter')} (riserva)</small></div><input type="password" data-k="openrouterKey" value="${esc(s.openrouterKey)}" autocomplete="off"></div>
+        <div class="set-row col"><div class="ti"><b>Groq</b><small>${keyHint('groq')} (riserva)</small></div><input type="password" data-k="groqKey" value="${esc(s.groqKey)}" autocomplete="off"></div>
       </div>
       <div style="padding:6px 16px 0"><button class="btn ghost big" id="ai-test">${ico('sparkle', 18)} Prova connessione AI</button><div id="ai-test-out" style="margin-top:8px;font-size:.82rem;line-height:1.45"></div></div>
       <div class="sec-title" style="font-size:1.1rem">Modelli (avanzate)</div>
       <div class="list">
-        <div class="set-row"><div class="ti"><b>Gemini</b></div><input type="text" data-k="geminiModel" value="${esc(s.geminiModel)}"></div>
-        <div class="set-row"><div class="ti"><b>OpenRouter</b></div><input type="text" data-k="openrouterModel" value="${esc(s.openrouterModel)}"></div>
-        <div class="set-row"><div class="ti"><b>Groq</b></div><input type="text" data-k="groqModel" value="${esc(s.groqModel)}"></div>
+        <div class="set-row col"><div class="ti"><b>Gemini</b></div><input type="text" data-k="geminiModel" value="${esc(s.geminiModel)}"></div>
+        <div class="set-row col"><div class="ti"><b>OpenRouter</b></div><input type="text" data-k="openrouterModel" value="${esc(s.openrouterModel)}"></div>
+        <div class="set-row col"><div class="ti"><b>Groq</b></div><input type="text" data-k="groqModel" value="${esc(s.groqModel)}"></div>
       </div>
       <p class="muted" style="margin:10px 18px;font-size:.8rem">Se Gemini non risponde o ha esaurito la quota, l'app prova automaticamente OpenRouter e poi Groq. Il riconoscimento dei suoni usa solo Gemini.</p>`;
     pg.body.querySelector('#ai-test').onclick = async (e) => {
@@ -359,6 +374,18 @@ function openSettings() {
         pg.body.querySelector('#bat-ex').onclick = async () => { await IF.requestBatteryExemption(); };
       } catch { bs.textContent = 'Disponibile solo nell\'app Android.'; }
     })();
+    pg.body.querySelectorAll('input[type=password]').forEach((i) => {
+      const w = document.createElement('div');
+      w.className = 'pwrap';
+      i.parentNode.insertBefore(w, i);
+      w.appendChild(i);
+      const e = document.createElement('button');
+      e.type = 'button';
+      e.className = 'eye';
+      e.textContent = 'Mostra';
+      e.onclick = () => { const h = i.type === 'password'; i.type = h ? 'text' : 'password'; e.textContent = h ? 'Nascondi' : 'Mostra'; };
+      w.appendChild(e);
+    });
     pg.body.querySelectorAll('[data-k]').forEach((inp) => {
       inp.addEventListener('change', async () => {
         const k = inp.dataset.k;
