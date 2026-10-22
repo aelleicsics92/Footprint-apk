@@ -43,7 +43,6 @@ export function mountMap(el) {
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}</button>
-      <button class="round" id="btn-trip" aria-label="Computer di viaggio">${ico('gauge', 22)}</button>
       <button class="round" id="btn-3d" aria-label="Mappa 3D" style="font-weight:800;font-size:.8rem">3D</button>
       <button class="round" id="btn-dl" aria-label="Scarica mappa offline">${ico('download', 22)}</button>
     </div>
@@ -56,6 +55,7 @@ export function mountMap(el) {
   const saved = lsGet('fp.view');
   map = L.map('map', { zoomControl: false, attributionControl: true, preferCanvas: true, rotate: true, touchRotate: true, rotateControl: false, bearing: 0, worldCopyJump: false, zoomSnap: 0.5, zoomDelta: 1, maxZoom: 20, minZoom: 4 });
   map.attributionControl.setPrefix(false);
+  L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 130 }).addTo(map);
   window.__fpmap = map;
   const needle = root.querySelector('#north-needle');
   const onRot = () => {
@@ -88,7 +88,6 @@ export function mountMap(el) {
   setupSosHold(root.querySelector('#btn-sos'));
   setupCar(root.querySelector('#btn-car'));
   root.querySelector('#btn-3d').onclick = () => { const c = map.getCenter(); import('./map3d.js').then((m) => m.openMap3D([c.lng, c.lat])); };
-  root.querySelector('#btn-trip').onclick = () => import('./trip.js').then((m) => m.openTrip());
   setupWeatherChip(root.querySelector('#wx-chip'));
   root.querySelector('#btn-locate').onclick = () => {
     const p = lastPos();

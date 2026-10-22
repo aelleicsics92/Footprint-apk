@@ -4,10 +4,14 @@ import { bus, haversine } from './util.js';
 
 const DAY = 24 * 3600 * 1000;
 let pts = [], loaded = false, dirty = 0;
+let loading = null;
 export async function getWalked() {
   if (!loaded) {
-    pts = ((await kvGet('walked')) || []).filter((q) => q[2] > Date.now() - DAY);
-    loaded = true;
+    loading = loading || kvGet('walked').then((v) => {
+      pts = ((v || []).filter((q) => q[2] > Date.now() - DAY)).concat(pts);
+      loaded = true;
+    });
+    await loading;
   }
   return pts;
 }

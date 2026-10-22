@@ -15,6 +15,7 @@ import { mountMap, invalidate } from './ui/mapscreen.js';
 import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
+import { mountTrip } from './ui/trip.js';
 import { mountMore } from './ui/more.js';
 import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
@@ -25,6 +26,7 @@ const TABS = [
   ['map', 'Mappa', 'map'],
   ['compass', 'Bussola', 'compass'],
   ['ai', 'Identifica', 'camera'],
+  ['trip', 'Viaggio', 'gauge'],
   ['fungi', 'Previsione', 'mushroom'],
   ['more', 'Altro', 'more'],
 ];
@@ -75,6 +77,7 @@ async function boot() {
   mountCompass($('#screen-compass'));
   mountAI($('#screen-ai'));
   mountFungi($('#screen-fungi'));
+  mountTrip($('#screen-trip'));
   mountMore($('#screen-more'));
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); } catch {}
   showTab('map');

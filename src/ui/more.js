@@ -19,7 +19,6 @@ export function mountMore(el) {
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
-    ['gauge', 'Computer di viaggio', 'Km, dislivello, quota, velocità in tempo reale', () => import('./trip.js').then((m) => m.openTrip())],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
     ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],

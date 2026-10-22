@@ -50,7 +50,7 @@ export class Fog {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.globalCompositeOperation = 'source-over';
     g.clearRect(0, 0, sz.x, sz.y);
-    g.fillStyle = 'rgba(232,238,240,0.34)';
+    g.fillStyle = 'rgba(232,238,240,0.14)';
     g.fillRect(0, 0, sz.x, sz.y);
     g.globalCompositeOperation = 'destination-out';
     const c = m.getCenter();
