@@ -2,10 +2,63 @@
   "updated": "2026-10-23",
   "note": "Prezzi indicativi in euro al kg, media nazionale. Cambiano anche nell'arco di 24 ore: sul mercato di Alba i prezzi di apertura del bianco superano i 4.000 euro al kg.",
   "items": [
-    { "id": "bianco", "name": "Tartufo bianco pregiato", "latin": "Tuber magnatum", "min": 700, "max": 2100, "mix": 1400, "date": "2026-10-01", "kind": "cavatore", "src": "andareatartufi.it" },
-    { "id": "uncinato", "name": "Tartufo uncinato", "latin": "Tuber aestivum var. uncinatum", "min": 126, "max": 380, "mix": 255, "date": "2026-10-12", "kind": "cavatore", "src": "andareatartufi.it" },
-    { "id": "scorzone", "name": "Scorzone (estivo)", "latin": "Tuber aestivum", "min": 25, "max": 70, "mix": 47, "date": "2026-06-03", "kind": "cavatore", "src": "andareatartufi.it" },
-    { "id": "nero", "name": "Nero pregiato", "latin": "Tuber melanosporum", "min": 600, "max": 1500, "mix": 1000, "date": "2026-10-01", "kind": "mercato", "src": "prezzitartufo.it" },
-    { "id": "bianchetto", "name": "Bianchetto (marzuolo)", "latin": "Tuber borchii", "min": 150, "max": 400, "mix": 250, "date": "2026-10-01", "kind": "mercato", "src": "prezzitartufo.it" }
+    {
+      "id": "bianco",
+      "name": "Tartufo bianco pregiato",
+      "latin": "Tuber magnatum",
+      "min": 700,
+      "max": 2100,
+      "mix": 1400,
+      "date": "2026-10-01",
+      "kind": "cavatore",
+      "src": "andareatartufi.it",
+      "url": "https://www.andareatartufi.it/2026/10/01/quotazioni-tartufo-bianco-pregiato/"
+    },
+    {
+      "id": "uncinato",
+      "name": "Tartufo uncinato",
+      "latin": "Tuber aestivum var. uncinatum",
+      "min": 126,
+      "max": 380,
+      "mix": 255,
+      "date": "2026-10-12",
+      "kind": "cavatore",
+      "src": "andareatartufi.it",
+      "url": "https://www.andareatartufi.it/2026/10/06/quotazioni-tartufo-uncinato/"
+    },
+    {
+      "id": "scorzone",
+      "name": "Scorzone (estivo)",
+      "latin": "Tuber aestivum",
+      "min": 25,
+      "max": 70,
+      "mix": 47,
+      "date": "2026-06-03",
+      "kind": "cavatore",
+      "src": "andareatartufi.it",
+      "url": "https://www.andareatartufi.it/2026/05/11/quotazioni-tartufo-scorzone-2026/"
+    },
+    {
+      "id": "nero",
+      "name": "Nero pregiato",
+      "latin": "Tuber melanosporum",
+      "min": 600,
+      "max": 1500,
+      "mix": 1000,
+      "date": "2026-10-01",
+      "kind": "mercato",
+      "src": "prezzitartufo.it"
+    },
+    {
+      "id": "bianchetto",
+      "name": "Bianchetto (marzuolo)",
+      "latin": "Tuber borchii",
+      "min": 150,
+      "max": 400,
+      "mix": 250,
+      "date": "2026-10-01",
+      "kind": "mercato",
+      "src": "prezzitartufo.it"
+    }
   ]
 }
