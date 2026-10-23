@@ -13,6 +13,8 @@ import { placeName } from './weather.js';
 import { SPECIES } from '../data/species.js';
 import { analyze, applyProfile, explain, bestNear, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
 import { hasAI, askModel } from '../lib/ai.js';
+import { calibrate, applyResult, resetCal, findings } from '../lib/calib.js';
+import { openPage } from '../lib/ui.js';
 
 let root, fmap, zoneLayer, youMarker, selMarker, heat, hab;
 let state = { day: 0, point: null, ptData: null, habAt: null, zones: null, loading: false };
@@ -122,7 +124,7 @@ function renderProfiles() {
   root.querySelector('#f-prof').innerHTML =
     Object.entries(PROFILES)
       .map(([k, p]) => `<button class="chip ${k === cur ? 'sel' : ''}" data-p="${k}">${ico(p.truffle ? 'target' : 'mushroom', 16)} ${p.label}</button>`)
-      .join('') + `<button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna</button>`;
+      .join('') + `<button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna</button><button class="chip" id="f-calib">🎯 Calibra col diario</button>`;
   root.querySelectorAll('[data-p]').forEach(
     (b) =>
       (b.onclick = () => {
@@ -132,6 +134,7 @@ function renderProfiles() {
       })
   );
   root.querySelector('#f-refresh').onclick = () => load(true);
+  root.querySelector('#f-calib').onclick = openCalib;
 }
 
 let shown = false;
@@ -651,3 +654,49 @@ const HabLayer = L.Layer.extend({
     x.restore();
   },
 });
+
+// ---------- calibrazione sul diario ----------
+function openCalib() {
+  openPage('Calibra col diario', (pg) => {
+    const n = findings().length;
+    const NAMES = Object.fromEntries(Object.entries(PROFILES).map(([k, p]) => [k, p.short]));
+    const cur = getSettings().fungiCal || {};
+    pg.body.innerHTML = `<div style="padding:14px"><div class="infobox" style="margin:0 0 12px">Uso i tuoi ${n} ritrovamenti (porcini, galletti, ovuli, tartufi): scarico il meteo dei 36 giorni prima di ognuno e sposto i parametri del modello (giorni dalla pioggia, pioggia utile, temperatura) verso quanto hai davvero trovato. Serve internet.</div>
+      <button class="btn" id="cal-go" style="width:100%" ${n ? '' : 'disabled'}>${n ? 'Calcola' : 'Nessun ritrovamento nel diario'}</button>
+      ${Object.keys(cur).length ? '<button class="chip" id="cal-reset" style="margin-top:10px">Ripristina valori base</button>' : ''}
+      <div id="cal-out" style="margin-top:14px"></div></div>`;
+    const out = pg.body.querySelector('#cal-out');
+    const rs = pg.body.querySelector('#cal-reset');
+    if (rs) rs.onclick = () => { resetCal(); refreshView(); toast('Valori base ripristinati'); pg.close(); };
+    pg.body.querySelector('#cal-go').onclick = async (e) => {
+      e.target.disabled = true;
+      let res;
+      try {
+        res = await calibrate((d, t) => (out.innerHTML = `<div class="progress"><i style="width:${Math.round((d / t) * 100)}%"></i></div><p class="muted">Meteo ${d}/${t}…</p>`));
+      } catch (err) {
+        out.innerHTML = '<div class="warnbox">Errore: ' + esc(err.message) + '</div>';
+        e.target.disabled = false;
+        return;
+      }
+      const keys = Object.keys(res.out);
+      if (!keys.length) {
+        out.innerHTML = `<div class="warnbox">Nessun dato utilizzabile (${res.failed} meteo non scaricati). Riprova con internet attivo.</div>`;
+        e.target.disabled = false;
+        return;
+      }
+      out.innerHTML = keys.map((k) => {
+        const v = res.out[k];
+        return `<div class="habbox" style="background:#eef3ec;color:#12372a"><div class="hb-t" style="color:#12372a">${esc(NAMES[k])} <span style="color:#4b5f55">${v.n} ritrovamenti</span></div>
+          <div class="hb-r"><span>Indice mediano</span><b>${v.before} → ${v.after}</b></div>
+          <div class="hb-r"><span>Sopra "Buona" (45)</span><b>${v.okBefore}/${v.n} → ${v.okAfter}/${v.n}</b></div>
+          <div class="hb-r"><span>Giorni dalla pioggia utile</span><b>${v.lagMed != null ? v.lagMed : '–'}${v.cal.lagOpt ? ' (nuovo ottimo ' + v.cal.lagOpt + ')' : ''}</b></div>
+          <div class="hb-r"><span>Pioggia 14 giorni</span><b>${v.r14[0]}-${v.r14[1]} mm</b></div>
+          <div class="hb-r"><span>Pioggia 30 giorni (mediana)</span><b>${v.r30} mm</b></div>
+          <div class="hb-r"><span>Temperatura media 7gg</span><b>${v.t != null ? v.t + ' °C' : '–'}</b></div>
+          ${v.n < 4 ? '<div class="hb-n">Servono almeno 4 ritrovamenti per questa specie: parametri invariati.</div>' : ''}</div>`;
+      }).join('') + `<button class="btn" id="cal-apply" style="width:100%;margin-top:6px">Applica</button><button class="chip" id="cal-copy" style="margin-top:10px">Copia dati</button>${res.failed ? `<p class="muted">${res.failed} ritrovamenti senza meteo (offline o storico mancante).</p>` : ''}`;
+      out.querySelector('#cal-apply').onclick = () => { applyResult(res); refreshView(); toast('Calibrazione applicata'); pg.close(); };
+      out.querySelector('#cal-copy').onclick = () => { try { navigator.clipboard.writeText(JSON.stringify(res.out)); toast('Copiato'); } catch { toast('Copia non riuscita'); } };
+    };
+  });
+}

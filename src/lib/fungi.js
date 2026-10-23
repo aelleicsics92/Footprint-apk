@@ -1,5 +1,5 @@
 import zonesRaw from '../data/zones.json';
-import { kvGet, kvSet } from './store.js';
+import { kvGet, kvSet, getSettings } from './store.js';
 import { clamp } from './util.js';
 
 export const PAST = 30;
@@ -16,6 +16,18 @@ export const PROFILES = {
   nero: { label: 'Nero pregiato', short: 'Nero pregiato', truffle: true, window: [[11, 15], [3, 15]], peaks: [{ doy: 15, w: 28, a: 1 }], tOpt: [3, 12], tZero: [-4, 20], lagOpt: 14, lagSig: 7, frost: 0.4, hot: 26, rain: [15, 60] },
   bianchetto: { label: 'Bianchetto', short: 'Bianchetto (marzuolo)', truffle: true, window: [[1, 15], [4, 30]], peaks: [{ doy: 60, w: 25, a: 1 }], tOpt: [4, 15], tZero: [-3, 23], lagOpt: 14, lagSig: 7, frost: 0.4, hot: 25, rain: [15, 60] },
 };
+
+// parametri di base (prima della calibrazione sul diario) e calibrazione dell'utente
+export const BASE = JSON.parse(JSON.stringify(PROFILES));
+const CAL_KEYS = ['lagOpt', 'lagSig', 'rain', 'tOpt', 'tZero'];
+export function applyCal(cal = getSettings().fungiCal) {
+  for (const k of Object.keys(PROFILES)) {
+    for (const f of CAL_KEYS) PROFILES[k][f] = JSON.parse(JSON.stringify(BASE[k][f]));
+    const c = cal && cal[k];
+    if (c) for (const f of CAL_KEYS) if (c[f] != null) PROFILES[k][f] = c[f];
+  }
+}
+applyCal();
 
 export const LEVELS = [
   { max: 22, key: 'scarsa', label: 'Scarsa', color: '#b9553a' },
