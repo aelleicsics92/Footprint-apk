@@ -1,6 +1,8 @@
 import { CITIES } from '../data/cities.js';
 import { ITALY } from '../data/italy.js';
 import L from 'leaflet';
+import 'leaflet-rotate';
+import { addRefLayer } from '../lib/reflayer.js';
 import { getSettings, setSetting } from '../lib/store.js';
 import { bus, esc, clamp } from '../lib/util.js';
 import { ico } from '../lib/icons.js';
@@ -9,7 +11,7 @@ import { lastPos } from '../lib/geo.js';
 import { PAST, PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
 import { SPECIES } from '../data/species.js';
-import { analyze, applyProfile, explain, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
+import { analyze, applyProfile, explain, bestNear, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
 import { hasAI, askModel } from '../lib/ai.js';
 
 let root, fmap, zoneLayer, youMarker, selMarker, heat, hab;
@@ -35,7 +37,7 @@ export function mountFungi(el) {
     <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
-    <div class="fmap-wrap"><div id="fungi-map"></div><div id="f-banner" class="f-banner" hidden></div></div>
+    <div class="fmap-wrap"><div id="fungi-map"></div><div id="f-banner" class="f-banner" hidden></div><button id="f-north" class="f-north" hidden aria-label="Nord"><i>▲</i><b>N</b></button></div>
     <div class="hstat" id="f-hstat"></div>
     <div class="legend">${LEVELS.map((l) => `<span><i style="background:${l.color}"></i>${l.label}</span>`).join('')}<span><i style="background:#cfcfcf"></i>Non idoneo</span></div>
     <div class="infobox" style="margin:0 14px 18px">Probabilità = meteo (pioggia 30 giorni, tempi dalla pioggia utile, temperature, gelo, stagione) × habitat della specie scelta (quota, bosco e piante simbionti, pendenza, esposizione, fondovalle, pH del suolo). Avvicinati con lo zoom per il dettaglio a pochi metri. Tocca un punto per il perché. È una stima: la presenza reale non è garantita.</div>`;
@@ -150,15 +152,27 @@ function onShow() {
 }
 
 function initMap() {
-  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotateControl: false, attributionControl: true, minZoom: 5, maxZoom: 12 });
+  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotate: true, touchRotate: true, rotateControl: false, bearing: 0, attributionControl: true, minZoom: 5, maxZoom: 14 });
   fmap.attributionControl.setPrefix(false);
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, USGS, NOAA', maxZoom: 12, maxNativeZoom: 12, className: 'relief-tiles' }).addTo(fmap);
-  // riferimenti SOPRA la heatmap: strade e nomi (vettoriali ad alta risoluzione, niente serif)
+  window.__ffmap = fmap;
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, USGS, NOAA', maxZoom: 14, maxNativeZoom: 12, className: 'relief-tiles' }).addTo(fmap);
+  // riferimenti SOPRA la heatmap: strade, acque, confini e nomi vettoriali (se non raggiungibili: tile raster Esri)
   fmap.createPane('refs');
   fmap.getPane('refs').style.zIndex = 450;
   fmap.getPane('refs').style.pointerEvents = 'none';
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { pane: 'refs', maxZoom: 12, maxNativeZoom: 12, opacity: 0.9, attribution: 'Esri' }).addTo(fmap);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', { pane: 'refs', subdomains: 'abcd', maxZoom: 12, maxNativeZoom: 18, attribution: '© OpenStreetMap, © CARTO' }).addTo(fmap);
+  const rasterRefs = () => {
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { pane: 'refs', maxZoom: 14, maxNativeZoom: 12, opacity: 0.9, attribution: 'Esri' }).addTo(fmap);
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { pane: 'refs', maxZoom: 14, maxNativeZoom: 12, opacity: 0.95 }).addTo(fmap);
+  };
+  addRefLayer(fmap, rasterRefs).catch(() => rasterRefs());
+  fmap.attributionControl.addAttribution('© OpenStreetMap, OpenFreeMap');
+  const nb = root.querySelector('#f-north');
+  fmap.on('rotate', () => {
+    const br = fmap.getBearing();
+    nb.hidden = Math.abs(br) < 1 || Math.abs(br - 360) < 1;
+    nb.querySelector('i').style.transform = `rotate(${-br}deg)`;
+  });
+  nb.onclick = () => fmap.setBearing(0);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
   zoneLayer = L.layerGroup().addTo(fmap);
   heat = new HeatLayer();
@@ -191,7 +205,7 @@ const dateFor = (d) => {
   return x;
 };
 async function habFor(lat, lon) {
-  const d = 0.008, cl = Math.cos((lat * Math.PI) / 180);
+  const d = 0.03, cl = Math.cos((lat * Math.PI) / 180);
   const A = await analyze({ n: lat + d, s: lat - d, e: lon + d / cl, w: lon - d / cl }, 12);
   const ph = await soilAt(lat, lon, false);
   return { A, lat, lon, ph, water: undefined };
@@ -217,6 +231,27 @@ function exNow() {
   let H = ex.H;
   if (ex.sp.wet && h.water && h.water.m != null) H = h.water.m <= 150 ? Math.min(1, H * 1.12) : h.water.m > 450 ? H * 0.85 : H;
   return { ...ex, H };
+}
+let nearCache = {};
+function nearNow(W) {
+  const h = state.habAt;
+  if (!h) return null;
+  const doy = dayOfYear(dateFor(state.day)), key = profKey();
+  const ck = `${key}|${doy}|${h.lat.toFixed(4)}|${h.lon.toFixed(4)}|${h.ph || 0}`;
+  if (nearCache.k !== ck) {
+    nearCache = { k: ck, v: null };
+    try { nearCache.v = bestNear(h.A, key, h.ph, doy, h.lat, h.lon, W); } catch (e) { console.warn('bestNear', e.message); }
+  }
+  const v = nearCache.v;
+  return v ? { ...v, prob: probFrom(W, v.H) } : null;
+}
+const fmtM = (m) => (m < 950 ? Math.round(m / 10) * 10 + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km');
+let bestMarker;
+function gotoNear(n) {
+  if (bestMarker) fmap.removeLayer(bestMarker);
+  bestMarker = L.marker([n.lat, n.lon], { icon: L.divIcon({ className: '', html: '<div class="best-pin">🎯</div>', iconSize: [30, 30], iconAnchor: [15, 15] }), interactive: false }).addTo(fmap);
+  fmap.setView([n.lat, n.lon], Math.max(fmap.getZoom(), 13));
+  root.querySelector('.fmap-wrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 const D8 = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 const WK = { river: 'fiume', stream: 'torrente', brook: 'ruscello', canal: 'canale', ditch: 'fosso', drain: 'fosso' };
@@ -244,6 +279,7 @@ function renderBanner() {
   bn.innerHTML = `<button class="bn-x" aria-label="Chiudi">✕</button>
     <div class="bn-l1">📍 <b>${esc(nm)}</b> (${Math.round(sr.elev)} m) · Probabilità <b style="color:${lv.color}">${p}/100</b> · Pioggia 30gg: <b>${Math.round(o.R30)} mm</b></div>
     ${ex ? `<div class="bn-l2">${esc(ex.verified ? LC_NAME(ex.code) : 'bosco n.d.')} · ${ex.asp < 0 ? 'piano' : 'versante ' + D8[Math.round(ex.asp / 45) % 8] + ' ' + ex.slope + '°'} · ${esc(ex.sp.name)}</div>` : ''}
+    ${(() => { const n = nearNow(o.score); return n && n.dist > 120 && n.prob > p + 5 ? `<div class="bn-l3">🎯 Meglio a <b>${fmtM(n.dist)} ${D8[Math.round(n.brg / 45) % 8]}</b> (probabilità ${n.prob})</div>` : ''; })()}
     <button class="bn-d">Perché? Dettagli ↓</button>`;
   bn.querySelector('.bn-x').onclick = () => (bn.hidden = true);
   bn.querySelector('.bn-d').onclick = () => root.querySelector('#f-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -381,7 +417,7 @@ function renderCard() {
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     ${dday ? `<div class="dday">📅 ${esc(dday)}</div>` : ''}
-    ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
+    ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}${(() => { const n = nearNow(o.wscore); if (!n) return ''; if (n.dist > 120 && n.prob > o.score + 5) return `<div class="hb-near">🎯 Zona migliore vicina: <b>${fmtM(n.dist)} a ${D8[Math.round(n.brg / 45) % 8]}</b>, probabilità <b>${n.prob}</b> <button class="chip" id="f-goto">Mostra</button></div>`; return ex.H < 0.25 ? '<div class="hb-near">Habitat scarso qui e nei dintorni (3 km).</div>' : '<div class="hb-near">Sei già nella zona migliore dei dintorni.</div>'; })()}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
     ${hasAI() && ex ? `<button class="chip" id="f-ai" style="margin-top:10px">✨ Analisi AI di questo punto</button><div id="f-aiout" class="aiout"></div>` : ''}
     <div class="stats">
       <div><span>Pioggia 14 giorni</span>${Math.round(o.R14)} mm</div>
@@ -395,6 +431,8 @@ function renderCard() {
     ${rainChart(series, prof)}
     <div class="days">${out.map((x, i) => `<div data-day="${i}" style="${i === day ? 'opacity:1' : 'opacity:.62'}"><b>${x.score}</b><i style="height:${Math.max(6, x.score * 0.6)}px;background:${levelOf(x.score).color};${i === day ? 'outline:2px solid #fff' : ''}"></i><span>${i === 0 ? 'Oggi' : new Date(x.date + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>`).join('')}</div>
   </div>`;
+  const gb = card.querySelector('#f-goto');
+  if (gb) gb.onclick = () => gotoNear(nearNow(o.wscore));
   const aib = card.querySelector('#f-ai');
   if (aib) aib.onclick = () => aiAnalysis(card.querySelector('#f-aiout'), { ex, o, series, prof, title, place });
   card.querySelectorAll('[data-day]').forEach(
@@ -440,6 +478,33 @@ function colorAt(v) {
   }
   return STOPS[STOPS.length - 1][1];
 }
+// i canvas vivono nel pannello ruotabile: si disegna in coordinate "layer" su un quadrato che copre lo schermo a qualsiasi rotazione
+function frame(map) {
+  const sz = map.getSize(), d = Math.ceil(Math.hypot(sz.x, sz.y));
+  const ctr = map.containerPointToLayerPoint([sz.x / 2, sz.y / 2]);
+  return { tl: ctr.subtract([d / 2, d / 2]).round(), d };
+}
+const toF = (map, f, lat, lon) => map.latLngToLayerPoint([lat, lon]).subtract(f.tl);
+function placeCanvas(map, c) {
+  const f = frame(map);
+  L.DomUtil.setPosition(c, f.tl);
+  c.width = f.d; c.height = f.d;
+  c.style.width = f.d + 'px'; c.style.height = f.d + 'px';
+  return f;
+}
+function clipItaly(x, map, f) {
+  x.beginPath();
+  for (const poly of ITALY) {
+    for (const ring of poly) {
+      for (let i = 0; i < ring.length; i += 2) {
+        const q = toF(map, f, ring[i + 1], ring[i]);
+        i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
+      }
+      x.closePath();
+    }
+  }
+  x.clip('evenodd');
+}
 const HeatLayer = L.Layer.extend({
   onAdd(map) {
     this._map = map;
@@ -461,16 +526,14 @@ const HeatLayer = L.Layer.extend({
   _draw() {
     const map = this._map, pts = this._pts;
     if (!map || !pts) return;
-    const size = map.getSize(), c = this._c, CELL = 12;
-    L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
-    c.width = size.x; c.height = size.y;
-    c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
+    const c = this._c, CELL = 12;
+    const f = placeCanvas(map, c), D = f.d;
     const off = document.createElement('canvas');
-    off.width = size.x; off.height = size.y;
+    off.width = D; off.height = D;
     const o = off.getContext('2d');
-    const P = pts.map((q) => ({ ...q, p: map.latLngToContainerPoint([q.lat, q.lon]) }));
-    for (let gy = 0; gy < size.y + CELL; gy += CELL) {
-      for (let gx = 0; gx < size.x + CELL; gx += CELL) {
+    const P = pts.map((q) => ({ ...q, p: toF(map, f, q.lat, q.lon) }));
+    for (let gy = 0; gy < D + CELL; gy += CELL) {
+      for (let gx = 0; gx < D + CELL; gx += CELL) {
         let w = 0, v = 0;
         for (const q of P) {
           const wi = 1 / ((q.p.x - gx) ** 2 + (q.p.y - gy) ** 2 + 400);
@@ -481,26 +544,14 @@ const HeatLayer = L.Layer.extend({
         o.fillRect(gx, gy, CELL + 1, CELL + 1);
       }
     }
-    // ammorbidisce le celle e ritaglia sulla sagoma dell'Italia (niente colore sul mare)
     const x = c.getContext('2d');
     x.save();
-    x.beginPath();
-    for (const poly of ITALY) {
-      for (const ring of poly) {
-        for (let i = 0; i < ring.length; i += 2) {
-          const q = map.latLngToContainerPoint([ring[i + 1], ring[i]]);
-          i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
-        }
-        x.closePath();
-      }
-    }
-    x.clip('evenodd');
+    clipItaly(x, map, f);
     x.filter = 'blur(8px)';
-    x.drawImage(off, -10, -10, size.x + 20, size.y + 20);
+    x.drawImage(off, -10, -10, D + 20, D + 20);
     x.restore();
   },
 });
-
 // Heatmap per pixel: meteo (IDW sulle zone) x habitat della specie (DEM, bosco, suolo). Sopra il rilievo, sotto strade e nomi.
 const HabLayer = L.Layer.extend({
   onAdd(map) {
@@ -590,24 +641,10 @@ const HabLayer = L.Layer.extend({
   _draw() {
     const map = this._map, A = this._A;
     if (!map || !A || !this._img) return;
-    const size = map.getSize(), c = this._c;
-    L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
-    c.width = size.x; c.height = size.y;
-    c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
-    const x = c.getContext('2d'), bd = A.T.bounds;
-    const nw = map.latLngToContainerPoint([bd.n, bd.w]), se = map.latLngToContainerPoint([bd.s, bd.e]);
+    const c = this._c, f = placeCanvas(map, c), x = c.getContext('2d'), bd = A.T.bounds;
+    const nw = toF(map, f, bd.n, bd.w), se = toF(map, f, bd.s, bd.e);
     x.save();
-    x.beginPath();
-    for (const poly of ITALY) {
-      for (const ring of poly) {
-        for (let i = 0; i < ring.length; i += 2) {
-          const q = map.latLngToContainerPoint([ring[i + 1], ring[i]]);
-          i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
-        }
-        x.closePath();
-      }
-    }
-    x.clip('evenodd');
+    clipItaly(x, map, f);
     x.imageSmoothingEnabled = true;
     x.imageSmoothingQuality = 'high';
     x.drawImage(this._img, nw.x, nw.y, se.x - nw.x, se.y - nw.y);

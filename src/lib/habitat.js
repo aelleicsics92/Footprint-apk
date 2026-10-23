@@ -280,14 +280,14 @@ function aspF(kind, asp, alt, soft) {
   if (kind === 'any') return 1;
   if (asp < 0) return 0.9;
   const c = kind === 'cool' ? Math.cos((asp - 30) * RAD) : Math.cos((asp - 205) * RAD);
-  let f = soft ? 0.8 + 0.2 * c : 0.65 + 0.35 * c;
+  let f = soft ? 0.85 + 0.15 * c : 0.75 + 0.25 * c;
   if (alt > 1400) f += (1 - f) * ss(alt, 1400, 1900);
   return f;
 }
 const slopeF = (s, [ok, zero]) => (s <= ok ? 1 : s >= zero ? 0.1 : 1 - 0.9 * ((s - ok) / (zero - ok)));
 function tpiF(kind, tpi) {
   if (tpi === UNK) return kind === 'valley' ? 0.7 : 1;
-  if (kind === 'valley') return tpi <= -6 ? 1 : tpi <= 10 ? 1 - 0.45 * ((tpi + 6) / 16) : tpi <= 30 ? 0.55 - 0.25 * ((tpi - 10) / 20) : 0.15;
+  if (kind === 'valley') return tpi <= -4 ? 1 : tpi <= 12 ? 1 - 0.3 * ((tpi + 4) / 16) : tpi <= 30 ? 0.7 - 0.25 * ((tpi - 12) / 18) : 0.3;
   if (kind === 'mid') return tpi < -25 ? 0.75 : tpi > 35 ? 0.65 : 1;
   return tpi > 45 ? 0.75 : 1;
 }
@@ -354,7 +354,7 @@ export function explain(A, key, lat, lon, ph, doy) {
     trees: gens.filter((g) => g[1] >= 0.15).slice(0, 3).map((g) => GEN_NAME[g[0]]), H: Math.min(1, best), sp: list[bi], parts: bp, verified: !!A.L, src: A.src,
   };
 }
-export const probFrom = (W, H) => Math.round(W * (0.1 + 0.9 * Math.min(1, H)));
+export const probFrom = (W, H) => Math.round(W * (0.15 + 0.85 * Math.pow(Math.min(1, Math.max(0, H)), 0.75)));
 
 // ---------- campo meteo per pixel (IDW sulle zone + correzione di quota stagionale) ----------
 export function weatherField(A, zones, prof, doy) {
@@ -497,6 +497,38 @@ export async function waterNear(lat, lon) {
       if (!best || d < best.m) best = { m: Math.round(d), kind: (w.tags && w.tags.waterway) || 'stream' };
     }
   }
-  return best;
+  return best && best.m <= 600 ? best : null;
 }
 export const FORECAST_DAYS = FORECAST;
+
+// migliore zona nei dintorni (cella con probabilità più alta dopo una media 5x5), entro ~3 km
+export function bestNear(A, key, ph, doy, lat, lon, W) {
+  const T = A.T, N = T.w * T.h;
+  const phf = ph ? new Float32Array(N).fill(ph) : null;
+  const { H } = applyProfile(A, key, phf, doy);
+  const R = 2, S = new Float32Array(N);
+  for (let j = 0; j < T.h; j++) {
+    for (let i = 0; i < T.w; i++) {
+      let s = 0, n = 0;
+      for (let dj = -R; dj <= R; dj++) for (let di = -R; di <= R; di++) {
+        const a = i + di, b = j + dj;
+        if (a >= 0 && b >= 0 && a < T.w && b < T.h) (s += H[b * T.w + a]), n++;
+      }
+      S[j * T.w + i] = s / n;
+    }
+  }
+  const cl = Math.cos(lat * RAD);
+  let best = null;
+  for (let j = 0; j < T.h; j++) {
+    for (let i = 0; i < T.w; i++) {
+      const [la, lo] = px2ll(T.z, T.x0 + (i + 0.5) * T.s, T.y0 + (j + 0.5) * T.s);
+      const dx = (lo - lon) * 111320 * cl, dy = (la - lat) * 110540, d = Math.hypot(dx, dy);
+      if (d > 3000) continue;
+      const v = S[j * T.w + i] - d / 60000; // a parità di habitat preferisce il più vicino
+      if (!best || v > best.v) best = { v, H: S[j * T.w + i], lat: la, lon: lo, dist: Math.round(d), brg: (Math.atan2(dx, dy) / RAD + 360) % 360, k: j * T.w + i };
+    }
+  }
+  if (!best) return null;
+  best.prob = probFrom(W, best.H);
+  return best;
+}
