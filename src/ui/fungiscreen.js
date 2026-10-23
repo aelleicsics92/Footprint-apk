@@ -15,6 +15,7 @@ import { analyze, applyProfile, explain, bestNear, confirmField, weatherField, s
 import { hasAI, askModel } from '../lib/ai.js';
 import { calibrate, applyResult, resetCal, findings, spotsFor } from '../lib/calib.js';
 import { openPage } from '../lib/ui.js';
+import { HabLayer, colorAt, placeCanvas, toF, clipItaly, forecastInputs } from './hablayer.js';
 
 let root, fmap, zoneLayer, youMarker, selMarker, heat, hab;
 let state = { day: 0, point: null, ptData: null, habAt: null, zones: null, loading: false };
@@ -36,6 +37,7 @@ export function mountFungi(el) {
     <div class="sec-title">Previsione raccolta</div>
     <div class="chips" id="f-prof"></div>
     <div class="f-search"><input id="f-q" type="text" placeholder="Cerca paese o città…" autocomplete="off" enterkeyhint="search" onfocus="this.select()"><button class="chip" id="f-gps">${ico('locate', 16)} Qui</button></div>
+    <div class="f-tools"><button class="chip" id="f-calib">🎯 Calibra col diario</button><button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna dati</button></div>
     <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
@@ -45,6 +47,8 @@ export function mountFungi(el) {
     <div class="infobox" style="margin:0 14px 18px">Probabilità = meteo (pioggia 30 giorni, tempi dalla pioggia utile, temperature, gelo, stagione) × habitat della specie scelta (quota, bosco e piante simbionti, pendenza, esposizione, fondovalle, pH del suolo). Avvicinati con lo zoom per il dettaglio a pochi metri. Tocca un punto per il perché. È una stima: la presenza reale non è garantita.</div>`;
   renderProfiles();
   setupSearch();
+  root.querySelector('#f-refresh').onclick = () => load(true);
+  root.querySelector('#f-calib').onclick = openCalib;
   bus.on('pos', (p) => {
     if (shown && !state.point && !state.loading) {
       state.point = { lat: p.lat, lon: p.lon, name: '', gps: true };
@@ -124,7 +128,7 @@ function renderProfiles() {
   root.querySelector('#f-prof').innerHTML =
     Object.entries(PROFILES)
       .map(([k, p]) => `<button class="chip ${k === cur ? 'sel' : ''}" data-p="${k}">${ico(p.truffle ? 'target' : 'mushroom', 16)} ${p.label}</button>`)
-      .join('') + `<button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna</button><button class="chip" id="f-calib">🎯 Calibra col diario</button>`;
+      .join('') + ``;
   root.querySelectorAll('[data-p]').forEach(
     (b) =>
       (b.onclick = () => {
@@ -133,8 +137,6 @@ function renderProfiles() {
         refreshView();
       })
   );
-  root.querySelector('#f-refresh').onclick = () => load(true);
-  root.querySelector('#f-calib').onclick = openCalib;
 }
 
 let shown = false;
@@ -180,7 +182,7 @@ function initMap() {
   zoneLayer = L.layerGroup().addTo(fmap);
   heat = new HeatLayer();
   heat.addTo(fmap);
-  hab = new HabLayer();
+  hab = new HabLayer({ status: (t) => { const el = root.querySelector('#f-hstat'); if (el) el.innerHTML = t; }, onState: (ok) => { heat._c.style.visibility = ok ? 'hidden' : 'visible'; } });
   hab.addTo(fmap);
   fmap.on('click', async (e) => {
     state.point = { lat: e.latlng.lat, lon: e.latlng.lng, name: 'Punto selezionato' };
@@ -510,44 +512,6 @@ function renderMap() {
   root.querySelector('#f-daylabel').textContent = state.day === 0 ? '· oggi' : '· ' + d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'short' });
 }
 
-// Sfumatura continua del colore di raccolta sopra la mappa (interpolazione IDW tra le zone)
-const STOPS = [[0, [185, 85, 58]], [22, [185, 85, 58]], [34, [224, 166, 58]], [45, [224, 166, 58]], [58, [127, 174, 74]], [70, [127, 174, 74]], [90, [27, 122, 74]], [100, [20, 105, 62]]];
-function colorAt(v) {
-  for (let i = 1; i < STOPS.length; i++) {
-    if (v <= STOPS[i][0]) {
-      const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], t = b === a ? 0 : (v - a) / (b - a);
-      return ca.map((c, k) => Math.round(c + (cb[k] - c) * t));
-    }
-  }
-  return STOPS[STOPS.length - 1][1];
-}
-// i canvas vivono nel pannello ruotabile: si disegna in coordinate "layer" su un quadrato che copre lo schermo a qualsiasi rotazione
-function frame(map) {
-  const sz = map.getSize(), d = Math.ceil(Math.hypot(sz.x, sz.y));
-  const ctr = map.containerPointToLayerPoint([sz.x / 2, sz.y / 2]);
-  return { tl: ctr.subtract([d / 2, d / 2]).round(), d };
-}
-const toF = (map, f, lat, lon) => map.latLngToLayerPoint([lat, lon]).subtract(f.tl);
-function placeCanvas(map, c) {
-  const f = frame(map);
-  L.DomUtil.setPosition(c, f.tl);
-  c.width = f.d; c.height = f.d;
-  c.style.width = f.d + 'px'; c.style.height = f.d + 'px';
-  return f;
-}
-function clipItaly(x, map, f) {
-  x.beginPath();
-  for (const poly of ITALY) {
-    for (const ring of poly) {
-      for (let i = 0; i < ring.length; i += 2) {
-        const q = toF(map, f, ring[i + 1], ring[i]);
-        i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
-      }
-      x.closePath();
-    }
-  }
-  x.clip('evenodd');
-}
 const HeatLayer = L.Layer.extend({
   onAdd(map) {
     this._map = map;
@@ -595,107 +559,6 @@ const HeatLayer = L.Layer.extend({
     x.restore();
   },
 });
-// Heatmap per pixel: meteo (IDW sulle zone) x habitat della specie (DEM, bosco, suolo). Sopra il rilievo, sotto strade e nomi.
-const HabLayer = L.Layer.extend({
-  onAdd(map) {
-    this._map = map;
-    this._c = L.DomUtil.create('canvas', 'heat-canvas');
-    this._c.style.cssText = 'position:absolute;pointer-events:none;mix-blend-mode:multiply;opacity:.82';
-    map.getPanes().tilePane.appendChild(this._c);
-    this._c.style.zIndex = 251;
-    this._on = () => (this._draw(), this._sched());
-    map.on('moveend zoomend resize', this._on);
-    this._sched();
-  },
-  onRemove(map) {
-    map.off('moveend zoomend resize', this._on);
-    this._c.remove();
-  },
-  setInputs(inp) {
-    this._inp = inp;
-    if (this._A) this._recompute();
-    else this._sched();
-  },
-  refresh() {
-    if (this._A) this._recompute();
-  },
-  _sched() {
-    clearTimeout(this._t);
-    this._t = setTimeout(() => this._load(), 180);
-  },
-  _status(t) {
-    const el = root && root.querySelector('#f-hstat');
-    if (el) el.innerHTML = t;
-  },
-  async _load() {
-    const map = this._map;
-    if (!map || !this._inp) return;
-    const zoom = map.getZoom(), bb = map.getBounds(), b = { n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() };
-    const A = this._A;
-    if (A && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
-    const tok = (this._tok = (this._tok || 0) + 1);
-    this._status('<span class="spin"></span> Analisi habitat…');
-    try {
-      const nA = await analyze(b, zoom);
-      if (tok !== this._tok) return;
-      nA.zoomReq = zoom;
-      this._A = nA;
-      await this._recompute();
-    } catch (e) {
-      if (tok !== this._tok) return;
-      console.warn('habitat', e.message);
-      this._A = null;
-      this._img = null;
-      heat._c.style.visibility = 'visible';
-      this._c.style.visibility = 'hidden';
-      this._status('Habitat non disponibile (serve internet): mappa solo meteo');
-    }
-  },
-  async _recompute() {
-    const A = this._A, inp = this._inp;
-    if (!A || !inp) return;
-    const tok = this._tok;
-    const ph = await soilField(A);
-    const { H } = applyProfile(A, inp.key, ph, inp.doy);
-    const W = weatherField(A, inp.zones, inp.prof, inp.doy);
-    const C = confirmField(A, spotsFor(inp.key, inp.doy));
-    const T = A.T, N = T.w * T.h, img = new ImageData(T.w, T.h);
-    for (let k = 0; k < N; k++) {
-      const sc = Math.min(97, Math.round(probFrom(W[k], H[k]) * C[k]));
-      if (T.elev[k] <= 0 || sc < 6) continue;
-      const [r, g, b] = colorAt(sc);
-      img.data[k * 4] = r; img.data[k * 4 + 1] = g; img.data[k * 4 + 2] = b;
-      img.data[k * 4 + 3] = Math.round(255 * (0.3 + 0.7 * clamp(sc / 70, 0, 1)));
-    }
-    if (tok !== this._tok) return;
-    const c = document.createElement('canvas');
-    c.width = T.w; c.height = T.h;
-    c.getContext('2d').putImageData(img, 0, 0);
-    this._img = c;
-    heat._c.style.visibility = 'hidden';
-    this._c.style.visibility = 'visible';
-    this._draw();
-    const soilN = ph ? 'suolo ✓' : 'suolo in apprendimento';
-    this._status(`Habitat: quota ✓ · bosco ${A.src ? A.src + ' ✓' : 'non verificato'} · ${soilN}${T.z < 8 ? ' · zoom per più dettaglio' : ''}`);
-    if (SPECIES[inp.key].some((s) => s.ph)) {
-      const bb = this._map.getBounds();
-      fillSoil({ n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() }, () => this.refresh());
-    }
-  },
-  _draw() {
-    const map = this._map, A = this._A;
-    if (!map || !A || !this._img) return;
-    const c = this._c, f = placeCanvas(map, c), x = c.getContext('2d'), bd = A.T.bounds;
-    const nw = toF(map, f, bd.n, bd.w), se = toF(map, f, bd.s, bd.e);
-    x.save();
-    clipItaly(x, map, f);
-    x.imageSmoothingEnabled = true;
-    x.imageSmoothingQuality = 'high';
-    x.drawImage(this._img, nw.x, nw.y, se.x - nw.x, se.y - nw.y);
-    x.restore();
-  },
-});
-
 // ---------- calibrazione sul diario ----------
 function openCalib() {
   openPage('Calibra col diario', (pg) => {

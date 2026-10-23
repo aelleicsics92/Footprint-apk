@@ -502,11 +502,11 @@ export async function waterNear(lat, lon) {
 export const FORECAST_DAYS = FORECAST;
 
 // migliore zona nei dintorni (cella con probabilità più alta dopo una media 5x5), entro ~3 km
-export function bestNear(A, key, ph, doy, lat, lon, W) {
+export function bestNear(A, key, ph, doy, lat, lon, W, maxDist = 3000) {
   const T = A.T, N = T.w * T.h;
   const phf = ph ? new Float32Array(N).fill(ph) : null;
   const { H } = applyProfile(A, key, phf, doy);
-  const R = 2, S = new Float32Array(N);
+  const R = Math.max(1, Math.min(3, Math.round(120 / T.cell))), S = new Float32Array(N);
   for (let j = 0; j < T.h; j++) {
     for (let i = 0; i < T.w; i++) {
       let s = 0, n = 0;
@@ -523,8 +523,8 @@ export function bestNear(A, key, ph, doy, lat, lon, W) {
     for (let i = 0; i < T.w; i++) {
       const [la, lo] = px2ll(T.z, T.x0 + (i + 0.5) * T.s, T.y0 + (j + 0.5) * T.s);
       const dx = (lo - lon) * 111320 * cl, dy = (la - lat) * 110540, d = Math.hypot(dx, dy);
-      if (d > 3000) continue;
-      const v = S[j * T.w + i] - d / 60000; // a parità di habitat preferisce il più vicino
+      if (d > maxDist) continue;
+      const v = S[j * T.w + i] - d / (maxDist * 20); // a parità di habitat preferisce il più vicino
       if (!best || v > best.v) best = { v, H: S[j * T.w + i], lat: la, lon: lo, dist: Math.round(d), brg: (Math.atan2(dx, dy) / RAD + 360) % 360, k: j * T.w + i };
     }
   }

@@ -19,6 +19,8 @@ import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
 import { sunTimes } from '../lib/sun.js';
 import { notifyNow } from '../lib/notify.js';
 import { getCoverage } from '../lib/coverage.js';
+import { HabLayer, forecastInputs } from './hablayer.js';
+import { PROFILES, LEVELS } from '../lib/fungi.js';
 
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
@@ -46,6 +48,7 @@ export function mountMap(el) {
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}<em class="car-b" id="car-b" hidden></em></button>
       <button class="round" id="btn-3d" hidden>3D</button><button class="round" id="btn-dl" hidden></button>
     </div>
+    <div class="fc-chip hidden" id="fc-chip"></div>
     <div class="rec-chip hidden" id="rec-chip"></div>
     <div class="dl-chip hidden" id="dl-chip"></div>
     <div class="ov-legend hidden" id="ov-legend"></div>
@@ -70,6 +73,7 @@ export function mountMap(el) {
   baseLayers = { sat: makeLayer('sat'), topo: makeLayer('topo') };
   trailsLayer = makeLayer('trails', { opacity: 0.95, zIndex: 5 });
   applyLayers();
+  applyForecast();
   wpGroup = L.layerGroup().addTo(map);
   shownGroup = L.layerGroup().addTo(map);
   recLine = L.polyline([], { color: '#ff5a4a', weight: 5, opacity: 0.95 }).addTo(map);
@@ -176,9 +180,10 @@ export function mountMap(el) {
     recLine.addLatLng([pt[0], pt[1]]);
     updateRecChip();
   });
-  bus.on('settings:changed', () => {
+  bus.on('settings:changed', (k) => {
     renderWaypoints();
     renderRec();
+    if ((k === 'fungiProfile' || k === 'fungiCal') && getSettings().showForecast) applyForecast();
   });
   bus.on('track:show', showTrack);
   bus.on('track:follow', async ({ id, name }) => {
@@ -409,6 +414,37 @@ async function showTrack({ id, name }) {
   updateHud();
 }
 
+// ---------- previsione raccolta sulla mappa ----------
+let fcLayer = null, fcTimer = null, fcStatus = '';
+function fcChip() {
+  const el = root.querySelector('#fc-chip'), s = getSettings();
+  if (!s.showForecast) return el.classList.add('hidden');
+  const p = PROFILES[s.fungiProfile] || PROFILES.autunnali;
+  el.classList.remove('hidden');
+  el.innerHTML = `<b>Previsione · ${esc(p.short)}</b><span class="fc-dots">${LEVELS.map((l) => `<i style="background:${l.color}" title="${l.label}"></i>`).join('')}</span>${fcStatus ? `<small>${fcStatus}</small>` : ''}`;
+}
+async function applyForecast() {
+  if (!map) return;
+  const s = getSettings();
+  clearInterval(fcTimer);
+  if (!s.showForecast) {
+    if (fcLayer) { map.removeLayer(fcLayer); fcLayer = null; }
+    fcStatus = '';
+    return fcChip();
+  }
+  if (!fcLayer) {
+    fcLayer = new HabLayer({ blend: 'normal', opacity: 0.6, status: (t) => { fcStatus = /disponibile|Analisi/.test(t) ? t.replace(/<[^>]+>/g, '') : ''; fcChip(); } });
+    fcLayer.addTo(map);
+  }
+  fcChip();
+  try {
+    fcLayer.setInputs(await forecastInputs(0));
+  } catch {
+    toast('Previsione non disponibile: serve internet', 2500);
+  }
+  fcTimer = setInterval(applyForecast, 30 * 60000);
+}
+
 // ---------- livelli ----------
 let legendHTML = '';
 function openLayers() {
@@ -420,6 +456,8 @@ function openLayers() {
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Previsione raccolta</b><small>Colora dove è più probabile trovare (meteo e habitat). Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-fc" ${s.showForecast ? 'checked' : ''}><i></i></label></div>
+      <select id="ly-fcp" style="width:100%;margin:0 0 4px">${Object.entries(PROFILES).map(([k, p]) => `<option value="${k}" ${k === (s.fungiProfile || 'autunnali') ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Aree verdi dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>Puntini rossi dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Leggera nebbia su tutta la mappa che si dissolve entro 6 m da dove sei passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
@@ -448,6 +486,8 @@ function openLayers() {
     renderWaypoints();
   };
   sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
+  sh.body.querySelector('#ly-fc').onchange = (e) => { setSetting('showForecast', e.target.checked); applyForecast(); };
+  sh.body.querySelector('#ly-fcp').onchange = (e) => { setSetting('fungiProfile', e.target.value); bus.emit('settings:changed', 'fungiProfile'); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   const alt = () => { setSetting('altOn', sh.body.querySelector('#ly-alt').checked); setSetting('altMin', Number(sh.body.querySelector('#ly-amin').value) || 0); setSetting('altMax', Number(sh.body.querySelector('#ly-amax').value) || 9000); applyAlt(); drawOverlays(); };

@@ -7,6 +7,7 @@ import { bus } from './util.js';
 import { sunTimes } from './sun.js';
 import { PROFILES, levelOf, outlook, getPointSeries } from './fungi.js';
 import { placeName } from '../ui/weather.js';
+import { analyze, bestNear, soilAt, dayOfYear, probFrom } from './habitat.js';
 
 const ICON = { autunnali: 'porcino', estivi: 'galletto', scorzone: 'scorzone', uncinato: 'uncinato', bianco: 'bianco', nero: 'nero', bianchetto: 'bianchetto' };
 let cache = { place: '', at: null, score: null }, lastPush = 0;
@@ -19,7 +20,7 @@ async function push(force) {
   const d = { rec: getRec().status !== 'idle', ts: Date.now() };
   if (p) {
     d.alt = p.alt;
-    if (!cache.at || Math.hypot(cache.at.lat - p.lat, cache.at.lon - p.lon) > 0.02) {
+    if (!cache.at || Math.hypot(cache.at.lat - p.lat, cache.at.lon - p.lon) > 0.04) {
       cache.at = { lat: p.lat, lon: p.lon };
       cache.place = (await placeName(p.lat, p.lon)) || cache.place || '';
       cache.score = null;
@@ -28,12 +29,24 @@ async function push(force) {
     const st = sunTimes(new Date(), p.lat, p.lon);
     if (st) d.sunset = st.sunset.getTime();
     try {
-      if (!cache.score || Date.now() - cache.score.t > 20 * 60000) {
+      if (!cache.score || Date.now() - cache.score.t > 15 * 60000) {
         const key = getSettings().fungiProfile || 'autunnali';
         const prof = PROFILES[key] || PROFILES.autunnali;
         const { series } = await getPointSeries(p.lat, p.lon);
         const o = outlook(series, prof, series.elev)[0];
-        cache.score = { t: Date.now(), score: o.score, label: levelOf(o.score).label.toUpperCase(), profile: prof.short, icon: ICON[key] || 'porcino' };
+        let score = o.score, sub = prof.short;
+        // zona ampia: miglior probabilità (meteo x habitat) entro 10 km, non solo nel punto esatto
+        try {
+          const d = 0.095, cl = Math.cos((p.lat * Math.PI) / 180);
+          const A = await analyze({ n: p.lat + d, s: p.lat - d, e: p.lon + d / cl, w: p.lon - d / cl }, 11);
+          const b = bestNear(A, key, await soilAt(p.lat, p.lon, false), dayOfYear(), p.lat, p.lon, o.score, 10000);
+          if (b) {
+            score = b.prob;
+            const km = b.dist < 950 ? Math.round(b.dist / 10) * 10 + ' m' : (b.dist / 1000).toFixed(0) + ' km';
+            sub = `${prof.short} · entro 10 km${b.dist > 800 ? ', meglio a ' + km + ' ' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(b.brg / 45) % 8] : ''}`;
+          }
+        } catch {}
+        cache.score = { t: Date.now(), score, label: levelOf(score).label.toUpperCase(), profile: sub, icon: ICON[key] || 'porcino' };
       }
       Object.assign(d, cache.score);
     } catch {
@@ -49,7 +62,7 @@ export function initWidgetSync() {
   let first = false;
   bus.on('pos', () => { if (!first) { first = true; push(true); } else push(false); });
   bus.on('rec:state', () => push(true));
-  bus.on('settings:changed', (k) => { if (k === 'fungiProfile') { cache.score = null; push(true); } });
+  bus.on('settings:changed', (k) => { if (k === 'fungiProfile' || k === 'fungiCal') { cache.score = null; push(true); } });
   setInterval(() => push(true), 20 * 60000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') push(true); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') push(true); else if (document.visibilityState === 'visible') { if (cache.score && Date.now() - cache.score.t > 15 * 60000) cache.score = null; push(true); } });
 }

@@ -4,6 +4,7 @@
 import { PROFILES, BASE, evaluate, applyCal } from './fungi.js';
 import { getWaypoints } from './waypoints.js';
 import { getSettings, setSetting } from './store.js';
+import { bus } from './util.js';
 
 const MAP = { porcino: 'autunnali', regius: 'autunnali', pinaiolo: 'autunnali', leccino: 'autunnali', galletto: 'estivi', ovulo: 'estivi', scorzone: 'scorzone', uncinato: 'uncinato', bianco: 'bianco', bianchetto: 'bianchetto', nero: 'nero' };
 const DAILY = 'precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration,wind_speed_10m_max,wind_direction_10m_dominant';
@@ -116,8 +117,10 @@ export function applyResult(res) {
   for (const [k, v] of Object.entries(res.out)) if (Object.keys(v.cal).length) cal[k] = v.cal;
   setSetting('fungiCal', cal);
   applyCal(cal);
+  bus.emit('settings:changed', 'fungiCal');
 }
 export function resetCal() {
   setSetting('fungiCal', {});
   applyCal({});
+  bus.emit('settings:changed', 'fungiCal');
 }

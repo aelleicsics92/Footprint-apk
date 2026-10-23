@@ -581,3 +581,11 @@ html.night .set-row.clk.sel{background:#243a2c}
 .why b{display:block;margin-bottom:4px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#b6d0bf}
 .why p{margin:3px 0}
 @media (max-width:380px){.why{grid-template-columns:1fr}}
+
+.f-tools{display:flex;gap:8px;padding:0 14px 6px;flex-wrap:wrap}
+.f-tools .chip{font-size:.8rem}
+
+.fc-chip{position:absolute;left:10px;bottom:112px;z-index:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:70%;background:rgba(18,55,42,.92);color:#fff;border-radius:16px;padding:6px 12px;font-size:.78rem;box-shadow:0 3px 10px rgba(0,0,0,.35)}
+.fc-chip.hidden{display:none}
+.fc-dots{display:inline-flex;gap:3px}.fc-dots i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.fc-chip small{width:100%;color:#c3dccb;font-size:.68rem}
