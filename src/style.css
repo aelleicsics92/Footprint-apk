@@ -546,3 +546,23 @@ html.night .set-row.clk.sel{background:#243a2c}
 .rh-thr{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(255,214,140,.9);text-decoration:none;pointer-events:none}
 .rh-thr em{position:absolute;right:0;top:-14px;font-style:normal;font-size:.62rem;color:#ffd48a}
 .wdir{display:inline-block;color:#ffd48a}
+
+.fmap-wrap{position:relative;margin:0 14px}
+.fmap-wrap #fungi-map{margin:0}
+.f-banner{position:absolute;left:8px;right:8px;bottom:8px;z-index:1000;background:rgba(255,253,246,.97);color:#12372a;border-radius:14px;padding:9px 34px 9px 12px;box-shadow:0 3px 14px rgba(0,0,0,.3);font-size:.82rem;line-height:1.35}
+.f-banner[hidden]{display:none}
+.bn-l2{color:#4b5f55;font-size:.74rem;margin-top:2px}
+.bn-x{position:absolute;top:6px;right:6px;border:0;background:rgba(18,55,42,.1);color:#12372a;width:24px;height:24px;border-radius:50%;font-size:.8rem}
+.bn-d{margin-top:5px;border:0;background:#12372a;color:#fff;border-radius:10px;padding:5px 10px;font-size:.74rem;font-weight:600}
+.hstat{margin:6px 14px 0;font-size:.7rem;color:var(--muted);text-align:center;min-height:1em}
+.spin{display:inline-block;width:9px;height:9px;border:2px solid #9bb5a6;border-top-color:transparent;border-radius:50%;animation:spn .8s linear infinite;vertical-align:-1px}
+@keyframes spn{to{transform:rotate(360deg)}}
+.habbox{margin-top:12px;background:rgba(255,255,255,.1);border-radius:14px;padding:10px 12px;font-size:.82rem}
+.hb-t{display:flex;justify-content:space-between;gap:8px;font-weight:700;margin-bottom:6px}
+.hb-t span{font-weight:400;color:#c3dccb;font-size:.72rem}
+.hb-r{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-top:1px solid rgba(255,255,255,.08)}
+.hb-r span{color:#b6d0bf;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;flex:none}
+.hb-r b{text-align:right;font-weight:600}
+.hb-n{margin-top:6px;font-size:.72rem;color:#b6d0bf}
+.aiout{margin-top:8px;background:rgba(255,255,255,.08);border-radius:12px;padding:9px 11px;font-size:.84rem;line-height:1.45;empty-cells:hide}
+.aiout:empty{display:none}

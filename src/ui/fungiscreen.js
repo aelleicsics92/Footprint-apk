@@ -8,9 +8,12 @@ import { toast } from '../lib/ui.js';
 import { lastPos } from '../lib/geo.js';
 import { PAST, PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
+import { SPECIES } from '../data/species.js';
+import { analyze, applyProfile, explain, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
+import { hasAI, askModel } from '../lib/ai.js';
 
-let root, fmap, zoneLayer, youMarker, selMarker, cityLayer, heat;
-let state = { day: 0, point: null, ptData: null, zones: null, loading: false };
+let root, fmap, zoneLayer, youMarker, selMarker, heat, hab;
+let state = { day: 0, point: null, ptData: null, habAt: null, zones: null, loading: false };
 let nameCache = {};
 
 function rainChart(series, prof) {
@@ -32,9 +35,10 @@ export function mountFungi(el) {
     <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
-    <div id="fungi-map"></div>
-    <div class="legend">${LEVELS.map((l) => `<span><i style="background:${l.color}"></i>${l.label}</span>`).join('')}</div>
-    <div class="infobox" style="margin:0 14px 18px">Indice stimato da pioggia degli ultimi 30 giorni, tempi dalla pioggia utile, temperature, gelo, bilancio idrico e stagionalità (corretta per quota). Tocca la mappa per un punto qualsiasi, tocca un giorno per vedere la previsione. È una stima: la presenza reale dipende dal bosco.</div>`;
+    <div class="fmap-wrap"><div id="fungi-map"></div><div id="f-banner" class="f-banner" hidden></div></div>
+    <div class="hstat" id="f-hstat"></div>
+    <div class="legend">${LEVELS.map((l) => `<span><i style="background:${l.color}"></i>${l.label}</span>`).join('')}<span><i style="background:#cfcfcf"></i>Non idoneo</span></div>
+    <div class="infobox" style="margin:0 14px 18px">Probabilità = meteo (pioggia 30 giorni, tempi dalla pioggia utile, temperature, gelo, stagione) × habitat della specie scelta (quota, bosco e piante simbionti, pendenza, esposizione, fondovalle, pH del suolo). Avvicinati con lo zoom per il dettaglio a pochi metri. Tocca un punto per il perché. È una stima: la presenza reale non è garantita.</div>`;
   renderProfiles();
   setupSearch();
   bus.on('pos', (p) => {
@@ -149,50 +153,100 @@ function initMap() {
   fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotateControl: false, attributionControl: true, minZoom: 5, maxZoom: 12 });
   fmap.attributionControl.setPrefix(false);
   L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, USGS, NOAA', maxZoom: 12, maxNativeZoom: 12, className: 'relief-tiles' }).addTo(fmap);
-  fmap.createPane('places');
-  fmap.getPane('places').style.zIndex = 450;
-  fmap.getPane('places').style.pointerEvents = 'none';
-  const places = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { pane: 'places', maxZoom: 12, maxNativeZoom: 12, opacity: 0.95 });
-  const placesToggle = () => (fmap.getZoom() >= 9 ? fmap.hasLayer(places) || places.addTo(fmap) : fmap.hasLayer(places) && fmap.removeLayer(places));
-  fmap.on('zoomend', placesToggle);
+  // riferimenti SOPRA la heatmap: strade e nomi (vettoriali ad alta risoluzione, niente serif)
+  fmap.createPane('refs');
+  fmap.getPane('refs').style.zIndex = 450;
+  fmap.getPane('refs').style.pointerEvents = 'none';
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { pane: 'refs', maxZoom: 12, maxNativeZoom: 12, opacity: 0.9, attribution: 'Esri' }).addTo(fmap);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', { pane: 'refs', subdomains: 'abcd', maxZoom: 12, maxNativeZoom: 18, attribution: '© OpenStreetMap, © CARTO' }).addTo(fmap);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
   zoneLayer = L.layerGroup().addTo(fmap);
-  // etichette città e paesi, più fitte con lo zoom
-  cityLayer = L.layerGroup().addTo(fmap);
-  const drawCities = () => {
-    cityLayer.clearLayers();
-    const z = fmap.getZoom(), size = fmap.getSize(), boxes = [];
-    [...CITIES].sort((a, b) => a[3] - b[3]).forEach(([n, la, lo, r]) => {
-      if (z >= 9 || (r === 2 && z < 7) || (r === 3 && z < 8)) return;
-      const q = fmap.latLngToContainerPoint([la, lo]);
-      if (q.x < -20 || q.y < -10 || q.x > size.x + 20 || q.y > size.y + 10) return;
-      const w = n.length * (r === 1 ? 7.4 : 6.2) + 14, h = r === 1 ? 17 : 14;
-      const bx = { x1: q.x - 4, y1: q.y - h / 2, x2: q.x + w, y2: q.y + h / 2 };
-      if (boxes.some((o) => bx.x1 < o.x2 && bx.x2 > o.x1 && bx.y1 < o.y2 && bx.y2 > o.y1)) return;
-      boxes.push(bx);
-      L.marker([la, lo], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'cty', html: `<i class="r${r}"></i><span class="r${r}">${n}</span>`, iconSize: [0, 0] }) }).addTo(cityLayer);
-    });
-  };
-  fmap.on('zoomend moveend', drawCities);
-  fmap.whenReady(drawCities);
   heat = new HeatLayer();
   heat.addTo(fmap);
-  placesToggle();
+  hab = new HabLayer();
+  hab.addTo(fmap);
   fmap.on('click', async (e) => {
     state.point = { lat: e.latlng.lat, lon: e.latlng.lng, name: 'Punto selezionato' };
     if (selMarker) fmap.removeLayer(selMarker);
     selMarker = L.circleMarker(e.latlng, { radius: 9, color: '#fff', weight: 3, fillColor: '#12372a', fillOpacity: 1 }).addTo(fmap);
-    const pop = L.popup({ closeButton: false, className: 'fpop', offset: [0, -6], autoPan: false }).setLatLng(e.latlng).setContent('Calcolo…').openOn(fmap);
+    // la mappa scorre in modo che il punto resti libero sopra la barra in basso
+    const p = fmap.latLngToContainerPoint(e.latlng), target = fmap.getSize().y * 0.3;
+    if (Math.abs(p.y - target) > 24) fmap.panBy([0, p.y - target], { animate: true });
+    const bn = root.querySelector('#f-banner');
+    bn.hidden = false;
+    bn.innerHTML = '<span class="bn-l1">Calcolo habitat e meteo…</span>';
     await loadPoint();
+    const k = `${e.latlng.lat.toFixed(2)},${e.latlng.lng.toFixed(2)}`;
+    if (!state.point.gps) state.point.name = nameCache[k] || (nameCache[k] = await placeName(e.latlng.lat, e.latlng.lng).catch(() => '')) || 'Punto selezionato';
     renderCard();
-    try {
-      const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
-      const sr = state.ptData.series, o = outlook(sr, prof, sr.elev)[clamp(state.day, 0, 7)];
-      const k = `${e.latlng.lat.toFixed(2)},${e.latlng.lng.toFixed(2)}`;
-      const nm = nameCache[k] || (nameCache[k] = await placeName(e.latlng.lat, e.latlng.lng)) || 'Punto';
-      pop.setContent(`<b>${esc(nm)}</b> (${Math.round(sr.elev)} m)<br>Indice <b>${o.score}/100</b> · Pioggia 30 giorni: <b>${Math.round(o.R30)} mm</b>`);
-    } catch { pop.close(); }
+    renderBanner();
   });
+}
+
+// ---------- habitat del punto ----------
+const profKey = () => (SPECIES[getSettings().fungiProfile] ? getSettings().fungiProfile : 'autunnali');
+const dateFor = (d) => {
+  const x = new Date();
+  x.setDate(x.getDate() + d);
+  return x;
+};
+async function habFor(lat, lon) {
+  const d = 0.008, cl = Math.cos((lat * Math.PI) / 180);
+  const A = await analyze({ n: lat + d, s: lat - d, e: lon + d / cl, w: lon - d / cl }, 12);
+  const ph = await soilAt(lat, lon, false);
+  return { A, lat, lon, ph, water: undefined };
+}
+function enrichHab(h) {
+  const same = () => state.habAt === h;
+  soilAt(h.lat, h.lon, true).then((ph) => {
+    if (!ph) return;
+    h.ph = ph;
+    if (same()) (renderCard(), renderBanner());
+    hab && hab.refresh();
+  }).catch(() => {});
+  waterNear(h.lat, h.lon).then((w) => {
+    h.water = w || { m: null };
+    if (same()) (renderCard(), renderBanner());
+  }).catch(() => { h.water = { m: null, fail: true }; if (same()) (renderCard(), renderBanner()); });
+}
+function exNow() {
+  const h = state.habAt;
+  if (!h) return null;
+  const ex = explain(h.A, profKey(), h.lat, h.lon, h.ph, dayOfYear(dateFor(state.day)));
+  if (!ex) return null;
+  let H = ex.H;
+  if (ex.sp.wet && h.water && h.water.m != null) H = h.water.m <= 150 ? Math.min(1, H * 1.12) : h.water.m > 450 ? H * 0.85 : H;
+  return { ...ex, H };
+}
+const D8 = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const WK = { river: 'fiume', stream: 'torrente', brook: 'ruscello', canal: 'canale', ditch: 'fosso', drain: 'fosso' };
+function habRows(ex) {
+  const h = state.habAt;
+  const ph = h && h.ph;
+  const rows = [];
+  rows.push(['Bosco', ex.verified ? `${LC_NAME(ex.code)}${ex.trees.length && ex.forest > 0.3 ? ' (' + ex.trees.join(', ') + ')' : ''}` : 'non verificato (stima dalla quota)']);
+  rows.push(['Terreno', `${ex.slope}° · ${ex.asp < 0 ? 'pianeggiante' : 'versante ' + D8[Math.round(ex.asp / 45) % 8]}`]);
+  rows.push(['Posizione', ex.tpi == null ? '–' : ex.tpi < -6 ? 'fondovalle o impluvio' : ex.tpi > 30 ? 'crinale' : 'versante']);
+  rows.push(['Suolo', ph ? `pH ${ph.toFixed(1).replace('.', ',')} (${ph >= 7.3 ? 'calcareo' : ph >= 6.5 ? 'neutro' : 'acido'})` : 'pH in arrivo']);
+  rows.push(['Acqua vicina', h.water === undefined ? 'verifico…' : h.water && h.water.m != null ? `${h.water.m} m (${WK[h.water.kind] || 'corso d\'acqua'})` : h.water && h.water.fail ? 'n.d.' : 'nessun corso entro 500 m']);
+  rows.push(['Specie più adatta', ex.sp.name]);
+  return rows;
+}
+function renderBanner() {
+  const bn = root.querySelector('#f-banner');
+  if (!bn || bn.hidden || !state.ptData) return;
+  const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
+  const sr = state.ptData.series, o = outlook(sr, prof, sr.elev)[clamp(state.day, 0, 7)];
+  const ex = exNow();
+  const p = ex ? probFrom(o.score, ex.H) : o.score;
+  const lv = levelOf(p);
+  const nm = (state.point && state.point.name) || 'Punto';
+  bn.innerHTML = `<button class="bn-x" aria-label="Chiudi">✕</button>
+    <div class="bn-l1">📍 <b>${esc(nm)}</b> (${Math.round(sr.elev)} m) · Probabilità <b style="color:${lv.color}">${p}/100</b> · Pioggia 30gg: <b>${Math.round(o.R30)} mm</b></div>
+    ${ex ? `<div class="bn-l2">${esc(ex.verified ? LC_NAME(ex.code) : 'bosco n.d.')} · ${ex.asp < 0 ? 'piano' : 'versante ' + D8[Math.round(ex.asp / 45) % 8] + ' ' + ex.slope + '°'} · ${esc(ex.sp.name)}</div>` : ''}
+    <button class="bn-d">Perché? Dettagli ↓</button>`;
+  bn.querySelector('.bn-x').onclick = () => (bn.hidden = true);
+  bn.querySelector('.bn-d').onclick = () => root.querySelector('#f-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function load(force) {
@@ -226,9 +280,42 @@ async function loadPoint() {
   } catch {
     state.ptData = null;
   }
+  state.habAt = null;
+  try {
+    const h = await habFor(pt.lat, pt.lon);
+    state.habAt = h;
+    enrichHab(h);
+  } catch (e) {
+    console.warn('habitat punto', e.message);
+  }
   if (pt.gps && !pt.name) {
     const k = `${pt.lat.toFixed(2)},${pt.lon.toFixed(2)}`;
     pt.name = nameCache[k] || (nameCache[k] = await placeName(pt.lat, pt.lon));
+  }
+}
+
+async function aiAnalysis(box, c) {
+  const { ex, o, series, prof, title } = c;
+  box.textContent = 'Analizzo…';
+  const h = state.habAt;
+  const facts = [
+    `Luogo: ${title}, quota ${Math.round(ex.alt)} m`,
+    `Specie/profilo: ${prof.label}; più adatta qui: ${ex.sp.name} (${ex.sp.note})`,
+    `Bosco: ${ex.verified ? LC_NAME(ex.code) + (ex.trees.length ? ' con ' + ex.trees.join(', ') : '') : 'non verificato'}`,
+    `Pendenza ${ex.slope}°, ${ex.asp < 0 ? 'pianeggiante' : 'versante ' + D8[Math.round(ex.asp / 45) % 8]}, posizione ${ex.tpi == null ? 'n.d.' : ex.tpi < -6 ? 'fondovalle/impluvio' : ex.tpi > 30 ? 'crinale' : 'versante'}`,
+    `Suolo: ${h && h.ph ? 'pH ' + h.ph.toFixed(1) : 'pH n.d.'}`,
+    `Acqua: ${h && h.water && h.water.m != null ? h.water.m + ' m' : 'nessun corso entro 500 m o n.d.'}`,
+    `Meteo: pioggia 14gg ${Math.round(o.R14)} mm, 30gg ${Math.round(o.R30)} mm, ultima pioggia utile ${o.lag != null ? o.lag + ' giorni fa' : 'nessuna'}, T media 7gg ${o.tmean.toFixed(1)} °C, gelo ${o.frostMin != null && o.frostMin < 0 ? 'sì' : 'no'}`,
+    `Punteggi: meteo ${o.wscore}/100, habitat ${Math.round(ex.H * 100)}%, probabilità finale ${o.score}/100${o.closed ? '; FUORI periodo di raccolta' : ''}`,
+  ].join('\n');
+  try {
+    const r = await askModel({
+      system: 'Sei un esperto cercatore di funghi e tartufi italiano. Usa SOLO i dati forniti, non inventare. Rispondi in italiano, massimo 5 punti brevi con "•", senza trattini: 1) verdetto (vai ora / aspetta N giorni / non conviene), 2) perché (habitat e meteo), 3) dove cercare nel dettaglio (versante, fosso, piante), 4) quando tornare. Se manca un dato, dillo.',
+      user: facts,
+    });
+    box.innerHTML = esc(r.text).replace(/\n/g, '<br>') + `<div class="hb-n">${esc(r.provider)} · valutazione indicativa</div>`;
+  } catch (e) {
+    box.textContent = 'AI non disponibile: ' + (e.message === 'NO_KEY' ? 'inserisci una chiave nelle impostazioni' : String(e.message).slice(0, 80));
   }
 }
 
@@ -256,7 +343,10 @@ function renderCard() {
     card.innerHTML = `<div class="gauge-card"><div class="place">${ico('locate', 16)} In attesa del GPS…</div><p style="margin:10px 0 0;color:#c3dccb">Attendi il segnale oppure tocca un punto sulla mappa per vedere l'indice di quella zona.</p></div>`;
     return;
   }
-  const out = outlook(series, prof, elev);
+  const out0 = outlook(series, prof, elev);
+  const ex = exNow();
+  const fin = (sc) => (ex ? probFrom(sc, ex.H) : sc);
+  const out = out0.map((x) => ({ ...x, wscore: x.score, score: fin(x.score) }));
   const day = clamp(state.day, 0, out.length - 1);
   const o = out[day];
   const lv = levelOf(o.score);
@@ -291,6 +381,8 @@ function renderCard() {
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     ${dday ? `<div class="dday">📅 ${esc(dday)}</div>` : ''}
+    ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
+    ${hasAI() && ex ? `<button class="chip" id="f-ai" style="margin-top:10px">✨ Analisi AI di questo punto</button><div id="f-aiout" class="aiout"></div>` : ''}
     <div class="stats">
       <div><span>Pioggia 14 giorni</span>${Math.round(o.R14)} mm</div>
       <div><span>Pioggia 30 giorni</span>${Math.round(o.R30)} mm</div>
@@ -303,6 +395,8 @@ function renderCard() {
     ${rainChart(series, prof)}
     <div class="days">${out.map((x, i) => `<div data-day="${i}" style="${i === day ? 'opacity:1' : 'opacity:.62'}"><b>${x.score}</b><i style="height:${Math.max(6, x.score * 0.6)}px;background:${levelOf(x.score).color};${i === day ? 'outline:2px solid #fff' : ''}"></i><span>${i === 0 ? 'Oggi' : new Date(x.date + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>`).join('')}</div>
   </div>`;
+  const aib = card.querySelector('#f-ai');
+  if (aib) aib.onclick = () => aiAnalysis(card.querySelector('#f-aiout'), { ex, o, series, prof, title, place });
   card.querySelectorAll('[data-day]').forEach(
     (d) =>
       (d.onclick = () => {
@@ -321,9 +415,10 @@ function renderMap() {
     const sr = state.zones.series[i];
     const out = outlook(sr, prof, sr.elev);
     const o = out[clamp(state.day, 0, out.length - 1)];
-    return { lat: z.lat, lon: z.lon, score: o.score, closed: o.closed, name: z.name };
+    return { lat: z.lat, lon: z.lon, score: o.score, closed: o.closed, name: z.name, elev: sr.elev };
   });
   heat.setPoints(pts);
+  hab.setInputs({ zones: pts, key: profKey(), prof, doy: dayOfYear(dateFor(state.day)) });
   const p = lastPos();
   if (p) {
     if (youMarker) fmap.removeLayer(youMarker);
@@ -402,6 +497,120 @@ const HeatLayer = L.Layer.extend({
     x.clip('evenodd');
     x.filter = 'blur(8px)';
     x.drawImage(off, -10, -10, size.x + 20, size.y + 20);
+    x.restore();
+  },
+});
+
+// Heatmap per pixel: meteo (IDW sulle zone) x habitat della specie (DEM, bosco, suolo). Sopra il rilievo, sotto strade e nomi.
+const HabLayer = L.Layer.extend({
+  onAdd(map) {
+    this._map = map;
+    this._c = L.DomUtil.create('canvas', 'heat-canvas');
+    this._c.style.cssText = 'position:absolute;pointer-events:none;mix-blend-mode:multiply;opacity:.82';
+    map.getPanes().tilePane.appendChild(this._c);
+    this._c.style.zIndex = 251;
+    this._on = () => this._sched();
+    map.on('moveend zoomend resize', this._on);
+    this._sched();
+  },
+  onRemove(map) {
+    map.off('moveend zoomend resize', this._on);
+    this._c.remove();
+  },
+  setInputs(inp) {
+    this._inp = inp;
+    if (this._A) this._recompute();
+    else this._sched();
+  },
+  refresh() {
+    if (this._A) this._recompute();
+  },
+  _sched() {
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this._load(), 400);
+  },
+  _status(t) {
+    const el = root && root.querySelector('#f-hstat');
+    if (el) el.innerHTML = t;
+  },
+  async _load() {
+    const map = this._map;
+    if (!map || !this._inp) return;
+    const zoom = map.getZoom(), bb = map.getBounds(), b = { n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() };
+    const A = this._A;
+    if (A && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
+    const tok = (this._tok = (this._tok || 0) + 1);
+    this._status('<span class="spin"></span> Analisi habitat…');
+    try {
+      const nA = await analyze(b, zoom);
+      if (tok !== this._tok) return;
+      nA.zoomReq = zoom;
+      this._A = nA;
+      await this._recompute();
+    } catch (e) {
+      if (tok !== this._tok) return;
+      console.warn('habitat', e.message);
+      this._A = null;
+      this._img = null;
+      heat._c.style.visibility = 'visible';
+      this._c.style.visibility = 'hidden';
+      this._status('Habitat non disponibile (serve internet): mappa solo meteo');
+    }
+  },
+  async _recompute() {
+    const A = this._A, inp = this._inp;
+    if (!A || !inp) return;
+    const tok = this._tok;
+    const ph = await soilField(A);
+    const { H } = applyProfile(A, inp.key, ph, inp.doy);
+    const W = weatherField(A, inp.zones, inp.prof, inp.doy);
+    const T = A.T, N = T.w * T.h, img = new ImageData(T.w, T.h);
+    for (let k = 0; k < N; k++) {
+      const sc = probFrom(W[k], H[k]);
+      if (T.elev[k] <= 0 || sc < 6) continue;
+      const [r, g, b] = colorAt(sc);
+      img.data[k * 4] = r; img.data[k * 4 + 1] = g; img.data[k * 4 + 2] = b;
+      img.data[k * 4 + 3] = Math.round(255 * (0.3 + 0.7 * clamp(sc / 70, 0, 1)));
+    }
+    if (tok !== this._tok) return;
+    const c = document.createElement('canvas');
+    c.width = T.w; c.height = T.h;
+    c.getContext('2d').putImageData(img, 0, 0);
+    this._img = c;
+    heat._c.style.visibility = 'hidden';
+    this._c.style.visibility = 'visible';
+    this._draw();
+    const soilN = ph ? 'suolo ✓' : 'suolo in apprendimento';
+    this._status(`Habitat: quota ✓ · bosco ${A.src ? A.src + ' ✓' : 'non verificato'} · ${soilN}${T.z < 8 ? ' · zoom per più dettaglio' : ''}`);
+    if (SPECIES[inp.key].some((s) => s.ph)) {
+      const bb = this._map.getBounds();
+      fillSoil({ n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() }, () => this.refresh());
+    }
+  },
+  _draw() {
+    const map = this._map, A = this._A;
+    if (!map || !A || !this._img) return;
+    const size = map.getSize(), c = this._c;
+    L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+    c.width = size.x; c.height = size.y;
+    c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
+    const x = c.getContext('2d'), bd = A.T.bounds;
+    const nw = map.latLngToContainerPoint([bd.n, bd.w]), se = map.latLngToContainerPoint([bd.s, bd.e]);
+    x.save();
+    x.beginPath();
+    for (const poly of ITALY) {
+      for (const ring of poly) {
+        for (let i = 0; i < ring.length; i += 2) {
+          const q = map.latLngToContainerPoint([ring[i + 1], ring[i]]);
+          i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y);
+        }
+        x.closePath();
+      }
+    }
+    x.clip('evenodd');
+    x.imageSmoothingEnabled = true;
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(this._img, nw.x, nw.y, se.x - nw.x, se.y - nw.y);
     x.restore();
   },
 });
