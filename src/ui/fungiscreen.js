@@ -11,9 +11,9 @@ import { lastPos } from '../lib/geo.js';
 import { PAST, PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
 import { SPECIES } from '../data/species.js';
-import { analyze, applyProfile, explain, bestNear, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
+import { analyze, applyProfile, explain, bestNear, confirmField, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
 import { hasAI, askModel } from '../lib/ai.js';
-import { calibrate, applyResult, resetCal, findings } from '../lib/calib.js';
+import { calibrate, applyResult, resetCal, findings, spotsFor } from '../lib/calib.js';
 import { openPage } from '../lib/ui.js';
 
 let root, fmap, zoneLayer, youMarker, selMarker, heat, hab;
@@ -155,7 +155,7 @@ function onShow() {
 }
 
 function initMap() {
-  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotate: true, touchRotate: true, rotateControl: false, bearing: 0, attributionControl: true, minZoom: 5, maxZoom: 14 });
+  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, rotate: true, touchRotate: true, rotateControl: false, bearing: 0, attributionControl: true, minZoom: 5, maxZoom: 14 });
   fmap.attributionControl.setPrefix(false);
   window.__ffmap = fmap;
   L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, USGS, NOAA', maxZoom: 14, maxNativeZoom: 12, className: 'relief-tiles' }).addTo(fmap);
@@ -232,8 +232,11 @@ function exNow() {
   const ex = explain(h.A, profKey(), h.lat, h.lon, h.ph, dayOfYear(dateFor(state.day)));
   if (!ex) return null;
   let H = ex.H;
-  if (ex.sp.wet && h.water && h.water.m != null) H = h.water.m <= 150 ? Math.min(1, H * 1.12) : h.water.m > 450 ? H * 0.85 : H;
-  return { ...ex, H };
+  if (ex.sp.wet && h.water && h.water.m != null) H = h.water.m <= 100 ? Math.min(1, H * 1.25) : h.water.m <= 300 ? Math.min(1, H * 1.1) : h.water.m > 450 ? H * 0.8 : H;
+  const cl = Math.cos((h.lat * Math.PI) / 180);
+  const near = spotsFor(profKey(), dayOfYear(dateFor(state.day))).filter((s) => Math.hypot((s.lon - h.lon) * 111320 * cl, (s.lat - h.lat) * 110540) <= 1000);
+  const mult = near.length ? 1.2 + 0.05 * Math.min(3, near.length - 1) : 1;
+  return { ...ex, H, mult, nConfirm: near.length };
 }
 let nearCache = {};
 function nearNow(W) {
@@ -268,6 +271,7 @@ function habRows(ex) {
   rows.push(['Suolo', ph ? `pH ${ph.toFixed(1).replace('.', ',')} (${ph >= 7.3 ? 'calcareo' : ph >= 6.5 ? 'neutro' : 'acido'})` : 'pH in arrivo']);
   rows.push(['Acqua vicina', h.water === undefined ? 'verifico…' : h.water && h.water.m != null ? `${h.water.m} m (${WK[h.water.kind] || 'corso d\'acqua'})` : h.water && h.water.fail ? 'n.d.' : 'nessun corso entro 500 m']);
   rows.push(['Specie più adatta', ex.sp.name]);
+  if (ex.nConfirm) rows.push(['Il tuo diario', `trovato qui ${ex.nConfirm} ${ex.nConfirm > 1 ? 'volte' : 'volta'} nella stagione (+${Math.round((ex.mult - 1) * 100)}%)`]);
   return rows;
 }
 function renderBanner() {
@@ -276,7 +280,7 @@ function renderBanner() {
   const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
   const sr = state.ptData.series, o = outlook(sr, prof, sr.elev)[clamp(state.day, 0, 7)];
   const ex = exNow();
-  const p = ex ? probFrom(o.score, ex.H) : o.score;
+  const p = ex ? Math.min(97, Math.round(probFrom(o.score, ex.H) * ex.mult)) : o.score;
   const lv = levelOf(p);
   const nm = (state.point && state.point.name) || 'Punto';
   bn.innerHTML = `<button class="bn-x" aria-label="Chiudi">✕</button>
@@ -358,6 +362,40 @@ async function aiAnalysis(box, c) {
   }
 }
 
+function reasons(prof, o, ex, wavg) {
+  const good = [], bad = [];
+  const lag = o.lag;
+  if (lag == null) bad.push('Nessuna pioggia utile (oltre 12 mm) negli ultimi 30 giorni');
+  else if (Math.abs(lag - prof.lagOpt) <= prof.lagSig) good.push(`Pioggia utile ${lag} giorni fa: finestra giusta (ideale circa ${Math.round(prof.lagOpt)})`);
+  else if (lag < prof.lagOpt) bad.push(`Pioggia utile solo ${lag} giorni fa: ancora presto (ideale circa ${Math.round(prof.lagOpt)})`);
+  else bad.push(`Pioggia utile ${lag} giorni fa: finestra in chiusura`);
+  if (o.R30 >= prof.rain[0] * 2.4) good.push(`Pioggia 30 giorni ${Math.round(o.R30)} mm: sufficiente`);
+  else bad.push(`Pioggia 30 giorni ${Math.round(o.R30)} mm: scarsa`);
+  if (o.frostMin != null && o.frostMin < 0) bad.push(`Gelo recente (${o.frostMin.toFixed(0)} °C)`);
+  if (o.tmean >= prof.tOpt[0] && o.tmean <= prof.tOpt[1]) good.push(`Temperatura media ${o.tmean.toFixed(0)} °C: ideale`);
+  else bad.push(`Temperatura media ${o.tmean.toFixed(0)} °C: ${o.tmean > prof.tOpt[1] ? 'troppo calda' : 'troppo fredda'}`);
+  if (wavg != null && wavg > 28) bad.push('Vento forte: asciuga il terreno');
+  if (o.season < 0.5) bad.push('Fuori dal picco stagionale');
+  if (ex) {
+    const p = ex.parts || {};
+    if (ex.nConfirm) good.push(`Hai già trovato qui (${ex.nConfirm} ${ex.nConfirm > 1 ? 'volte' : 'volta'}): zona confermata dal diario`);
+    if (p.host >= 0.6) good.push(`Piante simbionti adatte${ex.trees.length ? ' (' + ex.trees.join(', ') + ')' : ''}`);
+    else if (p.host < 0.3) bad.push(`Poche piante simbionti: ${ex.verified ? LC_NAME(ex.code) : 'bosco non verificato'}`);
+    if (p.altF >= 0.9) good.push(`Quota ${Math.round(ex.alt)} m: nell'intervallo giusto`);
+    else if (p.altF < 0.5) bad.push(`Quota ${Math.round(ex.alt)} m: fuori dall'ottimo`);
+    if (p.aspF >= 0.92 && ex.asp >= 0) good.push('Esposizione favorevole');
+    else if (p.aspF < 0.7) bad.push('Esposizione poco favorevole');
+    if (p.slopeF < 0.6) bad.push(`Pendenza ${ex.slope}°: troppo ripida`);
+    const h = state.habAt;
+    if (h && h.ph) (p.phF >= 0.8 ? good : p.phF < 0.5 ? bad : []).push(`pH ${h.ph.toFixed(1).replace('.', ',')}: ${p.phF >= 0.8 ? 'adatto' : 'poco adatto alla specie'}`);
+    if (ex.sp.wet) {
+      if (p.tpiF >= 0.95 || (h && h.water && h.water.m != null && h.water.m <= 150)) good.push('Fondovalle o acqua vicina');
+      else if (p.tpiF < 0.6) bad.push('Posizione poco adatta: non è fondovalle');
+    }
+  }
+  return `<div class="why"><div><b>Punti di forza</b>${good.slice(0, 6).map((t) => `<p>✓ ${esc(t)}</p>`).join('') || '<p>–</p>'}</div><div><b>Criticità</b>${bad.slice(0, 6).map((t) => `<p>⚠ ${esc(t)}</p>`).join('') || '<p>–</p>'}</div></div>`;
+}
+
 function refreshView() {
   if (!state.zones) return;
   renderCard();
@@ -382,9 +420,10 @@ function renderCard() {
     card.innerHTML = `<div class="gauge-card"><div class="place">${ico('locate', 16)} In attesa del GPS…</div><p style="margin:10px 0 0;color:#c3dccb">Attendi il segnale oppure tocca un punto sulla mappa per vedere l'indice di quella zona.</p></div>`;
     return;
   }
+  let o0;
   const out0 = outlook(series, prof, elev);
   const ex = exNow();
-  const fin = (sc) => (ex ? probFrom(sc, ex.H) : sc);
+  const fin = (sc) => (ex ? Math.min(97, Math.round(probFrom(sc, ex.H) * ex.mult)) : sc);
   const out = out0.map((x) => ({ ...x, wscore: x.score, score: fin(x.score) }));
   const day = clamp(state.day, 0, out.length - 1);
   const o = out[day];
@@ -421,6 +460,7 @@ function renderCard() {
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     ${dday ? `<div class="dday">📅 ${esc(dday)}</div>` : ''}
     ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}${(() => { const n = nearNow(o.wscore); if (!n) return ''; if (n.dist > 120 && n.prob > o.score + 5) return `<div class="hb-near">🎯 Zona migliore vicina: <b>${fmtM(n.dist)} a ${D8[Math.round(n.brg / 45) % 8]}</b>, probabilità <b>${n.prob}</b> <button class="chip" id="f-goto">Mostra</button></div>`; return ex.H < 0.25 ? '<div class="hb-near">Habitat scarso qui e nei dintorni (3 km).</div>' : '<div class="hb-near">Sei già nella zona migliore dei dintorni.</div>'; })()}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
+    ${reasons(prof, o0 = out0[day], ex, wavg)}
     ${hasAI() && ex ? `<button class="chip" id="f-ai" style="margin-top:10px">✨ Analisi AI di questo punto</button><div id="f-aiout" class="aiout"></div>` : ''}
     <div class="stats">
       <div><span>Pioggia 14 giorni</span>${Math.round(o.R14)} mm</div>
@@ -563,7 +603,7 @@ const HabLayer = L.Layer.extend({
     this._c.style.cssText = 'position:absolute;pointer-events:none;mix-blend-mode:multiply;opacity:.82';
     map.getPanes().tilePane.appendChild(this._c);
     this._c.style.zIndex = 251;
-    this._on = () => this._sched();
+    this._on = () => (this._draw(), this._sched());
     map.on('moveend zoomend resize', this._on);
     this._sched();
   },
@@ -581,7 +621,7 @@ const HabLayer = L.Layer.extend({
   },
   _sched() {
     clearTimeout(this._t);
-    this._t = setTimeout(() => this._load(), 400);
+    this._t = setTimeout(() => this._load(), 180);
   },
   _status(t) {
     const el = root && root.querySelector('#f-hstat');
@@ -618,9 +658,10 @@ const HabLayer = L.Layer.extend({
     const ph = await soilField(A);
     const { H } = applyProfile(A, inp.key, ph, inp.doy);
     const W = weatherField(A, inp.zones, inp.prof, inp.doy);
+    const C = confirmField(A, spotsFor(inp.key, inp.doy));
     const T = A.T, N = T.w * T.h, img = new ImageData(T.w, T.h);
     for (let k = 0; k < N; k++) {
-      const sc = probFrom(W[k], H[k]);
+      const sc = Math.min(97, Math.round(probFrom(W[k], H[k]) * C[k]));
       if (T.elev[k] <= 0 || sc < 6) continue;
       const [r, g, b] = colorAt(sc);
       img.data[k * 4] = r; img.data[k * 4 + 1] = g; img.data[k * 4 + 2] = b;

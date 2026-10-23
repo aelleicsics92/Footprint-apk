@@ -354,7 +354,7 @@ export function explain(A, key, lat, lon, ph, doy) {
     trees: gens.filter((g) => g[1] >= 0.15).slice(0, 3).map((g) => GEN_NAME[g[0]]), H: Math.min(1, best), sp: list[bi], parts: bp, verified: !!A.L, src: A.src,
   };
 }
-export const probFrom = (W, H) => Math.round(W * (0.15 + 0.85 * Math.pow(Math.min(1, Math.max(0, H)), 0.75)));
+export const probFrom = (W, H) => Math.round(W * (0.25 + 0.75 * Math.pow(Math.min(1, Math.max(0, H)), 0.7)));
 
 // ---------- campo meteo per pixel (IDW sulle zone + correzione di quota stagionale) ----------
 export function weatherField(A, zones, prof, doy) {
@@ -531,4 +531,22 @@ export function bestNear(A, key, ph, doy, lat, lon, W) {
   if (!best) return null;
   best.prob = probFrom(W, best.H);
   return best;
+}
+
+// conferma dal diario: entro 1 km da un tuo ritrovamento (stessa specie, stessa stagione) il punteggio sale del 20-35%
+export function confirmField(A, spots) {
+  const T = A.T, N = T.w * T.h, out = new Float32Array(N).fill(1);
+  if (!spots.length) return out;
+  const rad = Math.ceil(1000 / T.cell) + 1, cnt = new Uint8Array(N);
+  for (const s of spots) {
+    const [X, Y] = ll2px(T.z, s.lat, s.lon), ci = (X - T.x0) / T.s, cj = (Y - T.y0) / T.s;
+    if (ci < -rad || cj < -rad || ci > T.w + rad || cj > T.h + rad) continue;
+    for (let j = Math.max(0, Math.floor(cj - rad)); j <= Math.min(T.h - 1, Math.ceil(cj + rad)); j++) {
+      for (let i = Math.max(0, Math.floor(ci - rad)); i <= Math.min(T.w - 1, Math.ceil(ci + rad)); i++) {
+        if (Math.hypot(i - ci, j - cj) * T.cell <= 1000) cnt[j * T.w + i] = Math.min(4, cnt[j * T.w + i] + 1);
+      }
+    }
+  }
+  for (let k = 0; k < N; k++) if (cnt[k]) out[k] = 1.2 + 0.05 * (cnt[k] - 1);
+  return out;
 }

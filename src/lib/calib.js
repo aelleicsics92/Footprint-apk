@@ -59,6 +59,12 @@ export function findings() {
   return out.sort((a, b) => b.ts - a.ts).slice(0, 80);
 }
 
+// ritrovamenti della specie in una stagione simile (±20 giorni dell'anno), per la conferma dal diario
+export function spotsFor(key, doy) {
+  const dd = (a, b) => Math.min(Math.abs(a - b), 365 - Math.abs(a - b));
+  const d0 = (ts) => { const d = new Date(ts); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 86400000); };
+  return findings().filter((f) => f.key === key && dd(d0(f.ts), doy) <= 20);
+}
 export async function calibrate(onProgress) {
   const list = findings();
   const rows = [];
