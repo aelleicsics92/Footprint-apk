@@ -141,5 +141,6 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setTimeout(pullQuick, 1200);
 setTimeout(pullQuick, 3500);
 setTimeout(() => { try { initWidgetSync(); } catch {} }, 2500);
+import('./lib/calib.js').then((m) => m.initAutoLearn()).catch(() => {});
 
 boot();

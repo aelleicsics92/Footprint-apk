@@ -7,7 +7,7 @@ import { bus } from './util.js';
 import { sunTimes } from './sun.js';
 import { PROFILES, levelOf, outlook, getPointSeries } from './fungi.js';
 import { placeName } from '../ui/weather.js';
-import { analyze, bestNear, soilAt, dayOfYear, probFrom } from './habitat.js';
+import { areaBest, areaProb } from './area.js';
 
 const ICON = { autunnali: 'porcino', estivi: 'galletto', scorzone: 'scorzone', uncinato: 'uncinato', bianco: 'bianco', nero: 'nero', bianchetto: 'bianchetto' };
 let cache = { place: '', at: null, score: null }, lastPush = 0;
@@ -37,11 +37,9 @@ async function push(force) {
         let score = o.score, sub = prof.short;
         // zona ampia: miglior probabilità (meteo x habitat) entro 10 km, non solo nel punto esatto
         try {
-          const d = 0.095, cl = Math.cos((p.lat * Math.PI) / 180);
-          const A = await analyze({ n: p.lat + d, s: p.lat - d, e: p.lon + d / cl, w: p.lon - d / cl }, 11);
-          const b = bestNear(A, key, await soilAt(p.lat, p.lon, false), dayOfYear(), p.lat, p.lon, o.score, 10000);
+          const b = await areaBest(p.lat, p.lon, key);
           if (b) {
-            score = b.prob;
+            score = areaProb(o.score, b);
             const km = b.dist < 950 ? Math.round(b.dist / 10) * 10 + ' m' : (b.dist / 1000).toFixed(0) + ' km';
             sub = `${prof.short} · entro 10 km${b.dist > 800 ? ', meglio a ' + km + ' ' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(b.brg / 45) % 8] : ''}`;
           }
@@ -62,7 +60,7 @@ export function initWidgetSync() {
   let first = false;
   bus.on('pos', () => { if (!first) { first = true; push(true); } else push(false); });
   bus.on('rec:state', () => push(true));
-  bus.on('settings:changed', (k) => { if (k === 'fungiProfile' || k === 'fungiCal') { cache.score = null; push(true); } });
+  bus.on('settings:changed', (k) => { if (k === 'fungiProfile' || k === 'fungiCal' || k === 'fungiHab') { cache.score = null; push(true); } });
   setInterval(() => push(true), 20 * 60000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') push(true); else if (document.visibilityState === 'visible') { if (cache.score && Date.now() - cache.score.t > 15 * 60000) cache.score = null; push(true); } });
 }

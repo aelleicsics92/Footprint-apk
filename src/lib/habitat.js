@@ -2,7 +2,7 @@
 // copertura del suolo/bosco (CORINE Land Cover, fallback ESA WorldCover), pH del suolo (SoilGrids) e acqua (OSM)
 // con le esigenze di ogni specie (src/data/species.js). Tutto calcolato sul telefono.
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { kvGet, kvSet } from './store.js';
+import { kvGet, kvSet, getSettings } from './store.js';
 import { SPECIES, GEN, GEN_NAME } from '../data/species.js';
 import { seasonFactor, FORECAST } from './fungi.js';
 
@@ -293,23 +293,33 @@ function tpiF(kind, tpi) {
 }
 const phF = (ph, r) => (ph == null || isNaN(ph) || !r ? 0.8 : Math.max(0.15, trap(ph, r[0], r[1], r[0] - 1.8, r[1] + 1.2)));
 
+// adattamenti appresi dai ritrovamenti dell'utente (alt, pendenza, pH, piante): estendono l'idoneità, non la riducono
+let USERHAB = {};
+export function applyHab(h = getSettings().fungiHab) {
+  USERHAB = h || {};
+}
+applyHab();
+
 const parts = { altF: 0, host: 0, aspF: 0, slopeF: 0, tpiF: 0, phF: 0, raw: 0 };
-function cell(A, sp, k, ph, doy) {
+function cell(A, sp, k, ph, doy, u) {
   const T = A.T, alt = T.elev[k];
-  const altF = trap(alt, sp.alt[0], sp.alt[1], sp.alt[2], sp.alt[3]);
+  let altF = trap(alt, sp.alt[0], sp.alt[1], sp.alt[2], sp.alt[3]);
+  if (u && u.alt) altF = Math.max(altF, 0.9 * trap(alt, u.alt[0] - 60, u.alt[1] + 60, u.alt[0] - 350, u.alt[1] + 350));
   parts.altF = altF; parts.raw = 0;
   if (altF < 0.02) return 0;
   const f = A.fo[k] / 255, o = A.op[k] / 255;
   let dot = 0;
   for (let g = 0; g < NG; g++) {
     const m = A.mix[k * NG + g];
-    if (m) dot += (m / 255) * (sp.hosts[GEN[g]] || 0);
+    if (m) dot += (m / 255) * Math.max(sp.hosts[GEN[g]] || 0, u && u.hosts ? 0.9 * (u.hosts[GEN[g]] || 0) : 0);
   }
   let host = f * dot + o * (sp.open || 0) * 0.7 * dot;
   if (sp.wet && f === 0 && o > 0 && A.T.tpi[k] !== UNK && A.T.tpi[k] < -8) host = Math.max(host, (sp.hosts.ripar || 0) * 0.4);
   parts.host = host;
   if (host < 0.03) return 0;
-  const a = aspF(sp.asp, T.asp[k], alt, sp.aspSoft), s = slopeF(T.slope[k], sp.slope), t = tpiF(sp.tpi, T.tpi[k]), p = phF(ph, sp.ph);
+  let p = phF(ph, sp.ph);
+  if (u && u.ph && ph != null && !isNaN(ph)) p = Math.max(p, phF(ph, [u.ph[0] - 0.2, u.ph[1] + 0.2]));
+  const a = aspF(sp.asp, T.asp[k], alt, sp.aspSoft), s = slopeF(T.slope[k], u && u.slope ? [Math.max(sp.slope[0], u.slope), Math.max(sp.slope[1], u.slope + 20)] : sp.slope), t = tpiF(sp.tpi, T.tpi[k]);
   parts.aspF = a; parts.slopeF = s; parts.tpiF = t; parts.phF = p;
   const raw = altF * host * a * s * t * (0.35 + 0.65 * p) / (0.35 + 0.65);
   parts.raw = raw;
@@ -319,13 +329,13 @@ const seasonBump = (sp, doy) => (sp.season ? (doy >= sp.season[0] && doy <= sp.s
 export const dayOfYear = (d = new Date()) => Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 86400000);
 
 export function applyProfile(A, key, phField, doy) {
-  const list = SPECIES[key] || SPECIES.autunnali, N = A.T.w * A.T.h;
+  const list = SPECIES[key] || SPECIES.autunnali, N = A.T.w * A.T.h, u = USERHAB[key];
   const H = new Float32Array(N), SP = new Uint8Array(N);
   for (let k = 0; k < N; k++) {
     const ph = phField ? phField[k] : null;
     let best = 0, bi = 0;
     for (let q = 0; q < list.length; q++) {
-      const v = cell(A, list[q], k, ph, doy) * seasonBump(list[q], doy);
+      const v = cell(A, list[q], k, ph, doy, u) * seasonBump(list[q], doy);
       if (v > best) (best = v), (bi = q);
     }
     H[k] = best;
@@ -339,10 +349,10 @@ export function explain(A, key, lat, lon, ph, doy) {
   const T = A.T, [X, Y] = ll2px(T.z, lat, lon);
   const i = Math.floor((X - T.x0) / T.s), j = Math.floor((Y - T.y0) / T.s);
   if (i < 0 || j < 0 || i >= T.w || j >= T.h) return null;
-  const k = j * T.w + i, list = SPECIES[key] || SPECIES.autunnali;
+  const k = j * T.w + i, list = SPECIES[key] || SPECIES.autunnali, u = USERHAB[key];
   let best = 0, bi = 0, bp = null;
   list.forEach((sp, q) => {
-    const v = cell(A, sp, k, ph, doy) * seasonBump(sp, doy);
+    const v = cell(A, sp, k, ph, doy, u) * seasonBump(sp, doy);
     if (v > best || !bp) (best = v), (bi = q), (bp = { ...parts });
   });
   const gens = [];
@@ -351,7 +361,7 @@ export function explain(A, key, lat, lon, ph, doy) {
   const code = A.L ? A.L.codes[k] : 0;
   return {
     alt: T.elev[k], slope: T.slope[k], asp: T.asp[k], tpi: T.tpi[k] === UNK ? null : T.tpi[k], code, forest: A.fo[k] / 255,
-    trees: gens.filter((g) => g[1] >= 0.15).slice(0, 3).map((g) => GEN_NAME[g[0]]), H: Math.min(1, best), sp: list[bi], parts: bp, verified: !!A.L, src: A.src,
+    mixAll: gens, trees: gens.filter((g) => g[1] >= 0.15).slice(0, 3).map((g) => GEN_NAME[g[0]]), H: Math.min(1, best), sp: list[bi], parts: bp, verified: !!A.L, src: A.src,
   };
 }
 export const probFrom = (W, H) => Math.round(W * (0.25 + 0.75 * Math.pow(Math.min(1, Math.max(0, H)), 0.7)));

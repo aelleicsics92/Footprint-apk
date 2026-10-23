@@ -11,6 +11,7 @@ import { lastPos } from '../lib/geo.js';
 import { PAST, PROFILES, LEVELS, levelOf, ZONES, getZoneSeries, getPointSeries, outlook, nearestZone } from '../lib/fungi.js';
 import { placeName } from './weather.js';
 import { SPECIES } from '../data/species.js';
+import { areaBest, areaProb } from '../lib/area.js';
 import { analyze, applyProfile, explain, bestNear, confirmField, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
 import { hasAI, askModel } from '../lib/ai.js';
 import { calibrate, applyResult, resetCal, findings, spotsFor } from '../lib/calib.js';
@@ -245,13 +246,18 @@ function nearNow(W) {
   const h = state.habAt;
   if (!h) return null;
   const doy = dayOfYear(dateFor(state.day)), key = profKey();
-  const ck = `${key}|${doy}|${h.lat.toFixed(4)}|${h.lon.toFixed(4)}|${h.ph || 0}`;
+  const ck = `${key}|${doy}|${h.lat.toFixed(3)}|${h.lon.toFixed(3)}|${h.ph || 0}|${W}`;
   if (nearCache.k !== ck) {
     nearCache = { k: ck, v: null };
-    try { nearCache.v = bestNear(h.A, key, h.ph, doy, h.lat, h.lon, W); } catch (e) { console.warn('bestNear', e.message); }
+    areaBest(h.lat, h.lon, key).then((v) => {
+      if (nearCache.k !== ck) return;
+      nearCache.v = v || false;
+      renderCard();
+      renderBanner();
+    }).catch((e) => console.warn('areaBest', e.message));
   }
   const v = nearCache.v;
-  return v ? { ...v, prob: probFrom(W, v.H) } : null;
+  return v ? { ...v, prob: areaProb(W, v) } : null;
 }
 const fmtM = (m) => (m < 950 ? Math.round(m / 10) * 10 + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km');
 let bestMarker;
@@ -288,7 +294,7 @@ function renderBanner() {
   bn.innerHTML = `<button class="bn-x" aria-label="Chiudi">✕</button>
     <div class="bn-l1">📍 <b>${esc(nm)}</b> (${Math.round(sr.elev)} m) · Probabilità <b style="color:${lv.color}">${p}/100</b> · Pioggia 30gg: <b>${Math.round(o.R30)} mm</b></div>
     ${ex ? `<div class="bn-l2">${esc(ex.verified ? LC_NAME(ex.code) : 'bosco n.d.')} · ${ex.asp < 0 ? 'piano' : 'versante ' + D8[Math.round(ex.asp / 45) % 8] + ' ' + ex.slope + '°'} · ${esc(ex.sp.name)}</div>` : ''}
-    ${(() => { const n = nearNow(o.score); return n && n.dist > 120 && n.prob > p + 5 ? `<div class="bn-l3">🎯 Meglio a <b>${fmtM(n.dist)} ${D8[Math.round(n.brg / 45) % 8]}</b> (probabilità ${n.prob})</div>` : ''; })()}
+    ${(() => { const n = nearNow(o.score); return n && n.dist > 120 && n.prob > p + 5 ? `<div class="bn-l3">🎯 Entro 10 km, meglio a <b>${fmtM(n.dist)} ${D8[Math.round(n.brg / 45) % 8]}</b> (probabilità ${n.prob})</div>` : ''; })()}
     <button class="bn-d">Perché? Dettagli ↓</button>`;
   bn.querySelector('.bn-x').onclick = () => (bn.hidden = true);
   bn.querySelector('.bn-d').onclick = () => root.querySelector('#f-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -461,7 +467,7 @@ function renderCard() {
     <div style="text-align:center;font-size:.85rem;color:#c3dccb;margin-top:2px">${day === 0 ? 'Oggi' : dayName(o.date)} · ${esc(prof.short)}</div>
     ${advice ? `<div style="text-align:center;margin-top:8px;font-size:.9rem">${esc(advice)}</div>` : ''}
     ${dday ? `<div class="dday">📅 ${esc(dday)}</div>` : ''}
-    ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}${(() => { const n = nearNow(o.wscore); if (!n) return ''; if (n.dist > 120 && n.prob > o.score + 5) return `<div class="hb-near">🎯 Zona migliore vicina: <b>${fmtM(n.dist)} a ${D8[Math.round(n.brg / 45) % 8]}</b>, probabilità <b>${n.prob}</b> <button class="chip" id="f-goto">Mostra</button></div>`; return ex.H < 0.25 ? '<div class="hb-near">Habitat scarso qui e nei dintorni (3 km).</div>' : '<div class="hb-near">Sei già nella zona migliore dei dintorni.</div>'; })()}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
+    ${ex ? `<div class="habbox"><div class="hb-t">Habitat qui <span>meteo ${o.wscore} · habitat ${Math.round(ex.H * 100)}%</span></div>${habRows(ex).map(([k, v]) => `<div class="hb-r"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}${(() => { const n = nearNow(o.wscore); if (!n) return ''; if (n.dist > 120 && n.prob > o.score + 5) return `<div class="hb-near">🎯 Zona migliore entro 10 km: <b>${fmtM(n.dist)} a ${D8[Math.round(n.brg / 45) % 8]}</b>, probabilità <b>${n.prob}</b> <button class="chip" id="f-goto">Mostra</button></div>`; return ex.H < 0.25 ? '<div class="hb-near">Habitat scarso qui e nei dintorni (10 km).</div>' : '<div class="hb-near">Sei già nella zona migliore entro 10 km.</div>'; })()}<div class="hb-n">${esc(ex.sp.note)}${ex.verified ? '' : ' · bosco non verificato: serve internet per i dati di copertura'}</div></div>` : ''}
     ${reasons(prof, o0 = out0[day], ex, wavg)}
     ${hasAI() && ex ? `<button class="chip" id="f-ai" style="margin-top:10px">✨ Analisi AI di questo punto</button><div id="f-aiout" class="aiout"></div>` : ''}
     <div class="stats">

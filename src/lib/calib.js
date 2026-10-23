@@ -3,7 +3,8 @@
 // del profilo verso quanto osservato (media pesata: più ritrovamenti, più peso ai dati).
 import { PROFILES, BASE, evaluate, applyCal } from './fungi.js';
 import { getWaypoints } from './waypoints.js';
-import { getSettings, setSetting } from './store.js';
+import { getSettings, setSetting, kvGet, kvSet } from './store.js';
+import { analyze, explain, soilAt, dayOfYear, applyHab } from './habitat.js';
 import { bus } from './util.js';
 
 const MAP = { porcino: 'autunnali', regius: 'autunnali', pinaiolo: 'autunnali', leccino: 'autunnali', galletto: 'estivi', ovulo: 'estivi', scorzone: 'scorzone', uncinato: 'uncinato', bianco: 'bianco', bianchetto: 'bianchetto', nero: 'nero' };
@@ -74,7 +75,13 @@ export async function calibrate(onProgress) {
   const worker = async () => {
     for (let f = queue.shift(); f; f = queue.shift()) {
       try {
-        const { i, series } = await seriesFor(f.lat, f.lon, f.ts);
+        const ck = `cal:s:${f.key}|${f.ts}|${f.lat.toFixed(3)}|${f.lon.toFixed(3)}`;
+        let c = await kvGet(ck);
+        if (!c) {
+          c = await seriesFor(f.lat, f.lon, f.ts);
+          kvSet(ck, c);
+        }
+        const { i, series } = c;
         rows.push({ ...f, i, series, ...feats(series, i) });
       } catch (e) {
         rows.push({ ...f, err: e.message });
@@ -121,6 +128,89 @@ export function applyResult(res) {
 }
 export function resetCal() {
   setSetting('fungiCal', {});
+  setSetting('fungiHab', {});
+  setSetting('fungiLearnSig', '');
   applyCal({});
+  applyHab({});
   bus.emit('settings:changed', 'fungiCal');
+}
+
+// ---- apprendimento automatico: a ogni nuovo ritrovamento il modello meteo e l'habitat si adattano da soli ----
+export function calStatus() {
+  const cal = getSettings().fungiCal || {}, hab = getSettings().fungiHab || {};
+  const keys = new Set([...Object.keys(cal), ...Object.keys(hab)]);
+  return { n: findings().length, learned: keys.size, at: getSettings().fungiLearnAt || 0 };
+}
+async function learnHab(list) {
+  const out = {};
+  const by = {};
+  for (const f of list) (by[f.key] = by[f.key] || []).push(f);
+  for (const [key, fs] of Object.entries(by)) {
+    if (fs.length < 3) continue;
+    const rows = [];
+    for (const f of fs) {
+      const ck = `hab:f:${key}|${f.ts}|${f.lat.toFixed(3)}|${f.lon.toFixed(3)}`;
+      let r = await kvGet(ck);
+      if (!r) {
+        try {
+          const d = 0.012, cl = Math.cos((f.lat * Math.PI) / 180);
+          const A = await analyze({ n: f.lat + d, s: f.lat - d, e: f.lon + d / cl, w: f.lon - d / cl }, 13);
+          const ph = await soilAt(f.lat, f.lon, false);
+          const ex = A && explain(A, key, f.lat, f.lon, ph, dayOfYear(new Date(f.ts)));
+          if (!ex || !ex.verified) continue;
+          r = { alt: f.alt, slope: ex.slope, ph: ph || null, mix: ex.mixAll || [] };
+          kvSet(ck, r);
+        } catch { continue; }
+      }
+      rows.push(r);
+    }
+    if (rows.length < 3) continue;
+    const alts = rows.map((r) => r.alt).filter((x) => x != null), phs = rows.map((r) => r.ph).filter((x) => x != null), sl = rows.map((r) => r.slope).filter((x) => x != null);
+    const hosts = {};
+    const gens = new Set(rows.flatMap((r) => r.mix.map((g) => g[0])));
+    for (const g of gens) {
+      const m = rows.reduce((a, r) => a + ((r.mix.find((x) => x[0] === g) || [0, 0])[1] || 0), 0) / rows.length;
+      if (m >= 0.2) hosts[g] = Math.min(1, Math.round(m * 150) / 100);
+    }
+    const o = { n: rows.length, hosts };
+    if (alts.length >= 3) o.alt = [Math.round(q(alts, 0.1)), Math.round(q(alts, 0.9))];
+    if (sl.length >= 3) o.slope = Math.round(q(sl, 0.8));
+    if (phs.length >= 3) o.ph = [Math.round(q(phs, 0.1) * 10) / 10, Math.round(q(phs, 0.9) * 10) / 10];
+    out[key] = o;
+  }
+  return out;
+}
+let running = false, timer = 0;
+export async function autoLearn() {
+  if (running) return;
+  const list = findings();
+  const sig = list.map((f) => f.ts + f.key).join('|');
+  if (!list.length || sig === getSettings().fungiLearnSig) return;
+  running = true;
+  try {
+    const res = await calibrate();
+    const cal = { ...(getSettings().fungiCal || {}) };
+    for (const [k, v] of Object.entries(res.out)) if (Object.keys(v.cal).length) cal[k] = v.cal;
+    setSetting('fungiCal', cal);
+    applyCal(cal);
+    const hab = await learnHab(list);
+    if (Object.keys(hab).length) {
+      setSetting('fungiHab', hab);
+      applyHab(hab);
+    }
+    if (!res.failed) setSetting('fungiLearnSig', sig);
+    setSetting('fungiLearnAt', Date.now());
+    bus.emit('settings:changed', 'fungiCal');
+  } catch (e) {
+    console.warn('autoLearn', e.message);
+  }
+  running = false;
+}
+export function initAutoLearn() {
+  const kick = (ms) => {
+    clearTimeout(timer);
+    timer = setTimeout(autoLearn, ms);
+  };
+  kick(12000);
+  bus.on('wp:changed', () => kick(25000));
 }
