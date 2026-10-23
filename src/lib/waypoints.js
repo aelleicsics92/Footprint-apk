@@ -1,7 +1,7 @@
 import { kvGet, kvSet, getSettings, setSetting } from './store.js';
 import { getTerrain, terrainText } from './terrain.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
-import { openSheet, toast, confirmBox } from './ui.js';
+import { openSheet, toast, confirmBox, closeTopPage } from './ui.js';
 import { orderedIcons, wpIcon, ico, TRUFFLE_ICONS } from './icons.js';
 import { lastPos, getOnce } from './geo.js';
 import { apiKey } from './store.js';
@@ -327,7 +327,7 @@ export function openWaypoint(w) {
       ${w.stato || (w.tags || []).length ? `<p class="muted" style="margin:4px 0">${[w.stato ? STATI.find((x) => x[0] === w.stato)[1] : '', ...(w.tags || [])].filter(Boolean).join(' · ')}</p>` : ''}
       <p class="muted" id="wp-terr" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
-      <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>
+      <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small><button type="button" class="cb-view" data-a="view">${ico('map', 16)} Visualizza</button></div>
       <div class="row gap wrap">
         <button class="btn primary grow" data-a="go">${ico('nav', 18)} Vai</button>
         <button class="btn ghost grow" data-a="share">${ico('share', 18)} Condividi</button>
@@ -346,8 +346,14 @@ export function openWaypoint(w) {
     const b = e.target.closest('[data-a]');
     if (!b) return;
     const a = b.dataset.a;
-    if (a === 'go') {
+    if (a === 'view') {
       s.close();
+      while (closeTopPage()) {}
+      bus.emit('nav:tab', 'map');
+      bus.emit('wp:goto', w.id);
+    } else if (a === 'go') {
+      s.close();
+      while (closeTopPage()) {}
       bus.emit('wp:target', w.id);
     } else if (a === 'share') {
       s.close();

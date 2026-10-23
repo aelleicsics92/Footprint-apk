@@ -102,18 +102,27 @@ export function openPrices() {
   openPage('Prezzi tartufo', async (pg) => {
     pg.body.innerHTML = '<div class="empty">Carico le quotazioni…</div>';
     const base = await loadPrices();
+    let open = null;
+    const tiers = (x) => {
+      const med = (x.min + x.max) / 2;
+      const row = (n, g, kg, ex, gr) => `<div class="pr-t3"><div><b>${n}</b><small>${g}</small></div><div class="r"><b>${eur(kg)} €/kg</b><small>${eur(kg / 10)} €/etto · ${ex} g ≈ ${(kg * ex / 1000).toFixed(kg * ex / 1000 < 10 ? 1 : 0).replace('.', ',')} €</small></div></div>`;
+      return `<div class="pr-tiers">${row('Piccola', '0-19 g', x.min, 10)}${row('Media', '20-49 g', med, 35)}${row('Grande', '50 g e oltre', x.max, 80)}
+        <div class="pr-mix"><span>Partite miste</span><span>medio-piccola ${eur((x.min + med) / 2)} · media-grande ${eur((med + x.max) / 2)} · piccola-grande ${eur(x.mix)} €/kg</span></div>
+        <small class="muted">Il prezzo cresce con il calibro. La fascia media è ricavata dalle partite miste.</small></div>`;
+    };
     const render = (data, liveState) => {
     const today = new Date().toISOString().slice(0, 10);
     const items = data.items.map((x) => ({ ...x, open: !windowState(today, (PROFILES[x.id] || {}).window).closed })).sort((a, b) => Number(b.open) - Number(a.open));
     pg.body.innerHTML = `
       <p class="muted" style="margin:12px 16px 4px;font-size:.84rem">Quanto viene pagato il tartufo a chi lo cerca (al kg). ${liveState === 'live' ? '<b style="color:#1f7a44">● Letto ora dai siti di quotazioni</b>' : liveState === 'load' ? 'Controllo i prezzi online…' : liveState === 'fail' ? 'Online non raggiungibile: mostro le ultime quotazioni note (' + fmt(data.updated) + ').' : 'Aggiornato al ' + fmt(data.updated) + '.'}</p>
-      <div class="pr-list">${items.map((x) => `<div class="pr-card ${x.open ? '' : 'off'}">
+      <div class="pr-list">${items.map((x) => `<div class="pr-card ${x.open ? '' : 'off'}" data-x="${x.id}">
         <span class="ic big">${wpIcon(x.id).svg}</span>
         <div class="pr-b"><b>${esc(x.name)}</b><small><i>${esc(x.latin)}</i></small>
           <div class="pr-p">${eur(x.min)}-${eur(x.max)} <small>€/kg</small></div>
           <small>Partita mista circa <b>${eur(x.mix)} €/kg</b></small>
           <div class="pr-t"><span class="badge ${x.open ? 'b-ok' : 'b-warn'}">${x.open ? 'Di stagione' : 'Fuori stagione'}</span> <span class="badge b-warn" style="background:#eef0f2;color:#445">${x.kind === 'cavatore' ? 'al cavatore' : 'media di mercato'}</span></div>
-          <small class="muted">Quotazione del ${fmt(x.date)} · ${esc(x.src)}</small></div></div>`).join('')}</div>
+          <small class="muted">Quotazione del ${fmt(x.date)} · ${esc(x.src)}</small>
+          <div class="pr-more">${open === x.id ? tiers(x) : 'Tocca per vedere le pezzature'}</div></div></div>`).join('')}</div>
       <div class="card" style="margin:10px 14px"><h3>Quanto vale il mio raccolto?</h3>
         <div class="row gap"><select id="pc-s" class="grow">${items.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="pc-g" class="grow" type="number" inputmode="numeric" placeholder="grammi" onfocus="this.select()"></div>
         <div id="pc-o" style="margin-top:8px;font-weight:700;font-size:1.05rem"></div></div>
@@ -122,6 +131,7 @@ export function openPrices() {
       const it = items.find((x) => x.id === pg.body.querySelector('#pc-s').value), g = Number(pg.body.querySelector('#pc-g').value) || 0;
       pg.body.querySelector('#pc-o').textContent = g && it ? `${eur((g / 1000) * it.min)}-${eur((g / 1000) * it.max)} € (mista: ${eur((g / 1000) * it.mix)} €)` : '';
     };
+    pg.body.querySelectorAll('[data-x]').forEach((c) => (c.onclick = () => { open = open === c.dataset.x ? null : c.dataset.x; render(data, liveState); }));
     pg.body.querySelector('#pc-s').onchange = calc;
     pg.body.querySelector('#pc-g').oninput = calc;
     };
