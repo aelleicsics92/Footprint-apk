@@ -107,10 +107,10 @@ export function outlook(series, prof, elev) {
 }
 
 // ---------- dati Open-Meteo ----------
-const DAILY = 'precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration,wind_speed_10m_max';
+const DAILY = 'precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration,wind_speed_10m_max,wind_direction_10m_dominant';
 function toSeries(loc) {
   const d = loc.daily;
-  return { time: d.time, p: d.precipitation_sum, tmax: d.temperature_2m_max, tmin: d.temperature_2m_min, et0: d.et0_fao_evapotranspiration, w: d.wind_speed_10m_max, elev: loc.elevation };
+  return { time: d.time, p: d.precipitation_sum, tmax: d.temperature_2m_max, tmin: d.temperature_2m_min, et0: d.et0_fao_evapotranspiration, w: d.wind_speed_10m_max, wd: d.wind_direction_10m_dominant, elev: loc.elevation };
 }
 export async function fetchSeries(points) {
   const res = [];

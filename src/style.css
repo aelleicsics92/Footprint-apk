@@ -533,3 +533,16 @@ html.night .set-row.clk.sel{background:#243a2c}
 .pr-t3{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--paper2)}
 .pr-t3 b{display:block;font-size:.95rem}.pr-t3 small{display:block;color:var(--muted);font-size:.74rem}.pr-t3 .r{text-align:right}
 .pr-mix{padding:6px 0;border-top:1px solid var(--paper2);font-size:.76rem;display:flex;flex-direction:column;gap:2px}.pr-mix span:first-child{font-weight:700}
+
+/* mappa previsione */
+.relief-tiles{filter:brightness(1.18) contrast(.92) saturate(.9)}
+.cty span{font-family:var(--sans);font-style:normal;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:10px;color:#1f2b25;text-shadow:-1.5px 0 #fff,1.5px 0 #fff,0 -1.5px #fff,0 1.5px #fff,-1px -1px #fff,1px 1px #fff,-1px 1px #fff,1px -1px #fff}
+.cty span.r1{font-size:12px;font-weight:800}
+.cty span.r3{font-style:normal;font-size:9px;color:#34423a;font-weight:600}
+.fpop .leaflet-popup-content-wrapper{background:rgba(255,253,246,.96);color:#12372a;border-radius:12px;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+.fpop .leaflet-popup-content{margin:8px 12px;font-size:.82rem;line-height:1.35}
+.fpop .leaflet-popup-tip{background:rgba(255,253,246,.96)}
+.rh-b{position:relative}
+.rh-thr{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(255,214,140,.9);text-decoration:none;pointer-events:none}
+.rh-thr em{position:absolute;right:0;top:-14px;font-style:normal;font-size:.62rem;color:#ffd48a}
+.wdir{display:inline-block;color:#ffd48a}

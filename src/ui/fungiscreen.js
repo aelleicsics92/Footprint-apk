@@ -13,13 +13,14 @@ let root, fmap, zoneLayer, youMarker, selMarker, cityLayer, heat;
 let state = { day: 0, point: null, ptData: null, zones: null, loading: false };
 let nameCache = {};
 
-function rainChart(series) {
+function rainChart(series, prof) {
   const p = (series.p || []).slice(0, PAST + 1).map((v) => v || 0);
   if (p.length < 5) return '';
-  const mx = Math.max(10, ...p);
+  const thr = (prof && prof.rain && prof.rain[0]) || 15;
+  const mx = Math.max(10, thr * 1.25, ...p);
   const d0 = new Date(series.time[0] + 'T12:00:00'), d1 = new Date(series.time[p.length - 1] + 'T12:00:00');
   const f = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-  return `<div class="rainh"><div class="rh-t"><span>Pioggia giorno per giorno (30 giorni)</span><span>max ${Math.round(Math.max(...p))} mm</span></div><div class="rh-b">${p.map((v, i) => `<i title="${series.time[i]}: ${v.toFixed(1)} mm" style="height:${v > 0 ? Math.max(4, (v / mx) * 100) : 2}%;${v >= 10 ? 'background:#4aa3e8' : v > 0 ? 'background:#8cc6f0' : 'background:rgba(255,255,255,.25)'}"></i>`).join('')}</div><div class="rh-l"><span>${f(d0)}</span><span>${f(d1)}</span></div></div>`;
+  return `<div class="rainh"><div class="rh-t"><span>Pioggia giorno per giorno (30 giorni)</span><span>max ${Math.round(Math.max(...p))} mm</span></div><div class="rh-b"><u class="rh-thr" style="bottom:${(thr / mx) * 100}%"><em>soglia ${thr} mm</em></u>${p.map((v, i) => `<i title="${series.time[i]}: ${v.toFixed(1)} mm" style="height:${v > 0 ? Math.max(4, (v / mx) * 100) : 2}%;background:${v >= thr ? '#9be3c0' : v > 0 ? '#5f9c86' : 'rgba(255,255,255,.2)'}"></i>`).join('')}</div><div class="rh-l"><span>${f(d0)}</span><span>${f(d1)}</span></div></div>`;
 }
 
 export function mountFungi(el) {
@@ -145,9 +146,15 @@ function onShow() {
 }
 
 function initMap() {
-  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotateControl: false, attributionControl: true, minZoom: 5, maxZoom: 10 });
+  fmap = L.map(root.querySelector('#fungi-map'), { zoomControl: false, rotateControl: false, attributionControl: true, minZoom: 5, maxZoom: 12 });
   fmap.attributionControl.setPrefix(false);
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, HERE, Garmin', maxZoom: 10, maxNativeZoom: 10 }).addTo(fmap);
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri, USGS, NOAA', maxZoom: 12, maxNativeZoom: 12, className: 'relief-tiles' }).addTo(fmap);
+  fmap.createPane('places');
+  fmap.getPane('places').style.zIndex = 450;
+  fmap.getPane('places').style.pointerEvents = 'none';
+  const places = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { pane: 'places', maxZoom: 12, maxNativeZoom: 12, opacity: 0.95 });
+  const placesToggle = () => (fmap.getZoom() >= 9 ? fmap.hasLayer(places) || places.addTo(fmap) : fmap.hasLayer(places) && fmap.removeLayer(places));
+  fmap.on('zoomend', placesToggle);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
   zoneLayer = L.layerGroup().addTo(fmap);
   // etichette città e paesi, più fitte con lo zoom
@@ -156,7 +163,7 @@ function initMap() {
     cityLayer.clearLayers();
     const z = fmap.getZoom(), size = fmap.getSize(), boxes = [];
     [...CITIES].sort((a, b) => a[3] - b[3]).forEach(([n, la, lo, r]) => {
-      if ((r === 2 && z < 7) || (r === 3 && z < 8)) return;
+      if (z >= 9 || (r === 2 && z < 7) || (r === 3 && z < 8)) return;
       const q = fmap.latLngToContainerPoint([la, lo]);
       if (q.x < -20 || q.y < -10 || q.x > size.x + 20 || q.y > size.y + 10) return;
       const w = n.length * (r === 1 ? 7.4 : 6.2) + 14, h = r === 1 ? 17 : 14;
@@ -170,12 +177,21 @@ function initMap() {
   fmap.whenReady(drawCities);
   heat = new HeatLayer();
   heat.addTo(fmap);
+  placesToggle();
   fmap.on('click', async (e) => {
     state.point = { lat: e.latlng.lat, lon: e.latlng.lng, name: 'Punto selezionato' };
     if (selMarker) fmap.removeLayer(selMarker);
     selMarker = L.circleMarker(e.latlng, { radius: 9, color: '#fff', weight: 3, fillColor: '#12372a', fillOpacity: 1 }).addTo(fmap);
+    const pop = L.popup({ closeButton: false, className: 'fpop', offset: [0, -6], autoPan: false }).setLatLng(e.latlng).setContent('Calcolo…').openOn(fmap);
     await loadPoint();
     renderCard();
+    try {
+      const prof = PROFILES[getSettings().fungiProfile] || PROFILES.autunnali;
+      const sr = state.ptData.series, o = outlook(sr, prof, sr.elev)[clamp(state.day, 0, 7)];
+      const k = `${e.latlng.lat.toFixed(2)},${e.latlng.lng.toFixed(2)}`;
+      const nm = nameCache[k] || (nameCache[k] = await placeName(e.latlng.lat, e.latlng.lng)) || 'Punto';
+      pop.setContent(`<b>${esc(nm)}</b> (${Math.round(sr.elev)} m)<br>Indice <b>${o.score}/100</b> · Pioggia 30 giorni: <b>${Math.round(o.R30)} mm</b>`);
+    } catch { pop.close(); }
   });
 }
 
@@ -258,7 +274,16 @@ function renderCard() {
   else if (best.score < 45) dday = 'Nessun picco previsto nei prossimi giorni.';
   const wv = (series.w || []).slice(Math.max(0, PAST + day - 5), PAST + day).filter((v) => v != null);
   const wavg = wv.length ? wv.reduce((a, b) => a + b, 0) / wv.length : null;
-  const windTxt = wavg == null ? '–' : `${Math.round(wavg)} km/h ${wavg > 30 ? '(terreno asciugato)' : wavg > 18 ? '(asciuga un po\')' : '(calmo)'}`;
+  const wds = (series.wd || []).slice(Math.max(0, PAST + day - 5), PAST + day).filter((v) => v != null);
+  let wdir = null;
+  if (wds.length) {
+    const sx = wds.reduce((a, v) => a + Math.sin((v * Math.PI) / 180), 0), cx = wds.reduce((a, v) => a + Math.cos((v * Math.PI) / 180), 0);
+    wdir = (Math.atan2(sx, cx) * 180 / Math.PI + 360) % 360;
+  }
+  const D16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+  const wname = wdir == null ? '' : D16[Math.round(wdir / 22.5) % 16];
+  const wfeel = wdir == null ? '' : wdir >= 315 || wdir < 67 ? 'secco' : wdir >= 112 && wdir < 247 ? 'umido' : '';
+  const windTxt = wavg == null ? '–' : `${Math.round(wavg)} km/h ${wdir != null ? `<span class="wdir" style="transform:rotate(${Math.round(wdir + 90)}deg)">➤</span> da ${wname}` : ''} <small>${wavg > 30 ? 'terreno asciugato' : wavg > 18 ? 'asciuga un po\'' : 'calmo'}${wfeel ? ' · vento ' + wfeel : ''}</small>`;
   const place = state.point && state.point.gps ? 'Sei qui' : 'Zona';
   card.innerHTML = `<div class="gauge-card">
     <div class="place">${ico('locate', 16)} ${place}: <b style="color:#fff">${esc(title)}</b> · ${Math.round(elev)} m</div>
@@ -275,7 +300,7 @@ function renderCard() {
       <div><span>Vento medio (5 giorni)</span>${windTxt}</div>
       <div><span>Stagione</span>${Math.round(o.season * 100)}%</div>
     </div>
-    ${rainChart(series)}
+    ${rainChart(series, prof)}
     <div class="days">${out.map((x, i) => `<div data-day="${i}" style="${i === day ? 'opacity:1' : 'opacity:.62'}"><b>${x.score}</b><i style="height:${Math.max(6, x.score * 0.6)}px;background:${levelOf(x.score).color};${i === day ? 'outline:2px solid #fff' : ''}"></i><span>${i === 0 ? 'Oggi' : new Date(x.date + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>`).join('')}</div>
   </div>`;
   card.querySelectorAll('[data-day]').forEach(
