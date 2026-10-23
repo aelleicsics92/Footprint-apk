@@ -11,6 +11,7 @@ import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/o
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
+import { openPrices } from './prices.js';
 import { openRadar } from './extras.js';
 import { importTexts } from '../lib/importer.js';
 
@@ -31,6 +32,7 @@ export function mountMore(el) {
     ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
     ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
     ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
+    ['sparkle', 'Prezzi tartufo', 'Quanto viene pagato al cavatore, aggiornato', openPrices],
     ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
     ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
     ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],

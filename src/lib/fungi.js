@@ -31,7 +31,7 @@ const ss = (x, a, b) => {
 };
 const trap = (x, o0, o1, z0, z1) => (x >= o0 && x <= o1 ? 1 : x < o0 ? clamp((x - z0) / (o0 - z0), 0, 1) : clamp((z1 - x) / (z1 - o1), 0, 1));
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
-function windowState(iso, win) {
+export function windowState(iso, win) {
   if (!win) return { closed: false };
   const m = Number(iso.slice(5, 7)), d = Number(iso.slice(8, 10)), v = m * 100 + d;
   const a = win[0][0] * 100 + win[0][1], z = win[1][0] * 100 + win[1][1];
