@@ -589,3 +589,5 @@ html.night .set-row.clk.sel{background:#243a2c}
 .fc-chip.hidden{display:none}
 .fc-dots{display:inline-flex;gap:3px}.fc-dots i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .fc-chip small{width:100%;color:#c3dccb;font-size:.68rem}
+
+.sec-h{margin:18px 20px 8px;font-size:.74rem;font-weight:700;letter-spacing:.09em;color:var(--forest2)}

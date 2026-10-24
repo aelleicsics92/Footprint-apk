@@ -27,26 +27,46 @@ function openDog() {
 }
 
 export function mountMore(el) {
-  const items = [
-    ['mushroom', 'Previsione raccolta', 'Indice funghi e tartufi, pioggia, mappa d\'Italia', () => bus.emit('nav:tab', 'fungi')],
-    ['cloud', 'Meteo', 'Previsioni dove ti trovi', () => openWeather()],
-    ['compass', 'Radar compagni', 'Direzione e distanza di chi è con te', () => openRadar()],
-    ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
-    ['sparkle', 'Prezzi tartufo', 'Quanto viene pagato al cavatore, aggiornato', openPrices],
-    ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
-    ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
-    ['pinplus', 'I miei waypoint', 'Punti salvati', openWaypointList],
-    ['download', 'Mappe offline', 'Aree scaricate sul telefono', openOffline],
-    ['nav', 'Garmin GPSMAP', 'Importa ed esporta waypoint e tracce', openGarmin],
-    ['upload', 'Importa file GPS', 'GPX, KML, GeoJSON, TCX, LOC (Garmin e altri)', importFiles],
-    ['share', 'Esporta', 'Tutto o per periodo, GPX, KML, GeoJSON, TCX, LOC', exportAll],
-    ['sliders', 'Impostazioni', 'Traccia, emergenza, AI, bussola', openSettings],
-    ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
+  const gpsHub = () =>
+    openPage('Strumenti GPS e Garmin', (pg) => {
+      const sub = [
+        ['nav', 'Garmin GPSMAP', 'Importa ed esporta waypoint e tracce', openGarmin],
+        ['upload', 'Importa file GPS', 'GPX, KML, GeoJSON, TCX, LOC (Garmin e altri)', importFiles],
+        ['share', 'Esporta', 'Tutto o per periodo, GPX, KML, GeoJSON, TCX, LOC', exportAll],
+      ];
+      pg.body.innerHTML = `<div class="list" style="margin-top:12px">${sub.map(([i, t, d], n) => `<button class="item" data-s="${n}"><span class="lead">${ico(i, 22)}</span><div class="ti"><b>${t}</b><small>${d}</small></div></button>`).join('')}</div>`;
+      pg.body.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => sub[Number(b.dataset.s)][3]()));
+    });
+  const sections = [
+    ['ATTIVITÀ E RACCOLTA', [
+      ['mushroom', 'Previsione raccolta', 'Indice funghi e tartufi, pioggia', () => bus.emit('nav:tab', 'fungi')],
+      ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
+      ['sparkle', 'Prezzi tartufo', 'Quotazioni aggiornate al cavatore', openPrices],
+      ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
+    ]],
+    ['I MIEI DATI E MAPPE', [
+      ['pinplus', 'I miei waypoint', 'Punti e fungaie salvate', openWaypointList],
+      ['route', 'Le mie tracce', 'Percorsi registrati', openTracks],
+      ['download', 'Mappe offline', 'Aree scaricate sulla memoria', openOffline],
+    ]],
+    ['STRUMENTI E SICUREZZA', [
+      ['cloud', 'Meteo', 'Previsioni locali dettagliate', () => openWeather()],
+      ['compass', 'Radar compagni', 'Direzione e distanza da chi è con te', () => openRadar()],
+    ]],
+    ['SINCRO, IMPORT E IMPOSTAZIONI', [
+      ['nav', 'Strumenti GPS e Garmin', 'Garmin GPSMAP, importa, esporta', gpsHub],
+      ['sliders', 'Impostazioni', 'Traccia, emergenza SOS, AI, bussola', openSettings],
+      ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
+    ]],
   ];
+  const items = sections.flatMap((x) => x[1]);
+  let cnt = 0;
   el.innerHTML = `<div class="hero"><h1>Footprint</h1><p>Traccia il cammino, rispetta il bosco.</p></div>
-    <div class="list" style="margin-top:16px">${items
-      .map(([i, t, s], n) => `<button class="item" data-n="${n}"><span class="lead">${ico(i, 22)}</span><div class="ti"><b>${t}</b><small>${s}</small></div><span class="chev">${ico('back', 18).replace('<svg ', '<svg style="transform:rotate(180deg)" ')}</span></button>`)
-      .join('')}</div>`;
+    ${sections
+      .map(([h, list]) => `<div class="sec-h">${h}</div><div class="list">${list
+        .map(([i, t, s]) => `<button class="item" data-n="${cnt++}"><span class="lead">${ico(i, 22)}</span><div class="ti"><b>${t}</b><small>${s}</small></div><span class="chev">${ico('back', 18).replace('<svg ', '<svg style="transform:rotate(180deg)" ')}</span></button>`)
+        .join('')}</div>`)
+      .join('')}`;
   el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => items[Number(b.dataset.n)][3]()));
   const refreshBadge = () => {
     const s = getSettings(), now = Date.now();
