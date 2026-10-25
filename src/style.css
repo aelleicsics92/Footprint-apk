@@ -591,3 +591,13 @@ html.night .set-row.clk.sel{background:#243a2c}
 .fc-chip small{width:100%;color:#c3dccb;font-size:.68rem}
 
 .sec-h{margin:18px 20px 8px;font-size:.74rem;font-weight:700;letter-spacing:.09em;color:var(--forest2)}
+
+.ex-dates{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+.ex-dates .field{margin:0}
+.ex-dates input[type=date]{width:100%;min-width:0;height:48px;box-sizing:border-box;padding:0 36px 0 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%231B3B2B' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E") no-repeat right 12px center;font-size:.95rem;color:var(--ink);-webkit-appearance:none;appearance:none}
+.ex-dates input[type=date]::-webkit-calendar-picker-indicator{opacity:0;position:absolute;right:0;width:100%;height:100%;cursor:pointer}
+.ex-dates input[type=date]{position:relative}
+.ex-dates .btn{height:48px;padding:0 12px;border:1.5px solid var(--line);background:var(--card);color:var(--forest2)}
+.ex-fmt{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ex-fmt .btn,.ex-fmt select{height:48px;box-sizing:border-box;border:1.5px solid var(--line);background:var(--card);color:var(--forest2);border-radius:14px;box-shadow:none;font-weight:600;font-size:.92rem;padding:0 10px;text-align:center;text-align-last:center}
+.ex-fmt .btn.primary{border-color:var(--forest2);box-shadow:inset 0 0 0 1px var(--forest2)}
