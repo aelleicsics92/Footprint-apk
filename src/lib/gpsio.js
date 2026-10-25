@@ -185,7 +185,7 @@ export function parseGpsText(text, filename = '') {
 export async function shareFile(filename, content, { title = 'Footprint', text = '' } = {}) {
   if (Capacitor.isNativePlatform()) {
     const r = await Filesystem.writeFile({ path: `share/${filename}`, data: content, directory: Directory.Cache, encoding: Encoding.UTF8, recursive: true });
-    await Share.share({ title, text, files: [r.uri], dialogTitle: title });
+    await Share.share({ title, text: text || `${title} (${filename})`, files: [r.uri], dialogTitle: title });
   } else {
     const blob = new Blob([content], { type: 'application/gpx+xml' });
     const a = document.createElement('a');
