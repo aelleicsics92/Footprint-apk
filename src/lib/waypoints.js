@@ -149,8 +149,7 @@ function wireForm(s, { wp, pos, onSave }) {
     tags.has(t) ? tags.delete(t) : tags.add(t);
     b.classList.toggle('sel', tags.has(t));
   });
-  const isAuto = (t, ic) => new RegExp('^' + wpIcon(ic).label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\d+$').test((t || '').trim());
-  let titleEdited = wp ? !isAuto(wp.title, wp.icon) : false;
+  let titleEdited = false;
   const titleEl = s.body.querySelector('#wp-title');
   titleEl.addEventListener('input', () => (titleEdited = true));
   s.body.querySelector('.icon-grid').addEventListener('click', (e) => {
@@ -158,7 +157,7 @@ function wireForm(s, { wp, pos, onSave }) {
     if (!b) return;
     icon = b.dataset.icon;
     s.body.querySelectorAll('.icon-opt').forEach((x) => x.classList.toggle('sel', x === b));
-    if (!titleEdited) titleEl.value = nextTitle(icon);
+    if (!titleEdited) titleEl.value = wp && icon === wp.icon ? wp.title : nextTitle(icon);
     s.body.querySelector('#wp-dog-row').hidden = !TRUFFLE_ICONS.includes(icon);
   });
   const cb = s.body.querySelector('.coords-box b'), cs = s.body.querySelector('.coords-box small');
