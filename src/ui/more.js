@@ -287,7 +287,7 @@ function exportAll() {
       <div class="ex-dates"><label class="field"><span>Dal</span><input type="date" id="ex-d1" onfocus="this.select&&this.select()"></label><label class="field"><span>Al</span><input type="date" id="ex-d2" onfocus="this.select&&this.select()"></label><button type="button" class="btn" id="ex-today">Oggi</button></div>
       <label class="field"><span>Contenuto</span><select id="ex-w"><option value="all">Waypoint e tracce</option><option value="wp">Solo waypoint</option><option value="tr">Solo tracce</option></select></label>
       <p class="muted" id="ex-n" style="margin:0;font-size:.85rem"></p>
-      <div class="ex-fmt"><button class="btn primary" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn" id="ex-kml">${ico('share', 18)} KML</button><select id="ex-more"><option value="">Altri formati</option><option value="geojson">GeoJSON</option><option value="tcx">TCX</option><option value="loc">LOC</option></select></div></div>`,
+      <div class="ex-fmt"><button class="btn primary" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn" id="ex-kml">${ico('share', 18)} KML</button><select id="ex-more"><option value="">Altri ▾</option><option value="geojson">GeoJSON</option><option value="tcx">TCX</option><option value="loc">LOC</option></select></div></div>`,
   });
   const q = (i) => sh.body.querySelector(i);
   const pick = () => {

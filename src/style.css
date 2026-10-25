@@ -601,3 +601,9 @@ html.night .set-row.clk.sel{background:#243a2c}
 .ex-fmt{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .ex-fmt .btn,.ex-fmt select{height:48px;box-sizing:border-box;border:1.5px solid var(--line);background:var(--card);color:var(--forest2);border-radius:14px;box-shadow:none;font-weight:600;font-size:.92rem;padding:0 10px;text-align:center;text-align-last:center}
 .ex-fmt .btn.primary{border-color:var(--forest2);box-shadow:inset 0 0 0 1px var(--forest2)}
+.ex-dates{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto!important}
+.ex-dates>*{min-width:0;max-width:100%}
+.ex-dates input[type=date]{font-size:.88rem;letter-spacing:0;padding:0 34px 0 8px;display:block;width:100%;max-width:100%}
+.ex-fmt{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ex-fmt>*{min-width:0;max-width:100%}
+.sheet .stack,.sheet [data-enter-scope]{min-width:0;max-width:100%;overflow-x:hidden}
