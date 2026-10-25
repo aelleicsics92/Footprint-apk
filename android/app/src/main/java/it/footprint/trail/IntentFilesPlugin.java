@@ -9,6 +9,8 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.provider.OpenableColumns;
+import androidx.core.content.FileProvider;
+import java.io.File;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -157,5 +159,32 @@ public class IntentFilesPlugin extends Plugin {
             } catch (Exception e2) {}
         }
         call.resolve();
+    }
+
+    /** Condivisione file con tipo MIME esplicito (WhatsApp scarta i .gpx con tipo sconosciuto). */
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        try {
+            String uri = call.getString("uri", "");
+            String mime = call.getString("mime", "application/octet-stream");
+            String text = call.getString("text", "");
+            String title = call.getString("title", "Footprint");
+            String path = uri.startsWith("file://") ? Uri.parse(uri).getPath() : uri;
+            Context ctx = getContext();
+            Uri cu = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", new File(path));
+            Intent it = new Intent(Intent.ACTION_SEND);
+            it.setType(mime);
+            it.putExtra(Intent.EXTRA_STREAM, cu);
+            it.putExtra(Intent.EXTRA_SUBJECT, title);
+            it.putExtra(Intent.EXTRA_TEXT, text);
+            it.setClipData(ClipData.newRawUri(title, cu));
+            it.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent ch = Intent.createChooser(it, title);
+            ch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(ch);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()));
+        }
     }
 }

@@ -284,6 +284,7 @@ function exportAll() {
     title: 'Esporta',
     body: `<div class="stack">
       <div class="row gap"><select id="ex-y" class="grow"><option value="">Tutti gli anni</option>${years.map((y) => `<option>${y}</option>`).join('')}</select><select id="ex-m" class="grow"><option value="0">Tutti i mesi</option>${MESI.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select></div>
+      <div class="row gap" style="align-items:end"><label class="field grow"><span>Dal</span><input type="date" id="ex-d1" onfocus="this.select&&this.select()"></label><label class="field grow"><span>Al</span><input type="date" id="ex-d2" onfocus="this.select&&this.select()"></label><button type="button" class="btn ghost" id="ex-today" style="margin-bottom:12px">Oggi</button></div>
       <label class="field"><span>Contenuto</span><select id="ex-w"><option value="all">Waypoint e tracce</option><option value="wp">Solo waypoint</option><option value="tr">Solo tracce</option></select></label>
       <p class="muted" id="ex-n" style="margin:0;font-size:.85rem"></p>
       <div class="row gap"><button class="btn primary grow" id="ex-gpx">${ico('share', 18)} GPX</button><button class="btn ghost grow" id="ex-kml">${ico('share', 18)} KML</button><select id="ex-more" class="grow"><option value="">Altri formati</option><option value="geojson">GeoJSON</option><option value="tcx">TCX</option><option value="loc">LOC</option></select></div></div>`,
@@ -291,20 +292,31 @@ function exportAll() {
   const q = (i) => sh.body.querySelector(i);
   const pick = () => {
     const y = q('#ex-y').value, m = Number(q('#ex-m').value) || 0, w = q('#ex-w').value;
+    const d1 = q('#ex-d1').value, d2 = q('#ex-d2').value;
+    const t1 = d1 ? new Date(d1 + 'T00:00:00').getTime() : 0, t2 = d2 ? new Date(d2 + 'T23:59:59').getTime() : Infinity;
+    const range = !!(d1 || d2);
     const ok = (ts) => {
+      if (range) return ts >= t1 && ts <= t2;
       const d = new Date(ts);
       return (!y || String(d.getFullYear()) === y) && (!m || d.getMonth() + 1 === m);
     };
     const wps = w === 'tr' ? [] : wps0.filter((x) => ok(x.ts));
     const metas = w === 'wp' ? [] : metas0.filter((t) => ok(t.start));
-    const label = `Uscite ${m ? MESI[m - 1] + ' ' : ''}${y || (m ? '' : 'tutte')}`.trim();
+    const fd = (x) => x.split('-').reverse().join('-');
+    const label = range ? `Uscite ${d1 && d2 && d1 !== d2 ? fd(d1) + ' al ' + fd(d2) : fd(d1 || d2)}` : `Uscite ${m ? MESI[m - 1] + ' ' : ''}${y || (m ? '' : 'tutte')}`.trim();
     return { wps, metas, label };
   };
   const upd = () => {
     const { wps, metas } = pick();
     q('#ex-n').textContent = `${wps.length} waypoint · ${metas.length} tracce`;
   };
-  ['#ex-y', '#ex-m', '#ex-w'].forEach((i) => (q(i).onchange = upd));
+  ['#ex-y', '#ex-m', '#ex-w', '#ex-d1', '#ex-d2'].forEach((i) => (q(i).onchange = upd));
+  q('#ex-today').onclick = () => {
+    const t = new Date().toLocaleDateString('sv-SE');
+    q('#ex-d1').value = t;
+    q('#ex-d2').value = t;
+    upd();
+  };
   upd();
   const go = async (fmt) => {
     const { wps, metas, label } = pick();

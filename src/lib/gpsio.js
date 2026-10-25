@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { esc, uid } from './util.js';
@@ -182,10 +182,16 @@ export function parseGpsText(text, filename = '') {
 }
 
 // ---------- Condivisione ----------
-export async function shareFile(filename, content, { title = 'Footprint', text = '' } = {}) {
+export async function shareFile(filename, content, { title = 'Footprint', text = '', mime = '' } = {}) {
   if (Capacitor.isNativePlatform()) {
     const r = await Filesystem.writeFile({ path: `share/${filename}`, data: content, directory: Directory.Cache, encoding: Encoding.UTF8, recursive: true });
-    await Share.share({ title, text: text || `${title} (${filename})`, files: [r.uri], dialogTitle: title });
+    const txt = text || `${title} (${filename})`;
+    try {
+      const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
+      await IF.shareFile({ uri: r.uri, mime: 'application/octet-stream', title, text: txt });
+    } catch (e) {
+      await Share.share({ title, text: txt, files: [r.uri], dialogTitle: title });
+    }
   } else {
     const blob = new Blob([content], { type: 'application/gpx+xml' });
     const a = document.createElement('a');
