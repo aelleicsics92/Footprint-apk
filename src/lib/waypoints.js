@@ -149,7 +149,8 @@ function wireForm(s, { wp, pos, onSave }) {
     tags.has(t) ? tags.delete(t) : tags.add(t);
     b.classList.toggle('sel', tags.has(t));
   });
-  let titleEdited = !!wp;
+  const isAuto = (t, ic) => new RegExp('^' + wpIcon(ic).label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\d+$').test((t || '').trim());
+  let titleEdited = wp ? !isAuto(wp.title, wp.icon) : false;
   const titleEl = s.body.querySelector('#wp-title');
   titleEl.addEventListener('input', () => (titleEdited = true));
   s.body.querySelector('.icon-grid').addEventListener('click', (e) => {
