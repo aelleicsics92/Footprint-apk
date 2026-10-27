@@ -5,6 +5,7 @@ import { clamp } from '../lib/util.js';
 import { getSettings } from '../lib/store.js';
 import { SPECIES } from '../data/species.js';
 import { PROFILES, ZONES, getZoneSeries, outlook } from '../lib/fungi.js';
+import * as HAB from '../lib/habitat.js';
 import { analyzeBase, finishAnalysis, applyProfile, weatherField, soilField, fillSoil, confirmField, probFrom, dayOfYear } from '../lib/habitat.js';
 import { spotsFor } from '../lib/calib.js';
 
@@ -109,7 +110,7 @@ export const HabLayer = L.Layer.extend({
         this._A = null;
         this._img = null;
         this._drawW();
-        this._status('Analisi boschi in corso…');
+        this._status('Analisi boschi in corso…' + (HAB.lcDiag ? ' (' + HAB.lcDiag + ')' : ''));
         clearTimeout(this._rt);
         this._rt = setTimeout(() => this._load(), 12000);
         return;

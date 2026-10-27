@@ -3,7 +3,7 @@ import { parseGpsText } from './gpsio.js';
 import { mergeWaypoints } from './waypoints.js';
 import { getTracks } from './track.js';
 import { saveTrack } from './track.js';
-import { toast } from './ui.js';
+import { toast, openSheet } from './ui.js';
 
 // files: [{ name, text }]
 export async function importTexts(files) {
@@ -24,7 +24,19 @@ export async function importTexts(files) {
       console.warn(f.name, e);
     }
   }
-  toast(err && !w && !t ? 'Formato non riconosciuto' : `Importati ${w} waypoint e ${t} tracce${dup ? ` · ${dup} già presenti, ignorati` : ''}${err ? ` (${err} file non letti)` : ''}`, 4200);
+  const bad = err && !w && !t;
+  const lines = bad
+    ? ['Formato non riconosciuto o file vuoto.']
+    : [`<b>${w}</b> waypoint importati`, `<b>${t}</b> tracce importate`, dup ? `${dup} già presenti, ignorati` : '', err ? `${err} file non letti` : ''].filter(Boolean);
+  try {
+    const sh = openSheet({
+      title: bad ? 'Importazione non riuscita' : (w || t ? 'Importazione completata ✓' : 'Nessun dato nuovo'),
+      body: `<div class="stack"><div style="line-height:1.9;font-size:1rem">${lines.join('<br>')}</div><button class="btn primary big" data-primary id="imp-ok">OK</button></div>`,
+    });
+    sh.body.querySelector('#imp-ok').onclick = () => sh.close();
+  } catch {
+    toast(lines.join(' · ').replace(/<[^>]+>/g, ''), 4200);
+  }
   return { w, t, err };
 }
 

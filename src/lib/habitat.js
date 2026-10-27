@@ -18,7 +18,7 @@ const GI = Object.fromEntries(GEN.map((g, i) => [g, i]));
 const UNK = 32767;
 
 // ---------- rete ----------
-const loadImg = (src, ms = 22000) =>
+const loadImg = (src, ms = 14000) =>
   new Promise((res, rej) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
@@ -32,7 +32,7 @@ async function imgPixels(url, w, h) {
   try {
     im = await loadImg(url);
   } catch (e) {
-    if (!Capacitor.isNativePlatform() || e.message === 'timeout') throw e;
+    if (!Capacitor.isNativePlatform()) throw e;
     const r = await CapacitorHttp.get({ url, responseType: 'blob', connectTimeout: 8000, readTimeout: 15000 });
     if (r.status !== 200 || !r.data) throw new Error('http ' + r.status);
     im = await loadImg('data:image/png;base64,' + r.data);
@@ -196,6 +196,7 @@ function decoder(pal) {
 }
 const decClc = decoder(CLC), decWc = decoder(WC);
 
+export let lcDiag = '';
 async function buildLandcover(T) {
   const x1 = T.x0 + T.w * T.s, y1 = T.y0 + T.h * T.s;
   const bb = [px2m(T.z, T.x0), -px2m(T.z, y1), px2m(T.z, x1), -px2m(T.z, T.y0)].map((v) => v.toFixed(1)).join(',');
@@ -228,6 +229,7 @@ async function buildLandcover(T) {
         break;
       } catch (e) {
         console.warn('copertura', src[2], e.message);
+        lcDiag = `${src[2]}: ${e.message}`;
       }
     }
     if (!r) await new Promise((res) => setTimeout(res, 2500));
