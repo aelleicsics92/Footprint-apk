@@ -37,7 +37,7 @@ async function push(force) {
         let score = o.score, sub = prof.short;
         // zona ampia: miglior probabilità (meteo x habitat) entro 10 km, non solo nel punto esatto
         try {
-          const b = await areaBest(p.lat, p.lon, key);
+          const b = await areaBest(p.lat, p.lon, key, 10000, true);
           if (b) {
             score = areaProb(o.score, b);
             const km = b.dist < 950 ? Math.round(b.dist / 10) * 10 + ' m' : (b.dist / 1000).toFixed(0) + ' km';

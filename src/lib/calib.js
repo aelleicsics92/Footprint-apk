@@ -148,7 +148,7 @@ async function learnHab(list) {
   for (const [key, fs] of Object.entries(by)) {
     if (fs.length < 3) continue;
     const rows = [];
-    for (const f of fs) {
+    for (const f of fs.slice(0, 12)) {
       const ck = `hab:f:${key}|${f.ts}|${f.lat.toFixed(3)}|${f.lon.toFixed(3)}`;
       let r = await kvGet(ck);
       if (!r) {
@@ -160,6 +160,7 @@ async function learnHab(list) {
           if (!ex || !ex.verified) continue;
           r = { alt: f.alt, slope: ex.slope, ph: ph || null, mix: ex.mixAll || [] };
           kvSet(ck, r);
+          await new Promise((res) => setTimeout(res, 4000));
         } catch { continue; }
       }
       rows.push(r);
@@ -211,6 +212,6 @@ export function initAutoLearn() {
     clearTimeout(timer);
     timer = setTimeout(autoLearn, ms);
   };
-  kick(12000);
-  bus.on('wp:changed', () => kick(25000));
+  kick(120000);
+  bus.on('wp:changed', () => kick(60000));
 }

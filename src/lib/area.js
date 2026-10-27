@@ -3,7 +3,9 @@ import { getSettings } from './store.js';
 import { analyze, bestNear, soilAt, dayOfYear, probFrom } from './habitat.js';
 
 const An = new Map(), Best = new Map();
-export async function areaBest(lat, lon, key, radius = 10000) {
+const T0 = Date.now();
+export async function areaBest(lat, lon, key, radius = 10000, lowPrio = false) {
+  if (lowPrio) await new Promise((r) => setTimeout(r, Math.max(0, 45000 - (Date.now() - T0))));
   const ck = `${lat.toFixed(2)},${lon.toFixed(2)}`;
   let A = An.get(ck);
   if (!A) {

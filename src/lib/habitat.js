@@ -18,7 +18,7 @@ const GI = Object.fromEntries(GEN.map((g, i) => [g, i]));
 const UNK = 32767;
 
 // ---------- rete ----------
-const loadImg = (src, ms = 14000) =>
+const loadImg = (src, ms = 9000) =>
   new Promise((res, rej) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
@@ -78,18 +78,31 @@ const demCache = new Map();
 function demTile(z, x, y) {
   const k = `${z}/${x}/${y}`;
   if (demCache.has(k)) return demCache.get(k);
-  const p = imgPixels(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`, 256, 256).then((d) => {
+  const p = (async () => {
+    const ck = 'dem:' + k;
+    let c = null;
+    try { c = await kvGet(ck); } catch {}
     const e = new Float32Array(65536);
-    for (let i = 0; i < 65536; i++) e[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768;
+    if (c && c.length === 65536) {
+      for (let i = 0; i < 65536; i++) e[i] = c[i] / 4;
+      return e;
+    }
+    const d = await imgPixels(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`, 256, 256);
+    const q = new Int16Array(65536);
+    for (let i = 0; i < 65536; i++) {
+      e[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768;
+      q[i] = Math.max(-8000, Math.min(8000, Math.round(e[i] * 4)));
+    }
+    kvSet(ck, q).catch(() => {});
     return e;
-  });
+  })();
   p.catch(() => demCache.delete(k));
   demCache.set(k, p);
   if (demCache.size > 80) demCache.delete(demCache.keys().next().value);
   return p;
 }
 
-async function buildTerrain(b, zoom) {
+async function buildTerrain(b, zoom, withLand = true) {
   const lat0 = (b.n + b.s) / 2;
   let z = clamp(Math.round(zoom), 5, 12), x0, x1, y0, y1;
   const padLat = (b.n - b.s) * 0.06, padLon = (b.e - b.w) * 0.06;
@@ -100,6 +113,8 @@ async function buildTerrain(b, zoom) {
     else break;
   }
   const nx = x1 - x0 + 1, ny = y1 - y0 + 1, W = nx * 256, H = ny * 256;
+  const s0 = Math.max(1, Math.ceil(Math.max(W, H) / 420));
+  const lcP = withLand && z >= 8 ? buildLandcover({ z, x0: x0 * 256, y0: y0 * 256, w: Math.floor(W / s0), h: Math.floor(H / s0), s: s0 }).catch(() => null) : null;
   const jobs = [];
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) jobs.push(demTile(z, tx, ty).then((e) => ({ tx, ty, e }), () => null));
   const res = await Promise.all(jobs);
@@ -153,7 +168,7 @@ async function buildTerrain(b, zoom) {
     }
   }
   const tl = px2ll(z, x0 * 256, y0 * 256), br = px2ll(z, x0 * 256 + w * s, y0 * 256 + h * s);
-  return { z, s, w, h, x0: x0 * 256, y0: y0 * 256, elev, slope, asp, tpi, mpp, cell, lat0, bounds: { n: tl[0], w: tl[1], s: br[0], e: br[1] } };
+  return { lcP, z, s, w, h, x0: x0 * 256, y0: y0 * 256, elev, slope, asp, tpi, mpp, cell, lat0, bounds: { n: tl[0], w: tl[1], s: br[0], e: br[1] } };
 }
 
 // ---------- copertura del suolo ----------
@@ -188,22 +203,42 @@ async function buildLandcover(T) {
     [`https://image.discomap.eea.europa.eu/arcgis/rest/services/Corine/CLC2018_WM/MapServer/export?bbox=${bb}&bboxSR=3857&imageSR=3857&size=${T.w},${T.h}&format=png&transparent=false&f=image`, decClc, 'CORINE 2018'],
     [`https://services.terrascope.be/wms/v2?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=WORLDCOVER_2021_MAP&STYLES=&SRS=EPSG:3857&BBOX=${bb}&WIDTH=${T.w}&HEIGHT=${T.h}&FORMAT=image/png&TRANSPARENT=false`, decWc, 'ESA WorldCover'],
   ];
-  for (const [url, dec, name] of srcs) {
-    try {
-      const d = await imgPixels(url, T.w, T.h);
-      const codes = new Uint16Array(T.w * T.h);
-      let known = 0;
-      for (let i = 0; i < codes.length; i++) {
-        const c = dec(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
-        codes[i] = c;
-        if (c) known++;
-      }
-      if (known > codes.length * 0.15) return { codes, src: name };
-    } catch (e) {
-      console.warn('copertura', name, e.message);
+  const lk = `lc:${T.z}/${T.x0}/${T.y0}/${T.w}/${T.h}/${T.s}`;
+  try {
+    const c = await kvGet(lk);
+    if (c && c.codes && c.codes.length === T.w * T.h) return c;
+  } catch {}
+  const run = async ([url, dec, name]) => {
+    const d = await imgPixels(url, T.w, T.h);
+    const codes = new Uint16Array(T.w * T.h);
+    let known = 0;
+    for (let i = 0; i < codes.length; i++) {
+      const c = dec(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+      codes[i] = c;
+      if (c) known++;
     }
+    if (known <= codes.length * 0.15) throw new Error('vuoto');
+    return { codes, src: name };
+  };
+  const pA = run(srcs[0]), pB = run(srcs[1]);
+  pB.catch(() => {});
+  let r = null;
+  try {
+    r = await pA;
+  } catch (e) {
+    console.warn('copertura CORINE', e.message);
+    try { r = await pB; } catch (e2) { console.warn('copertura ESA', e2.message); }
   }
-  return null;
+  if (r) {
+    kvSet(lk, r).catch(() => {});
+    try {
+      const idx = (await kvGet('lc:idx')) || [];
+      idx.push(lk);
+      while (idx.length > 40) kvSet(idx.shift(), null).catch(() => {});
+      kvSet('lc:idx', idx).catch(() => {});
+    } catch {}
+  }
+  return r;
 }
 
 // [quota di bosco, quota di vegetazione aperta/arbustiva con potenziale simbiotico]
@@ -246,9 +281,9 @@ function mixInto(out, code, alt, lat, tpi) {
 
 // ---------- analisi: parte indipendente dal profilo ----------
 export async function analyze(bounds, zoom, withLand = true) {
-  const T = await buildTerrain(bounds, zoom);
+  const T = await buildTerrain(bounds, zoom, withLand);
   let L = null;
-  if (withLand && T.z >= 8) L = await buildLandcover(T);
+  if (T.lcP) L = await T.lcP;
   const N = T.w * T.h, mix = new Uint8Array(N * NG), fo = new Uint8Array(N), op = new Uint8Array(N), tmp = new Float32Array(NG);
   const memo = new Map();
   for (let j = 0; j < T.h; j++) {

@@ -332,16 +332,18 @@ async function loadPoint() {
     state.ptData = null;
   }
   state.habAt = null;
-  try {
-    const h = await habFor(pt.lat, pt.lon);
+  habFor(pt.lat, pt.lon).then((h) => {
+    if (state.point !== pt) return;
     state.habAt = h;
     enrichHab(h);
-  } catch (e) {
-    console.warn('habitat punto', e.message);
-  }
+    renderCard();
+    renderBanner();
+    renderMap();
+  }).catch((e) => console.warn('habitat punto', e.message));
   if (pt.gps && !pt.name) {
     const k = `${pt.lat.toFixed(2)},${pt.lon.toFixed(2)}`;
-    pt.name = nameCache[k] || (nameCache[k] = await placeName(pt.lat, pt.lon));
+    if (nameCache[k]) pt.name = nameCache[k];
+    else placeName(pt.lat, pt.lon).then((n) => { nameCache[k] = n; pt.name = n; renderCard(); renderBanner(); }).catch(() => {});
   }
 }
 

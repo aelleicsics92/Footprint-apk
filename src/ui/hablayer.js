@@ -84,9 +84,11 @@ export const HabLayer = L.Layer.extend({
   async _load() {
     const map = this._map;
     if (!map || !this._inp) return;
-    const zoom = map.getZoom(), bb = map.getBounds(), b = { n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() };
+    const zoom = map.getZoom(), sz = map.getSize();
+    const cs = [[0, 0], [sz.x, 0], [0, sz.y], [sz.x, sz.y]].map((q) => map.containerPointToLatLng(q));
+    const b = { n: Math.max(...cs.map((c) => c.lat)), s: Math.min(...cs.map((c) => c.lat)), e: Math.max(...cs.map((c) => c.lng)), w: Math.min(...cs.map((c) => c.lng)) };
     const A = this._A;
-    if (A && (A.L || zoom < 10.5) && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
+    if (A && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
     if (this._busy) {
       this._again = true;
       return;
@@ -94,7 +96,7 @@ export const HabLayer = L.Layer.extend({
     this._busy = true;
     const tok = (this._tok = (this._tok || 0) + 1);
     this._status('<span class="spin"></span> Analisi habitat…');
-    const pad = zoom >= 12 ? 0.25 : 0, pw = (b.n - b.s) * pad, pl = (b.e - b.w) * pad, withLand = zoom >= 10.5;
+    const pad = 0.12, pw = (b.n - b.s) * pad, pl = (b.e - b.w) * pad, withLand = true;
     try {
       const nA = await Promise.race([analyze({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom, withLand), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout analisi')), 50000))]);
       nA.zoomReq = zoom;
