@@ -5,7 +5,7 @@ import { clamp } from '../lib/util.js';
 import { getSettings } from '../lib/store.js';
 import { SPECIES } from '../data/species.js';
 import { PROFILES, ZONES, getZoneSeries, outlook } from '../lib/fungi.js';
-import { analyze, applyProfile, weatherField, soilField, fillSoil, confirmField, probFrom, dayOfYear } from '../lib/habitat.js';
+import { analyzeBase, finishAnalysis, applyProfile, weatherField, soilField, fillSoil, confirmField, probFrom, dayOfYear } from '../lib/habitat.js';
 import { spotsFor } from '../lib/calib.js';
 
 // Sfumatura continua del colore di raccolta sopra la mappa (interpolazione IDW tra le zone)
@@ -63,6 +63,8 @@ export const HabLayer = L.Layer.extend({
   },
   onRemove(map) {
     map.off('moveend zoomend resize', this._on);
+    clearTimeout(this._rt);
+    clearTimeout(this._t);
     this._c.remove();
   },
   setInputs(inp) {
@@ -96,9 +98,23 @@ export const HabLayer = L.Layer.extend({
     this._busy = true;
     const tok = (this._tok = (this._tok || 0) + 1);
     this._status('<span class="spin"></span> Analisi habitat…');
-    const pad = 0.12, pw = (b.n - b.s) * pad, pl = (b.e - b.w) * pad, withLand = true;
+    const pad = 0.12, pw = (b.n - b.s) * pad, pl = (b.e - b.w) * pad;
     try {
-      const nA = await Promise.race([analyze({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom, withLand), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout analisi')), 50000))]);
+      const base = await Promise.race([analyzeBase({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout quota')), 40000))]);
+      this._status('<span class="spin"></span> Analisi boschi…');
+      const L = base.lcP ? await base.lcP : null;
+      if (!L) {
+        // senza copertura del suolo non c'è distinzione bosco/strada: resta il meteo e si riprova
+        this._busy = false;
+        this._A = null;
+        this._img = null;
+        this._drawW();
+        this._status('Analisi boschi in corso…');
+        clearTimeout(this._rt);
+        this._rt = setTimeout(() => this._load(), 12000);
+        return;
+      }
+      const nA = finishAnalysis(base.T, L);
       nA.zoomReq = zoom;
       this._A = nA;
       await this._recompute();
@@ -111,6 +127,8 @@ export const HabLayer = L.Layer.extend({
       this._o.onState && this._o.onState(false);
       this._drawW();
       this._status('Habitat non disponibile (serve internet): mappa solo meteo');
+      clearTimeout(this._rt);
+      this._rt = setTimeout(() => this._load(), 20000);
       return;
     }
     this._busy = false;

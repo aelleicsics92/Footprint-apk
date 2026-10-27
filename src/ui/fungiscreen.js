@@ -332,14 +332,19 @@ async function loadPoint() {
     state.ptData = null;
   }
   state.habAt = null;
-  habFor(pt.lat, pt.lon).then((h) => {
+  const tryHab = (n) => habFor(pt.lat, pt.lon).then((h) => {
     if (state.point !== pt) return;
     state.habAt = h;
     enrichHab(h);
     renderCard();
     renderBanner();
     renderMap();
-  }).catch((e) => console.warn('habitat punto', e.message));
+    if (!h.A.L && n < 5) setTimeout(() => state.point === pt && tryHab(n + 1), 12000);
+  }).catch((e) => {
+    console.warn('habitat punto', e.message);
+    if (n < 5) setTimeout(() => state.point === pt && tryHab(n + 1), 12000);
+  });
+  tryHab(0);
   if (pt.gps && !pt.name) {
     const k = `${pt.lat.toFixed(2)},${pt.lon.toFixed(2)}`;
     if (nameCache[k]) pt.name = nameCache[k];
@@ -599,12 +604,13 @@ function openCalib() {
       out.innerHTML = keys.map((k) => {
         const v = res.out[k];
         return `<div class="habbox" style="background:#eef3ec;color:#12372a"><div class="hb-t" style="color:#12372a">${esc(NAMES[k])} <span style="color:#4b5f55">${v.n} ritrovamenti</span></div>
-          <div class="hb-r"><span>Indice mediano</span><b>${v.before} → ${v.after}</b></div>
+          <div class="hb-r"><span>Indice meteo mediano</span><b>${v.before} → ${v.after}</b></div>
           <div class="hb-r"><span>Sopra "Buona" (45)</span><b>${v.okBefore}/${v.n} → ${v.okAfter}/${v.n}</b></div>
           <div class="hb-r"><span>Giorni dalla pioggia utile</span><b>${v.lagMed != null ? v.lagMed : '–'}${v.cal.lagOpt ? ' (nuovo ottimo ' + v.cal.lagOpt + ')' : ''}</b></div>
           <div class="hb-r"><span>Pioggia 14 giorni</span><b>${v.r14[0]}-${v.r14[1]} mm</b></div>
           <div class="hb-r"><span>Pioggia 30 giorni (mediana)</span><b>${v.r30} mm</b></div>
           <div class="hb-r"><span>Temperatura media 7gg</span><b>${v.t != null ? v.t + ' °C' : '–'}</b></div>
+          <div class="hb-n">Questo è solo l'indice meteo. In scheda l'indice finale = meteo x habitat del punto (bosco, quota, esposizione).</div>
           ${v.n < 4 ? '<div class="hb-n">Servono almeno 4 ritrovamenti per questa specie: parametri invariati.</div>' : ''}</div>`;
       }).join('') + `<button class="btn" id="cal-apply" style="width:100%;margin-top:6px">Applica</button><button class="chip" id="cal-copy" style="margin-top:10px">Copia dati</button>${res.failed ? `<p class="muted">${res.failed} ritrovamenti senza meteo (offline o storico mancante).</p>` : ''}`;
       out.querySelector('#cal-apply').onclick = () => { applyResult(res); refreshView(); toast('Calibrazione applicata'); pg.close(); };

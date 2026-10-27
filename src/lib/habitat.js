@@ -18,7 +18,7 @@ const GI = Object.fromEntries(GEN.map((g, i) => [g, i]));
 const UNK = 32767;
 
 // ---------- rete ----------
-const loadImg = (src, ms = 9000) =>
+const loadImg = (src, ms = 22000) =>
   new Promise((res, rej) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
@@ -32,7 +32,7 @@ async function imgPixels(url, w, h) {
   try {
     im = await loadImg(url);
   } catch (e) {
-    if (!Capacitor.isNativePlatform()) throw e;
+    if (!Capacitor.isNativePlatform() || e.message === 'timeout') throw e;
     const r = await CapacitorHttp.get({ url, responseType: 'blob', connectTimeout: 8000, readTimeout: 15000 });
     if (r.status !== 200 || !r.data) throw new Error('http ' + r.status);
     im = await loadImg('data:image/png;base64,' + r.data);
@@ -114,7 +114,7 @@ async function buildTerrain(b, zoom, withLand = true) {
   }
   const nx = x1 - x0 + 1, ny = y1 - y0 + 1, W = nx * 256, H = ny * 256;
   const s0 = Math.max(1, Math.ceil(Math.max(W, H) / 420));
-  const lcP = withLand && z >= 8 ? buildLandcover({ z, x0: x0 * 256, y0: y0 * 256, w: Math.floor(W / s0), h: Math.floor(H / s0), s: s0 }).catch(() => null) : null;
+  const lcP = withLand && z >= 8 ? buildLandcoverQ({ z, x0: x0 * 256, y0: y0 * 256, w: Math.floor(W / s0), h: Math.floor(H / s0), s: s0 }).catch(() => null) : null;
   const jobs = [];
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) jobs.push(demTile(z, tx, ty).then((e) => ({ tx, ty, e }), () => null));
   const res = await Promise.all(jobs);
@@ -220,14 +220,17 @@ async function buildLandcover(T) {
     if (known <= codes.length * 0.15) throw new Error('vuoto');
     return { codes, src: name };
   };
-  const pA = run(srcs[0]), pB = run(srcs[1]);
-  pB.catch(() => {});
   let r = null;
-  try {
-    r = await pA;
-  } catch (e) {
-    console.warn('copertura CORINE', e.message);
-    try { r = await pB; } catch (e2) { console.warn('copertura ESA', e2.message); }
+  for (let attempt = 0; attempt < 2 && !r; attempt++) {
+    for (const src of srcs) {
+      try {
+        r = await run(src);
+        break;
+      } catch (e) {
+        console.warn('copertura', src[2], e.message);
+      }
+    }
+    if (!r) await new Promise((res) => setTimeout(res, 2500));
   }
   if (r) {
     kvSet(lk, r).catch(() => {});
@@ -239,6 +242,29 @@ async function buildLandcover(T) {
     } catch {}
   }
   return r;
+}
+// coda globale: al massimo 2 richieste di copertura insieme, richieste identiche condivise
+const lcFlight = new Map();
+let lcActive = 0;
+const lcWait = [];
+function buildLandcoverQ(T) {
+  const k = `${T.z}/${T.x0}/${T.y0}/${T.w}/${T.h}/${T.s}`;
+  if (lcFlight.has(k)) return lcFlight.get(k);
+  const p = new Promise((res) => {
+    const go = () => {
+      lcActive++;
+      buildLandcover(T).catch(() => null).then((r) => {
+        lcActive--;
+        lcFlight.delete(k);
+        res(r);
+        const n = lcWait.shift();
+        if (n) n();
+      });
+    };
+    lcActive < 2 ? go() : lcWait.push(go);
+  });
+  lcFlight.set(k, p);
+  return p;
 }
 
 // [quota di bosco, quota di vegetazione aperta/arbustiva con potenziale simbiotico]
@@ -280,10 +306,15 @@ function mixInto(out, code, alt, lat, tpi) {
 }
 
 // ---------- analisi: parte indipendente dal profilo ----------
+export async function analyzeBase(bounds, zoom) {
+  const T = await buildTerrain(bounds, zoom, true);
+  return { T, lcP: T.lcP };
+}
 export async function analyze(bounds, zoom, withLand = true) {
   const T = await buildTerrain(bounds, zoom, withLand);
-  let L = null;
-  if (T.lcP) L = await T.lcP;
+  return finishAnalysis(T, T.lcP ? await T.lcP : null);
+}
+export function finishAnalysis(T, L) {
   const N = T.w * T.h, mix = new Uint8Array(N * NG), fo = new Uint8Array(N), op = new Uint8Array(N), tmp = new Float32Array(NG);
   const memo = new Map();
   for (let j = 0; j < T.h; j++) {

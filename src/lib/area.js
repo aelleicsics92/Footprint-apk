@@ -11,6 +11,7 @@ export async function areaBest(lat, lon, key, radius = 10000, lowPrio = false) {
   if (!A) {
     const d = 0.095, cl = Math.cos((lat * Math.PI) / 180);
     A = await analyze({ n: lat + d, s: lat - d, e: lon + d / cl, w: lon - d / cl }, 11);
+    if (!A.L) return null;
     An.set(ck, A);
     if (An.size > 4) An.delete(An.keys().next().value);
   }
