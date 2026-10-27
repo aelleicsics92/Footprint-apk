@@ -29,15 +29,15 @@ const loadImg = (src, ms = 14000) =>
     im.onerror = () => (clearTimeout(t), rej(new Error('img')));
     im.src = src;
   });
-async function imgPixels(url, w, h) {
+async function imgPixels(url, w, h, ms = 14000) {
   let im;
   try {
-    im = await loadImg(url);
+    im = await loadImg(url, ms);
   } catch (e) {
     if (!Capacitor.isNativePlatform()) throw e;
-    const r = await CapacitorHttp.get({ url, responseType: 'blob', connectTimeout: 8000, readTimeout: 15000 });
+    const r = await CapacitorHttp.get({ url, responseType: 'blob', connectTimeout: 8000, readTimeout: Math.max(8000, ms) });
     if (r.status !== 200 || !r.data) throw new Error('http ' + r.status);
-    im = await loadImg('data:image/png;base64,' + r.data);
+    im = await loadImg('data:image/png;base64,' + r.data, ms);
   }
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -330,21 +330,28 @@ async function buildLandcoverVec(T) {
 }
 
 export let lcDiag = '';
-let eeaSkipUntil = 0;
+const lcStat = {};
+const setStat = (n, v) => {
+  lcStat[n] = v;
+  lcDiag = Object.entries(lcStat).map(([k, x]) => `${k} ${x}`).join(' · ');
+};
+const EEA_HOSTS = ['copernicus.discomap.eea.europa.eu', 'image.discomap.eea.europa.eu'];
+const deadHost = {};
+const DLT_RULE = encodeURIComponent(JSON.stringify({ rasterFunction: 'Colormap', rasterFunctionArguments: { Colormap: [[0, 0, 0, 0], [1, 255, 0, 0], [2, 0, 0, 255]] } }));
 async function buildLandcover(T) {
   const x1 = T.x0 + T.w * T.s, y1 = T.y0 + T.h * T.s;
   const bb = [px2m(T.z, T.x0), -px2m(T.z, y1), px2m(T.z, x1), -px2m(T.z, T.y0)].map((v) => v.toFixed(1)).join(',');
-  const srcs = [
-    [`https://image.discomap.eea.europa.eu/arcgis/rest/services/Corine/CLC2018_WM/MapServer/export?bbox=${bb}&bboxSR=3857&imageSR=3857&size=${T.w},${T.h}&format=png&transparent=false&f=image`, decClc, 'CORINE 2018'],
-    [`https://services.terrascope.be/wms/v2?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=WORLDCOVER_2021_MAP&STYLES=&SRS=EPSG:3857&BBOX=${bb}&WIDTH=${T.w}&HEIGHT=${T.h}&FORMAT=image/png&TRANSPARENT=false`, decWc, 'ESA WorldCover'],
-  ];
   const lk = `lc:${T.z}/${T.x0}/${T.y0}/${T.w}/${T.h}/${T.s}`;
+  let old = null;
   try {
     const c = await kvGet(lk);
-    if (c && c.codes && c.codes.length === T.w * T.h) return c;
+    if (c && c.codes && c.codes.length === T.w * T.h) {
+      if (c.src !== 'OpenStreetMap' || Date.now() - (c.t || 0) < 30 * 60000) return c;
+      old = c;
+    }
   } catch {}
-  const run = async ([url, dec, name]) => {
-    const d = await imgPixels(url, T.w, T.h);
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  const decode = (d, dec) => {
     const codes = new Uint16Array(T.w * T.h);
     let known = 0;
     for (let i = 0; i < codes.length; i++) {
@@ -352,31 +359,83 @@ async function buildLandcover(T) {
       codes[i] = c;
       if (c) known++;
     }
-    if (known <= codes.length * 0.15) throw new Error('vuoto');
-    return { codes, src: name };
+    return { codes, known };
+  };
+  const corine = async () => {
+    for (const h of EEA_HOSTS) {
+      if (deadHost[h] > Date.now()) continue;
+      try {
+        const url = `https://${h}/arcgis/rest/services/Corine/CLC2018_WM/MapServer/export?bbox=${bb}&bboxSR=3857&imageSR=3857&size=${T.w},${T.h}&format=png&transparent=false&f=image`;
+        const { codes, known } = decode(await imgPixels(url, T.w, T.h, 9000), decClc);
+        if (known <= codes.length * 0.15) throw new Error('vuoto');
+        setStat('CORINE', '✓');
+        return { codes, src: 'CORINE 2018' };
+      } catch (e) {
+        deadHost[h] = Date.now() + 8 * 60000;
+        setStat('CORINE', '✗ ' + e.message);
+      }
+    }
+    return null;
+  };
+  const leaf = async () => {
+    for (const h of EEA_HOSTS) {
+      if (deadHost['L' + h] > Date.now()) continue;
+      try {
+        const url = `https://${h}/arcgis/rest/services/GioLandPublic/HRL_DominantLeafType2018/ImageServer/exportImage?bbox=${bb}&bboxSR=3857&imageSR=3857&size=${T.w},${T.h}&format=png&interpolation=RSP_NearestNeighbor&renderingRule=${DLT_RULE}&f=image`;
+        const d = await imgPixels(url, T.w, T.h, 9000);
+        const out = new Uint8Array(T.w * T.h);
+        for (let i = 0; i < out.length; i++) {
+          if (d[i * 4 + 3] < 128) continue;
+          const R = d[i * 4], B = d[i * 4 + 2];
+          out[i] = R > 170 && B < 100 ? 1 : B > 170 && R < 100 ? 2 : 0;
+        }
+        setStat('Foglie', '✓');
+        return out;
+      } catch (e) {
+        deadHost['L' + h] = Date.now() + 8 * 60000;
+        setStat('Foglie', '✗ ' + e.message);
+      }
+    }
+    return null;
   };
   let r = null;
-  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   for (let attempt = 0; attempt < 2 && !r; attempt++) {
-    const vecP = buildLandcoverVec(T).catch((e) => { lcDiag = `OSM: ${e.message}`; return null; });
-    const eeaP = Date.now() < eeaSkipUntil ? Promise.resolve(null) : run(srcs[0]).catch((e) => { eeaSkipUntil = Date.now() + 10 * 60000; lcDiag = `CORINE: ${e.message}`; return null; });
-    r = await vecP;
-    if (r) {
-      const g = await Promise.race([eeaP, sleep(3500).then(() => null)]);
-      if (g) r = g;
+    const vecP = buildLandcoverVec(T).then((x) => (setStat('OSM', '✓'), x), (e) => (setStat('OSM', '✗ ' + e.message), null));
+    const corP = corine(), lfP = leaf();
+    const vec = await vecP;
+    if (vec) {
+      await Promise.race([Promise.all([corP, lfP]), sleep(4500)]);
+      const cor = await Promise.race([corP, sleep(0).then(() => null)]);
+      const lf = await Promise.race([lfP, sleep(0).then(() => null)]);
+      if (cor) r = cor;
+      else {
+        r = vec;
+        if (lf) {
+          let n = 0;
+          for (let i = 0; i < vec.codes.length; i++) if (vec.codes[i] === 313 && lf[i]) (vec.codes[i] = lf[i] === 1 ? 311 : 312), n++;
+          if (n) r.src = 'OpenStreetMap + tipo di bosco HRL';
+        }
+      }
     } else {
-      r = await eeaP;
-    }
-    if (!r) {
-      try { r = await run(srcs[1]); } catch (e) { lcDiag = `ESA: ${e.message}`; }
+      r = await corP;
+      if (!r) {
+        try {
+          const { codes, known } = decode(await imgPixels(`https://services.terrascope.be/wms/v2?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=WORLDCOVER_2021_MAP&STYLES=&SRS=EPSG:3857&BBOX=${bb}&WIDTH=${T.w}&HEIGHT=${T.h}&FORMAT=image/png&TRANSPARENT=false`, T.w, T.h, 9000), decWc);
+          if (known > codes.length * 0.15) r = { codes, src: 'ESA WorldCover' };
+        } catch (e) {
+          setStat('ESA', '✗ ' + e.message);
+        }
+      }
     }
     if (!r) await sleep(2500);
   }
+  if (!r && old) r = old;
   if (r) {
+    r.t = Date.now();
     kvSet(lk, r).catch(() => {});
     try {
       const idx = (await kvGet('lc:idx')) || [];
-      idx.push(lk);
+      if (!idx.includes(lk)) idx.push(lk);
       while (idx.length > 40) kvSet(idx.shift(), null).catch(() => {});
       kvSet('lc:idx', idx).catch(() => {});
     } catch {}
