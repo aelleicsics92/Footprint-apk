@@ -497,7 +497,8 @@ function openLayers() {
   sh.body.querySelector('#ly-month').onchange = filt;
   sh.body.querySelector('#ly-3d').onclick = () => { sh.close(); root.querySelector('#btn-3d').click(); };
   sh.body.querySelector('#ly-dl').onclick = () => { sh.close(); root.querySelector('#btn-dl').click(); };
-  if (legendHTML) { const d = document.createElement('div'); d.className = 'ov-legend-in'; d.innerHTML = '<b style="font-size:.95rem">Legenda</b>' + legendHTML; sh.body.querySelector('.stack').appendChild(d); }
+  const fcLg = s.showForecast ? '<span><i style="background:#b9553a"></i>Previsione: scarsa</span><span><i style="background:#e0a63a"></i>Previsione: moderata</span><span><i style="background:#7fae4a"></i>Previsione: buona</span><span><i style="background:#1b7a4a"></i>Previsione: eccellente</span><span><i style="background:#c9d3d6"></i>Strade, case, acqua: nessuna probabilità</span>' : '';
+  if (legendHTML || fcLg) { const d = document.createElement('div'); d.className = 'ov-legend-in'; d.innerHTML = '<b style="font-size:.95rem">Legenda</b>' + fcLg + legendHTML; sh.body.querySelector('.stack').appendChild(d); }
   sh.body.querySelector('#ly-wp').onchange = (e) => {
     setSetting('showWaypoints', e.target.checked);
     renderWaypoints();

@@ -4,6 +4,8 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { kvGet, kvSet, getSettings } from './store.js';
 import { SPECIES, GEN, GEN_NAME } from '../data/species.js';
+import { VectorTile } from '@mapbox/vector-tile';
+import { PbfReader as Pbf } from 'pbf';
 import { seasonFactor, FORECAST } from './fungi.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -196,7 +198,139 @@ function decoder(pal) {
 }
 const decClc = decoder(CLC), decWc = decoder(WC);
 
+
+// ---------- copertura da OpenStreetMap (vettori OpenFreeMap, la stessa fonte che disegna strade e nomi sulla mappa) ----------
+const OFM = 'https://tiles.openfreemap.org';
+let ofmTpl = null;
+async function ofmTemplate() {
+  if (ofmTpl) return ofmTpl;
+  try {
+    const j = await getJSON(OFM + '/planet', 10000);
+    if (j && j.tiles && j.tiles[0]) {
+      ofmTpl = j.tiles[0];
+      kvSet('ofm:tpl', ofmTpl).catch(() => {});
+      return ofmTpl;
+    }
+  } catch {}
+  const c = await kvGet('ofm:tpl').catch(() => null);
+  if (c) return (ofmTpl = c);
+  throw new Error('indice tile non disponibile');
+}
+async function getBuf(url, ms = 12000) {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const r = await Promise.race([CapacitorHttp.get({ url, responseType: 'blob', connectTimeout: 8000, readTimeout: 12000 }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms + 2000))]);
+      if (r.status === 200 && r.data) {
+        const bin = atob(r.data), u = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        return u;
+      }
+      if (r.status === 404 || r.status === 204) return null;
+    } catch {}
+  }
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (r.status === 404 || r.status === 204) return null;
+    if (!r.ok) throw new Error('http ' + r.status);
+    return new Uint8Array(await r.arrayBuffer());
+  } finally {
+    clearTimeout(t);
+  }
+}
+const VPAL = [[313, [77, 255, 0]], [321, [204, 242, 77]], [211, [255, 255, 168]], [242, [255, 230, 77]], [411, [166, 166, 255]], [333, [204, 204, 204]], [112, [255, 0, 0]], [121, [204, 77, 242]], [122, [204, 0, 0]], [512, [0, 204, 242]]];
+const VCOL = Object.fromEntries(VPAL.map(([c, [r, g, b]]) => [c, `rgb(${r},${g},${b})`]));
+const LC_CLASS = { wood: 313, grass: 321, farmland: 211, wetland: 411, sand: 333, rock: 333, ice: 333 };
+const LU_ART = new Set(['residential', 'commercial', 'industrial', 'retail', 'railway', 'cemetery', 'quarry', 'military', 'garages', 'landfill', 'construction', 'brownfield']);
+async function buildLandcoverVec(T) {
+  const tpl = await ofmTemplate();
+  const nx = Math.ceil((T.w * T.s) / 256) + 1, ny = Math.ceil((T.h * T.s) / 256) + 1;
+  const tx0 = Math.floor(T.x0 / 256), ty0 = Math.floor(T.y0 / 256);
+  const jobs = [];
+  for (let ty = ty0; ty < ty0 + ny; ty++) for (let tx = tx0; tx < tx0 + nx; tx++) {
+    if (tx * 256 >= T.x0 + T.w * T.s || ty * 256 >= T.y0 + T.h * T.s) continue;
+    jobs.push(getBuf(tpl.replace('{z}', T.z).replace('{x}', tx).replace('{y}', ty)).then((b) => ({ tx, ty, b }), () => ({ tx, ty, b: undefined })));
+  }
+  const res = await Promise.all(jobs);
+  if (res.filter((r) => r.b !== undefined).length < Math.ceil(res.length * 0.7)) throw new Error('tile vettoriali non scaricati');
+  const cv = document.createElement('canvas');
+  cv.width = T.w; cv.height = T.h;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = VCOL[242];
+  g.fillRect(0, 0, T.w, T.h);
+  const layersAll = res.filter((r) => r.b && r.b.length).map((r) => {
+    try { return { r, vt: new VectorTile(new Pbf(r.b)) }; } catch { return null; }
+  }).filter(Boolean);
+  const path = (f, r, ext) => {
+    g.beginPath();
+    for (const ring of f.loadGeometry()) {
+      ring.forEach((pt, i) => {
+        const X = (r.tx * 256 + (pt.x / ext) * 256 - T.x0) / T.s, Y = (r.ty * 256 + (pt.y / ext) * 256 - T.y0) / T.s;
+        i ? g.lineTo(X, Y) : g.moveTo(X, Y);
+      });
+      if (f.type === 3) g.closePath();
+    }
+  };
+  const paintPolys = (name, pick) => {
+    for (const { r, vt } of layersAll) {
+      const ly = vt.layers[name];
+      if (!ly) continue;
+      for (let i = 0; i < ly.length; i++) {
+        const f = ly.feature(i);
+        if (f.type !== 3) continue;
+        const code = pick(f.properties);
+        if (!code) continue;
+        path(f, r, ly.extent);
+        g.fillStyle = VCOL[code];
+        g.fill('evenodd');
+      }
+    }
+  };
+  paintPolys('landcover', (p) => LC_CLASS[p.class]);
+  paintPolys('park', () => 0);
+  paintPolys('landuse', (p) => (LU_ART.has(p.class) ? 112 : p.class === 'farmland' || p.class === 'orchard' || p.class === 'vineyard' ? 211 : p.class === 'forest' ? 313 : p.class === 'grass' || p.class === 'meadow' ? 321 : 0));
+  paintPolys('water', () => 512);
+  // strade: dove passa una strada non ci sono funghi
+  const big = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'];
+  const roads = T.cell < 30 ? big.concat(['minor']) : big;
+  g.strokeStyle = VCOL[122];
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.lineWidth = Math.max(1.3, 24 / T.cell);
+  for (const { r, vt } of layersAll) {
+    const ly = vt.layers.transportation;
+    if (!ly) continue;
+    for (let i = 0; i < ly.length; i++) {
+      const f = ly.feature(i);
+      if (f.type !== 2 || !roads.includes(f.properties.class) || f.properties.brunnel === 'tunnel') continue;
+      path(f, r, ly.extent);
+      g.stroke();
+    }
+  }
+  const d = g.getImageData(0, 0, T.w, T.h).data, codes = new Uint16Array(T.w * T.h);
+  const memo = new Map();
+  let known = 0;
+  for (let i = 0; i < codes.length; i++) {
+    const R = d[i * 4], G = d[i * 4 + 1], B = d[i * 4 + 2], key = (R << 16) | (G << 8) | B;
+    let c = memo.get(key);
+    if (c === undefined) {
+      let bd = 1e9;
+      for (const [k, [r, gg, b]] of VPAL) {
+        const dd = (r - R) ** 2 + (gg - G) ** 2 + (b - B) ** 2;
+        if (dd < bd) (bd = dd), (c = k);
+      }
+      memo.set(key, c);
+    }
+    codes[i] = c;
+    if (c !== 242) known++;
+  }
+  if (known < codes.length * 0.03 && layersAll.length === 0) throw new Error('vuoto');
+  return { codes, src: 'OpenStreetMap' };
+}
+
 export let lcDiag = '';
+let eeaSkipUntil = 0;
 async function buildLandcover(T) {
   const x1 = T.x0 + T.w * T.s, y1 = T.y0 + T.h * T.s;
   const bb = [px2m(T.z, T.x0), -px2m(T.z, y1), px2m(T.z, x1), -px2m(T.z, T.y0)].map((v) => v.toFixed(1)).join(',');
@@ -222,17 +356,21 @@ async function buildLandcover(T) {
     return { codes, src: name };
   };
   let r = null;
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   for (let attempt = 0; attempt < 2 && !r; attempt++) {
-    for (const src of srcs) {
-      try {
-        r = await run(src);
-        break;
-      } catch (e) {
-        console.warn('copertura', src[2], e.message);
-        lcDiag = `${src[2]}: ${e.message}`;
-      }
+    const vecP = buildLandcoverVec(T).catch((e) => { lcDiag = `OSM: ${e.message}`; return null; });
+    const eeaP = Date.now() < eeaSkipUntil ? Promise.resolve(null) : run(srcs[0]).catch((e) => { eeaSkipUntil = Date.now() + 10 * 60000; lcDiag = `CORINE: ${e.message}`; return null; });
+    r = await vecP;
+    if (r) {
+      const g = await Promise.race([eeaP, sleep(3500).then(() => null)]);
+      if (g) r = g;
+    } else {
+      r = await eeaP;
     }
-    if (!r) await new Promise((res) => setTimeout(res, 2500));
+    if (!r) {
+      try { r = await run(srcs[1]); } catch (e) { lcDiag = `ESA: ${e.message}`; }
+    }
+    if (!r) await sleep(2500);
   }
   if (r) {
     kvSet(lk, r).catch(() => {});
