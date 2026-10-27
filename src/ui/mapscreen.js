@@ -30,6 +30,7 @@ let root;
 
 export const getMap = () => map;
 
+export function hasShownTrack() { return !!shownTrackName; }
 export function mountMap(el) {
   root = el;
   el.innerHTML = `

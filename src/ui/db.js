@@ -26,7 +26,7 @@ export function statoBadge(stato) {
 
 const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '');
 
-const photoBox = (x) => `<div class="sc-photo" data-ph="${x._k}|${x.id}"><span class="muted">Carico la foto…</span></div><small class="muted ph-credit">Foto: Wikipedia / Wikimedia Commons (licenze libere)</small>`;
+const photoBox = (x) => `<div class="sc-photo" data-ph="${x._k}|${x.id}"><span class="muted">Carico la foto…</span></div><small class="muted ph-credit">Foto: iNaturalist, Wikimedia Commons (licenze libere)</small>`;
 export const findByKey = (k) => { const [kind, id] = k.split('|'); return (DB[kind] || []).find((y) => y.id === id); };
 
 const COOK = [
@@ -60,7 +60,7 @@ export function schedaHTML(x) {
   if (x._k === 'animali') {
     return `<div>${photoBox(x)}<h3 style="font-size:1.4rem">${esc(x.nome)}</h3><small class="muted"><i>${esc(x.sci)}</i> · ${esc(x.gruppo)}</small>
       <dl class="kv" style="margin-top:12px">${row('Habitat', x.habitat)}${row('Impronta', x.orma)}${row('Escrementi', x.escrementi)}${row('Verso', x.verso)}${row('Note', x.nota)}</dl>
-      <button class="btn ghost big" id="snd-btn" style="margin-top:12px">🔊 Ascolta verso</button><div id="snd-out" class="muted" style="font-size:.8rem;margin-top:6px"></div></div>`;
+      ${x.verso && x.gruppo !== 'rettile' ? `<button class="btn ghost big" id="snd-btn" style="margin-top:12px">🔊 Ascolta verso</button><div id="snd-out" class="muted" style="font-size:.8rem;margin-top:6px"></div>` : ''}</div>`;
   }
   const extra = x._k === 'erbe' ? row('Parte usata', x.parte) + row('Periodo', x.periodo) + row('Ambiente', x.ambiente) : row('Periodo', x.periodo) + row('Habitat', x.habitat);
   const warn =
@@ -79,9 +79,9 @@ export function openScheda(x) {
     const o = sh.body.querySelector('#snd-out');
     sb.disabled = true;
     o.textContent = 'Cerco la registrazione…';
-    const r = navigator.onLine ? await findSound(x.sci, x.nome) : null;
+    const r = navigator.onLine ? await findSound(x) : null;
     sb.disabled = false;
     if (!r) { o.textContent = navigator.onLine ? 'Nessuna registrazione trovata per questa specie.' : 'Serve internet per ascoltare i versi.'; return; }
-    o.innerHTML = `<audio controls autoplay style="width:100%" src="${esc(r.url)}"></audio>Fonte: Wikimedia Commons (${esc(r.title)})`;
+    o.innerHTML = `<audio controls autoplay style="width:100%" src="${esc(r.url)}"></audio>Fonte: ${esc(r.title)}`;
   };
 }

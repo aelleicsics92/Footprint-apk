@@ -16,12 +16,12 @@ import { startCompass } from './lib/compass.js';
 import { loadWaypoints, quickWaypoint, importQuick } from './lib/waypoints.js';
 import { loadTracks, startRecording, stopRecording, pendingRecovery, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
-import { mountMap, invalidate } from './ui/mapscreen.js';
+import { mountMap, invalidate, hasShownTrack } from './ui/mapscreen.js';
 import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
 import { mountTrip } from './ui/trip.js';
-import { mountMore } from './ui/more.js';
+import { mountMore, returnToTracks, clearTracksReturn } from './ui/more.js';
 import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
 import { initWalked } from './lib/walked.js';
@@ -73,6 +73,8 @@ async function boot() {
         bus.emit('nav:tab', 'map');
         return;
       }
+      if (hasShownTrack() && returnToTracks()) return;
+      clearTracksReturn();
       App.exitApp();
     });
   }

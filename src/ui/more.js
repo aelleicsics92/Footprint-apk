@@ -81,6 +81,14 @@ export function mountMore(el) {
 }
 
 // ---------- tracce ----------
+let backTracks = false;
+export function returnToTracks() {
+  if (!backTracks) return false;
+  backTracks = false;
+  openTracks();
+  return true;
+}
+export function clearTracksReturn() { backTracks = false; }
 function openTracks() {
   openPage('Le mie tracce', (pg) => {
     const draw = () => {
@@ -125,6 +133,7 @@ function trackSheet(t, pg) {
   q('#t-show').onclick = () => {
     s.close();
     pg && pg.close();
+    backTracks = true;
     bus.emit('track:show', { id: t.id, name: t.name });
   };
   q('#t-follow').onclick = () => {
