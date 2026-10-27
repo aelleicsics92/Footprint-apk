@@ -86,22 +86,34 @@ export const HabLayer = L.Layer.extend({
     const zoom = map.getZoom(), bb = map.getBounds(), b = { n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() };
     const A = this._A;
     if (A && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
+    if (this._busy) {
+      this._again = true;
+      return;
+    }
+    this._busy = true;
     const tok = (this._tok = (this._tok || 0) + 1);
     this._status('<span class="spin"></span> Analisi habitat…');
+    const pw = (b.n - b.s) * 0.25, pl = (b.e - b.w) * 0.25;
     try {
-      const nA = await analyze(b, zoom);
-      if (tok !== this._tok) return;
+      const nA = await Promise.race([analyze({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout analisi')), 50000))]);
       nA.zoomReq = zoom;
       this._A = nA;
       await this._recompute();
     } catch (e) {
-      if (tok !== this._tok) return;
+      this._busy = false;
+      this._again = false;
       console.warn('habitat', e.message);
       this._A = null;
       this._img = null;
       this._o.onState && this._o.onState(false);
       this._c.style.visibility = 'hidden';
       this._status('Habitat non disponibile (serve internet): mappa solo meteo');
+      return;
+    }
+    this._busy = false;
+    if (this._again) {
+      this._again = false;
+      this._sched();
     }
   },
   async _recompute() {
