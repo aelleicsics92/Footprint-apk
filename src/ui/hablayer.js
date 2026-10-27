@@ -67,6 +67,7 @@ export const HabLayer = L.Layer.extend({
   },
   setInputs(inp) {
     this._inp = inp;
+    this._drawW();
     if (this._A) this._recompute();
     else this._sched();
   },
@@ -85,7 +86,7 @@ export const HabLayer = L.Layer.extend({
     if (!map || !this._inp) return;
     const zoom = map.getZoom(), bb = map.getBounds(), b = { n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() };
     const A = this._A;
-    if (A && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
+    if (A && (A.L || zoom < 10.5) && Math.abs(zoom - A.zoomReq) < 0.8 && b.n <= A.T.bounds.n && b.s >= A.T.bounds.s && b.e <= A.T.bounds.e && b.w >= A.T.bounds.w) return this._draw();
     if (this._busy) {
       this._again = true;
       return;
@@ -93,9 +94,9 @@ export const HabLayer = L.Layer.extend({
     this._busy = true;
     const tok = (this._tok = (this._tok || 0) + 1);
     this._status('<span class="spin"></span> Analisi habitat…');
-    const pw = (b.n - b.s) * 0.25, pl = (b.e - b.w) * 0.25;
+    const pad = zoom >= 12 ? 0.25 : 0, pw = (b.n - b.s) * pad, pl = (b.e - b.w) * pad, withLand = zoom >= 10.5;
     try {
-      const nA = await Promise.race([analyze({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout analisi')), 50000))]);
+      const nA = await Promise.race([analyze({ n: b.n + pw, s: b.s - pw, e: b.e + pl, w: b.w - pl }, zoom, withLand), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout analisi')), 50000))]);
       nA.zoomReq = zoom;
       this._A = nA;
       await this._recompute();
@@ -106,7 +107,7 @@ export const HabLayer = L.Layer.extend({
       this._A = null;
       this._img = null;
       this._o.onState && this._o.onState(false);
-      this._c.style.visibility = 'hidden';
+      this._drawW();
       this._status('Habitat non disponibile (serve internet): mappa solo meteo');
       return;
     }
@@ -147,9 +148,38 @@ export const HabLayer = L.Layer.extend({
       fillSoil({ n: bb.getNorth(), s: bb.getSouth(), e: bb.getEast(), w: bb.getWest() }, () => this.refresh());
     }
   },
+  _drawW() {
+    const map = this._map, inp = this._inp;
+    if (!map || !inp || !inp.zones || !inp.zones.length) return;
+    const c = this._c, f = placeCanvas(map, c), D = f.d, CELL = 16;
+    const off = document.createElement('canvas');
+    off.width = D; off.height = D;
+    const o = off.getContext('2d');
+    const P = inp.zones.map((q) => ({ s: q.score, p: toF(map, f, q.lat, q.lon) }));
+    for (let gy = 0; gy < D + CELL; gy += CELL) {
+      for (let gx = 0; gx < D + CELL; gx += CELL) {
+        let w = 0, v = 0;
+        for (const q of P) {
+          const wi = 1 / ((q.p.x - gx) ** 2 + (q.p.y - gy) ** 2 + 2500);
+          w += wi; v += wi * q.s;
+        }
+        const [r, g, b] = colorAt(v / w);
+        o.fillStyle = `rgb(${r},${g},${b})`;
+        o.fillRect(gx, gy, CELL + 1, CELL + 1);
+      }
+    }
+    const x = c.getContext('2d');
+    x.save();
+    clipItaly(x, map, f);
+    x.globalAlpha = 0.8;
+    x.drawImage(off, 0, 0);
+    x.restore();
+    c.style.visibility = 'visible';
+  },
   _draw() {
     const map = this._map, A = this._A;
-    if (!map || !A || !this._img) return;
+    if (!map) return;
+    if (!A || !this._img) return this._drawW();
     const c = this._c, f = placeCanvas(map, c), x = c.getContext('2d'), bd = A.T.bounds;
     const nw = toF(map, f, bd.n, bd.w), se = toF(map, f, bd.s, bd.e);
     x.save();
