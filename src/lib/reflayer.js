@@ -50,20 +50,39 @@ function layers(S) {
   ];
 }
 
-export async function addRefLayer(lmap, onFail) {
+
+// Solo nomi (paesi, città, monti, acque) per la mappa satellitare: testo bianco con alone scuro morbido, gerarchia per importanza
+function labelLayers(S) {
+  const W = { 'text-color': '#ffffff', 'text-halo-color': 'rgba(14,28,20,0.78)', 'text-halo-width': 1.5, 'text-halo-blur': 1 };
+  const pl = (id, cls, minzoom, sz, font, upper) => ({
+    id, type: 'symbol', source: S, 'source-layer': 'place', minzoom, filter: ['in', ['get', 'class'], ['literal', cls]],
+    layout: { 'text-field': NM, 'text-font': [font], 'text-size': ['interpolate', ['linear'], ['zoom'], 3, sz[0], 14, sz[1]], 'text-transform': upper ? 'uppercase' : 'none', 'text-letter-spacing': upper ? 0.08 : 0.01, 'text-max-width': 7, 'symbol-sort-key': ['*', -1, ['coalesce', ['to-number', ['get', 'rank']], 99]], 'text-padding': 3 },
+    paint: W,
+  });
+  return [
+    { id: 'wname', type: 'symbol', source: S, 'source-layer': 'water_name', minzoom: 6, layout: { 'text-field': NM, 'text-font': ['Noto Sans Italic'], 'text-size': 11, 'text-max-width': 6, 'text-letter-spacing': 0.06 }, paint: { 'text-color': '#cfe8fb', 'text-halo-color': 'rgba(10,30,50,0.75)', 'text-halo-width': 1.3, 'text-halo-blur': 1 } },
+    { id: 'peak', type: 'symbol', source: S, 'source-layer': 'mountain_peak', minzoom: 8, layout: { 'text-field': ['concat', '\u25B2 ', NM, ['case', ['has', 'ele'], ['concat', '\n', ['to-string', ['get', 'ele']], ' m'], '']], 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 14, 12], 'text-max-width': 8, 'symbol-sort-key': ['*', -1, ['coalesce', ['to-number', ['get', 'ele']], 0]], 'text-padding': 5, 'text-anchor': 'center' }, paint: { 'text-color': '#ffe9b8', 'text-halo-color': 'rgba(40,24,8,0.8)', 'text-halo-width': 1.4, 'text-halo-blur': 1 } },
+    pl('pl-hamlet', ['hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'quarter'], 11, [9, 11.5], 'Noto Sans Regular', false),
+    pl('pl-village', ['village'], 8, [10, 13], 'Noto Sans Regular', false),
+    pl('pl-town', ['town'], 6, [11, 15], 'Noto Sans Bold', false),
+    pl('pl-city', ['city'], 3, [12, 19], 'Noto Sans Bold', true),
+  ];
+}
+
+export async function addRefLayer(lmap, onFail, opts = {}) {
   const maplibregl = (await import('maplibre-gl')).default;
   await import('maplibre-gl/dist/maplibre-gl.css');
   const base = await baseStyle();
   const el = document.createElement('div');
   el.className = 'ref-gl';
-  el.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;z-index:450;pointer-events:none';
+  el.style.cssText = `position:absolute;left:0;top:0;right:0;bottom:0;z-index:${opts.labels ? 640 : 450};pointer-events:none`;
   lmap.getContainer().appendChild(el);
   const c = lmap.getCenter();
   const bear = () => -((lmap.getBearing && lmap.getBearing()) || 0);
   const ml = new maplibregl.Map({
     container: el, interactive: false, attributionControl: false, fadeDuration: 0, renderWorldCopies: false,
     center: [c.lng, c.lat], zoom: lmap.getZoom() - 1, bearing: bear(),
-    style: { version: 8, glyphs: base.glyphs, sources: base.sources, layers: layers(base.key) },
+    style: { version: 8, glyphs: base.glyphs, sources: base.sources, layers: opts.labels ? labelLayers(base.key) : layers(base.key) },
   });
   let ok = false, failed = false, errs = 0;
   const fail = () => {
@@ -100,6 +119,7 @@ export async function addRefLayer(lmap, onFail) {
       el.remove();
     },
     resize: onResize,
+    show(v) { el.style.display = v ? '' : 'none'; if (v) onResize(); },
   };
   return api;
 }

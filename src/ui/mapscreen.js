@@ -19,6 +19,7 @@ import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
 import { sunTimes } from '../lib/sun.js';
 import { notifyNow } from '../lib/notify.js';
 import { getCoverage } from '../lib/coverage.js';
+import { addRefLayer } from '../lib/reflayer.js';
 import { HabLayer, forecastInputs } from './hablayer.js';
 import { PROFILES, LEVELS } from '../lib/fungi.js';
 
@@ -216,6 +217,20 @@ function applyLayers() {
   else map.removeLayer(trailsLayer);
   const max = SOURCES[s.baseLayer].maxNative + 2;
   map.setMaxZoom(max);
+  applyLabels();
+}
+
+let labelsApi = null, labelsBusy = false, labelsFailed = false;
+function applyLabels() {
+  const s = getSettings();
+  const want = s.showLabels !== false && s.baseLayer === 'sat';
+  if (labelsApi) return labelsApi.show(want);
+  if (!want || labelsBusy || labelsFailed || !navigator.onLine) return;
+  labelsBusy = true;
+  addRefLayer(map, () => { labelsApi = null; labelsFailed = true; }, { labels: true })
+    .then((a) => { labelsApi = a; a.show(true); })
+    .catch(() => (labelsFailed = true))
+    .finally(() => (labelsBusy = false));
 }
 
 function setFollow(v) {
@@ -455,6 +470,7 @@ function openLayers() {
     body: `<div class="stack">
       <div class="row gap"><button class="btn primary grow" id="ly-3d">Mappa 3D</button><button class="btn ghost grow" id="ly-dl">Scarica offline</button></div>
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Nomi di luoghi e monti</b><small>Paesi, città, cime e laghi sul satellite. Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-labels" ${s.showLabels !== false ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Previsione raccolta</b><small>Colora dove è più probabile trovare (meteo e habitat). Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-fc" ${s.showForecast ? 'checked' : ''}><i></i></label></div>
@@ -477,6 +493,7 @@ function openLayers() {
         applyLayers();
       })
   );
+  sh.body.querySelector('#ly-labels').onchange = (e) => { setSetting('showLabels', e.target.checked); labelsFailed = false; applyLabels(); };
   sh.body.querySelector('#ly-trails').onchange = (e) => {
     setSetting('overlayTrails', e.target.checked);
     applyLayers();
