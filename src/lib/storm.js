@@ -27,7 +27,7 @@ function color(p) {
 }
 
 export function createStorm(map, ui) {
-  let radar = null, host = '', frames = [], idx = 0, tile = null, over = null, grid = null, gridKey = '', timer = null, on = false, busy = false;
+  let lastNote = 0, radar = null, host = '', frames = [], idx = 0, tile = null, over = null, grid = null, gridKey = '', timer = null, on = false, busy = false;
   const info = { radarCount: 0, fcCount: 0 };
 
   let dpcOver = null, seq = 0;
@@ -74,32 +74,41 @@ export function createStorm(map, ui) {
   // Griglia fissa agganciata a multipli del passo: lo stesso punto della mappa ha sempre gli stessi valori,
   // qualunque sia l'inquadratura. Il passo si infittisce con lo zoom.
   const cache = new Map();
-  const stepFor = (z) => (z <= 6 ? 0.5 : z <= 7 ? 0.25 : z <= 9 ? 0.15 : z <= 11 ? 0.08 : 0.04);
+  const STEPS = [0.04, 0.05, 0.1, 0.15, 0.25, 0.5, 1, 2];
+  const stepFor = (z) => (z <= 6 ? 0.5 : z <= 7 ? 0.25 : z <= 9 ? 0.15 : z <= 11 ? 0.1 : 0.05);
+  const MAXPTS = 100;
+  let blocked = 0;
   async function fetchPts(list) {
-    const todo = list.filter(([la, lo]) => { const c = cache.get(la + ',' + lo); return !c || Date.now() - c.ts > 30 * 60000; });
+    const todo = list.filter(([la, lo]) => { const c = cache.get(la + ',' + lo); return !c || Date.now() - c.ts > 45 * 60000; });
+    if (!todo.length) return;
+    if (Date.now() < blocked) throw new Error('limite richieste, riprovo tra poco');
     const chunks = [];
-    for (let i = 0; i < todo.length; i += 90) chunks.push(todo.slice(i, i + 90));
+    for (let i = 0; i < todo.length; i += 50) chunks.push(todo.slice(i, i + 50));
     await Promise.all(chunks.map(async (ch) => {
       const u = `https://api.open-meteo.com/v1/forecast?latitude=${ch.map((q) => q[0]).join(',')}&longitude=${ch.map((q) => q[1]).join(',')}&hourly=precipitation,cape,weather_code&forecast_hours=49&timezone=UTC`;
-      const j = await (await fetch(u)).json();
+      const r = await fetch(u, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+      if (r.status === 429) { blocked = Date.now() + 10 * 60000; throw new Error('limite richieste Open-Meteo'); }
+      const j = await r.json();
+      if (!r.ok || (j && j.error)) throw new Error((j && j.reason) || 'http ' + r.status);
       const arr = Array.isArray(j) ? j : [j];
-      arr.forEach((o, i) => cache.set(ch[i][0] + ',' + ch[i][1], { ts: Date.now(), h: o.hourly }));
+      arr.forEach((o, i) => o && o.hourly && ch[i] && cache.set(ch[i][0] + ',' + ch[i][1], { ts: Date.now(), h: o.hourly }));
     }));
   }
+  // Griglia fissa (passi in un insieme ristretto, agganciata a multipli del passo) limitata all'Italia e a ~100 punti per richiesta
   async function loadGrid() {
-    const z = map.getZoom();
-    let step = stepFor(z);
-    const bb = map.getBounds().pad(0.2);
-    const dims = (st) => ({ la0: Math.floor(bb.getSouth() / st), la1: Math.ceil(bb.getNorth() / st), lo0: Math.floor(bb.getWest() / st), lo1: Math.ceil(bb.getEast() / st) });
-    let d = dims(step);
-    while ((d.la1 - d.la0 + 1) * (d.lo1 - d.lo0 + 1) > 420) { step *= 1.5; d = dims(step); }
+    const bb = map.getBounds().pad(0.15);
+    const S = Math.max(bb.getSouth(), 35), N = Math.min(bb.getNorth(), 48.6), W = Math.max(bb.getWest(), 5.5), E = Math.min(bb.getEast(), 19.8);
+    if (N <= S || E <= W) throw new Error('inquadratura fuori Italia');
+    const dims = (st) => ({ la0: Math.floor(S / st), la1: Math.max(Math.floor(S / st) + 1, Math.ceil(N / st)), lo0: Math.floor(W / st), lo1: Math.max(Math.floor(W / st) + 1, Math.ceil(E / st)) });
+    let step = STEPS.find((t) => t >= stepFor(map.getZoom())) || 2, d = dims(step);
+    for (let i = STEPS.indexOf(step); (d.la1 - d.la0 + 1) * (d.lo1 - d.lo0 + 1) > MAXPTS && i < STEPS.length - 1; ) { step = STEPS[++i]; d = dims(step); }
     const key = [step, d.la0, d.la1, d.lo0, d.lo1].join('|');
     if (grid && grid.key === key && Date.now() - grid.ts < 15 * 60000) return grid;
     const nR = d.la1 - d.la0 + 1, nC = d.lo1 - d.lo0 + 1, list = [];
     const r3 = (v) => Math.round(v * 1000) / 1000;
     for (let i = 0; i < nR; i++) for (let k = 0; k < nC; k++) list.push([r3((d.la0 + i) * step), r3((d.lo0 + k) * step)]);
     await fetchPts(list);
-    const pts = list.map(([la, lo]) => cache.get(la + ',' + lo).h);
+    const pts = list.map(([la, lo]) => { const c = cache.get(la + ',' + lo); if (!c) throw new Error('dati incompleti'); return c.h; });
     const times = pts[0].time.map((t) => Date.parse(t + 'Z'));
     const bounds = L.latLngBounds([d.la0 * step, d.lo0 * step], [d.la1 * step, d.lo1 * step]);
     grid = { key, ts: Date.now(), bounds, nR, nC, times, pts };
@@ -175,7 +184,7 @@ export function createStorm(map, ui) {
       else tile.setUrl(url);
     } else {
       if (tile) { map.removeLayer(tile); tile = null; }
-      drawModel(f.h);
+      try { drawModel(f.h); } catch (e) { ui.note && ui.note('Previsione modello: errore di disegno'); }
     }
     ui.frame(f, idx, frames.length);
   }
@@ -189,7 +198,9 @@ export function createStorm(map, ui) {
       try {
         await loadGrid();
         model = modelFrames(grid);
-      } catch {}
+      } catch (e) {
+        if (Date.now() - lastNote > 120000) { lastNote = Date.now(); ui.note && ui.note('Previsione modello non disponibile: ' + String((e && e.message) || e).slice(0, 60)); }
+      }
       const keep = frames[idx] && frames[idx].t;
       frames = [...radar, ...model];
       info.radarCount = radar.length;
