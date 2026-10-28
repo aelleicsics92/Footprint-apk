@@ -213,8 +213,9 @@ export const HabLayer = L.Layer.extend({
 });
 
 
-export async function forecastInputs(day = 0) {
-  const key = SPECIES[getSettings().fungiProfile] ? getSettings().fungiProfile : 'autunnali';
+export async function forecastInputs(day = 0, forced) {
+  const fk = forced || getSettings().fungiProfile;
+  const key = SPECIES[fk] ? fk : 'autunnali';
   const prof = PROFILES[key];
   const data = await getZoneSeries();
   const zones = ZONES.map((z, i) => {

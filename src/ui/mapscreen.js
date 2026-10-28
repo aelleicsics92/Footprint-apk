@@ -20,6 +20,7 @@ import { sunTimes } from '../lib/sun.js';
 import { notifyNow } from '../lib/notify.js';
 import { getCoverage } from '../lib/coverage.js';
 import { addRefLayer } from '../lib/reflayer.js';
+import { createStorm } from '../lib/storm.js';
 import { HabLayer, forecastInputs } from './hablayer.js';
 import { PROFILES, LEVELS } from '../lib/fungi.js';
 
@@ -54,6 +55,7 @@ export function mountMap(el) {
     <div class="rec-chip hidden" id="rec-chip"></div>
     <div class="dl-chip hidden" id="dl-chip"></div>
     <div class="ov-legend hidden" id="ov-legend"></div>
+    <div class="storm-bar hidden" id="storm-bar"></div>
     <button class="fab" id="btn-wp" aria-label="Nuovo waypoint">${ico('pinplus', 30)}</button>`;
 
   const s = getSettings();
@@ -76,6 +78,7 @@ export function mountMap(el) {
   trailsLayer = makeLayer('trails', { opacity: 0.95, zIndex: 5 });
   applyLayers();
   applyForecast();
+  applyStorm();
   wpGroup = L.layerGroup().addTo(map);
   shownGroup = L.layerGroup().addTo(map);
   recLine = L.polyline([], { color: '#ff5a4a', weight: 5, opacity: 0.95 }).addTo(map);
@@ -185,7 +188,7 @@ export function mountMap(el) {
   bus.on('settings:changed', (k) => {
     renderWaypoints();
     renderRec();
-    if ((k === 'fungiProfile' || k === 'fungiCal') && getSettings().showForecast) applyForecast();
+    if ((k === 'mapProfile' || k === 'fungiCal') && getSettings().showForecast) applyForecast();
   });
   bus.on('track:show', showTrack);
   bus.on('track:follow', async ({ id, name }) => {
@@ -435,7 +438,7 @@ let fcLayer = null, fcTimer = null, fcStatus = '';
 function fcChip() {
   const el = root.querySelector('#fc-chip'), s = getSettings();
   if (!s.showForecast) return el.classList.add('hidden');
-  const p = PROFILES[s.fungiProfile] || PROFILES.autunnali;
+  const p = PROFILES[s.mapProfile] || PROFILES.autunnali;
   el.classList.remove('hidden');
   el.innerHTML = `<b>Previsione · ${esc(p.short)}</b><span class="fc-dots">${LEVELS.map((l) => `<i style="background:${l.color}" title="${l.label}"></i>`).join('')}</span>${fcStatus ? `<small>${fcStatus}</small>` : ''}`;
 }
@@ -454,11 +457,48 @@ async function applyForecast() {
   }
   fcChip();
   try {
-    fcLayer.setInputs(await forecastInputs(0));
+    fcLayer.setInputs(await forecastInputs(0, s.mapProfile || 'autunnali'));
   } catch {
     toast('Previsione non disponibile: serve internet', 2500);
   }
   fcTimer = setInterval(applyForecast, 30 * 60000);
+}
+
+// ---------- radar e temporali ----------
+let storm = null;
+function stormBar() { return root.querySelector('#storm-bar'); }
+function applyStorm() {
+  const s = getSettings(), bar = stormBar();
+  if (!storm) {
+    storm = createStorm(map, {
+      loading: () => { bar.classList.remove('hidden'); bar.innerHTML = '<div class="sb-top"><b>Radar e temporali</b><span>Carico…</span></div>'; },
+      offline: () => toast('Radar e temporali: serve internet', 2600),
+      error: () => { bar.innerHTML = '<div class="sb-top"><b>Radar non disponibile</b><button id="sb-x" aria-label="Chiudi">✕</button></div>'; bar.querySelector('#sb-x').onclick = () => { setSetting('showStorm', false); applyStorm(); }; },
+      stopped: () => bar.classList.add('hidden'),
+      setup: (frames, start) => {
+        const nr = frames.filter((f) => f.kind === 'radar').length;
+        bar.classList.remove('hidden');
+        bar.innerHTML = `<div class="sb-top"><b id="sb-mode"></b><span id="sb-time"></span><button id="sb-x" aria-label="Chiudi">✕</button></div>
+          <div class="sb-row"><button id="sb-play" aria-label="Avvia">▶</button><input id="sb-range" type="range" min="0" max="${frames.length - 1}" value="${start}"></div>
+          <div class="sb-ticks"><span>-${Math.max(1, Math.round(nr / 6))} h</span><span>ora</span><span>+${Math.max(1, frames.length - nr)} h</span></div>
+          <div class="sb-leg"><i class="g"></i><small>debole</small><small>forte</small><i class="t"></i><small>temporale (stima)</small></div>`;
+        bar.querySelector('#sb-x').onclick = () => { setSetting('showStorm', false); applyStorm(); };
+        const pb = bar.querySelector('#sb-play');
+        pb.onclick = () => { pb.textContent = storm.toggle() ? '❚❚' : '▶'; };
+        bar.querySelector('#sb-range').oninput = (e) => storm.seek(Number(e.target.value));
+      },
+      frame: (f, i) => {
+        const m = bar.querySelector('#sb-mode'), t = bar.querySelector('#sb-time'), r = bar.querySelector('#sb-range');
+        if (!m) return;
+        if (r) r.value = i;
+        m.textContent = f.kind === 'radar' ? 'Radar reale' : 'Previsione modello';
+        t.textContent = storm.fmt(f.t);
+        bar.classList.toggle('mod', f.kind !== 'radar');
+      },
+    });
+  }
+  if (s.showStorm) storm.start();
+  else storm.stop();
 }
 
 // ---------- livelli ----------
@@ -473,8 +513,9 @@ function openLayers() {
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Nomi di luoghi e monti</b><small>Paesi, città, cime e laghi sul satellite. Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-labels" ${s.showLabels !== false ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Radar e temporali</b><small>Pioggia e temporali: radar delle ultime 2 ore e previsione delle prossime ore. Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-storm" ${s.showStorm ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Previsione raccolta</b><small>Colora dove è più probabile trovare (meteo e habitat). Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-fc" ${s.showForecast ? 'checked' : ''}><i></i></label></div>
-      <select id="ly-fcp" style="width:100%;margin:0 0 4px">${Object.entries(PROFILES).map(([k, p]) => `<option value="${k}" ${k === (s.fungiProfile || 'autunnali') ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
+      <select id="ly-fcp" style="width:100%;margin:0 0 4px">${Object.entries(PROFILES).map(([k, p]) => `<option value="${k}" ${k === (s.mapProfile || 'autunnali') ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Aree verdi dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>Puntini rossi dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Leggera nebbia su tutta la mappa che si dissolve entro 6 m da dove sei passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
@@ -493,6 +534,7 @@ function openLayers() {
         applyLayers();
       })
   );
+  sh.body.querySelector('#ly-storm').onchange = (e) => { setSetting('showStorm', e.target.checked); applyStorm(); };
   sh.body.querySelector('#ly-labels').onchange = (e) => { setSetting('showLabels', e.target.checked); labelsFailed = false; applyLabels(); };
   sh.body.querySelector('#ly-trails').onchange = (e) => {
     setSetting('overlayTrails', e.target.checked);
@@ -505,7 +547,7 @@ function openLayers() {
   };
   sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fc').onchange = (e) => { setSetting('showForecast', e.target.checked); applyForecast(); };
-  sh.body.querySelector('#ly-fcp').onchange = (e) => { setSetting('fungiProfile', e.target.value); bus.emit('settings:changed', 'fungiProfile'); };
+  sh.body.querySelector('#ly-fcp').onchange = (e) => { setSetting('mapProfile', e.target.value); bus.emit('settings:changed', 'mapProfile'); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   const alt = () => { setSetting('altOn', sh.body.querySelector('#ly-alt').checked); setSetting('altMin', Number(sh.body.querySelector('#ly-amin').value) || 0); setSetting('altMax', Number(sh.body.querySelector('#ly-amax').value) || 9000); applyAlt(); drawOverlays(); };

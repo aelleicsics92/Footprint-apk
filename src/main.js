@@ -9,19 +9,19 @@ import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { $, bus, esc, fmtDist, fmtDur } from './lib/util.js';
 import { ico } from './lib/icons.js';
-import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast } from './lib/ui.js';
+import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast, takeBackReturn, clearBackReturn } from './lib/ui.js';
 import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
 import { loadWaypoints, quickWaypoint, importQuick } from './lib/waypoints.js';
 import { loadTracks, startRecording, stopRecording, pendingRecovery, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
-import { mountMap, invalidate, hasShownTrack } from './ui/mapscreen.js';
+import { mountMap, invalidate } from './ui/mapscreen.js';
 import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
 import { mountTrip } from './ui/trip.js';
-import { mountMore, returnToTracks, clearTracksReturn } from './ui/more.js';
+import { mountMore } from './ui/more.js';
 import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
 import { initWalked } from './lib/walked.js';
@@ -54,6 +54,7 @@ async function boot() {
   $('#nav').addEventListener('click', (e) => {
     const b = e.target.closest('[data-t]');
     if (b) {
+      clearBackReturn();
       showTab(b.dataset.t);
       bus.emit('nav:tab', b.dataset.t);
     }
@@ -69,12 +70,13 @@ async function boot() {
       if (closeTopSheet()) return;
       if (closeTopPage()) return;
       if (current !== 'map') {
+        clearBackReturn();
         showTab('map');
         bus.emit('nav:tab', 'map');
         return;
       }
-      if (hasShownTrack() && returnToTracks()) return;
-      clearTracksReturn();
+      const br = takeBackReturn();
+      if (br) { br(); return; }
       App.exitApp();
     });
   }

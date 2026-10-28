@@ -2,18 +2,78 @@
 // (zoom, spostamento e rotazione a due dita). Testo nitido a qualsiasi zoom, più paesi con lo zoom, niente serif.
 const OFM = 'https://tiles.openfreemap.org';
 
-async function baseStyle() {
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 8000);
-    const r = await fetch(OFM + '/styles/positron', { signal: ctl.signal });
-    clearTimeout(t);
-    const j = await r.json();
-    const key = Object.keys(j.sources || {}).find((k) => j.sources[k].type === 'vector');
-    if (key && j.glyphs) return { key, sources: { [key]: j.sources[key] }, glyphs: j.glyphs };
-  } catch {}
-  return { key: 'ofm', sources: { ofm: { type: 'vector', url: OFM + '/planet' } }, glyphs: OFM + '/fonts/{fontstack}/{range}.pbf' };
+// Tile vettoriali e font passano da due protocolli propri (fpv://, fpg://) che salvano tutto in locale:
+// ciò che hai guardato e le aree scaricate restano disponibili anche senza internet.
+import { get, set } from 'idb-keyval';
+import { tileStore, kvGet, kvSet } from './store.js';
+
+const KEY = 'ofm';
+let proto = false;
+let tplP = null;
+function tileTemplate(force) {
+  if (force) tplP = null;
+  return (tplP = tplP || tileTemplate0(force).catch((e) => { tplP = null; throw e; }));
 }
+async function tileTemplate0(force) {
+  if (!force) {
+    try {
+      const c = await kvGet('ofm:tj');
+      if (c && c.t) return c.t;
+    } catch {}
+  }
+  const j = await (await fetch(OFM + '/planet')).json();
+  const t = j.tiles && j.tiles[0];
+  if (!t) throw new Error('no tiles');
+  try { await kvSet('ofm:tj', { t }); } catch {}
+  return t;
+}
+export async function getVecTile(z, x, y, signal) {
+  const key = `vec/${z}/${x}/${y}`;
+  try {
+    const c = await get(key, tileStore);
+    if (c) return c;
+  } catch {}
+  if (!navigator.onLine) return null;
+  for (let a = 0; a < 2; a++) {
+    const t = await tileTemplate(a === 1);
+    const r = await fetch(t.replace('{z}', z).replace('{x}', x).replace('{y}', y), { signal });
+    if (r.status === 404 && a === 0) continue;
+    if (r.status === 204 || r.status === 404) return new ArrayBuffer(0);
+    if (!r.ok) throw new Error('http ' + r.status);
+    const buf = await r.arrayBuffer();
+    try { await set(key, buf, tileStore); } catch {}
+    return buf;
+  }
+  return null;
+}
+async function getGlyph(stack, range, signal) {
+  const key = `gly/${stack}/${range}`;
+  try {
+    const c = await get(key, tileStore);
+    if (c) return c;
+  } catch {}
+  const r = await fetch(`${OFM}/fonts/${encodeURIComponent(stack)}/${range}.pbf`, { signal });
+  if (!r.ok) throw new Error('http ' + r.status);
+  const buf = await r.arrayBuffer();
+  try { await set(key, buf, tileStore); } catch {}
+  return buf;
+}
+function registerProtocols(maplibregl) {
+  if (proto) return;
+  proto = true;
+  maplibregl.addProtocol('fpv', async (params, abort) => {
+    const m = /fpv:\/\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    const buf = m && (await getVecTile(+m[1], +m[2], +m[3], abort && abort.signal));
+    if (!buf) throw new Error('tile non disponibile offline');
+    return { data: buf };
+  });
+  maplibregl.addProtocol('fpg', async (params, abort) => {
+    const m = /fpg:\/\/(.+)\/(\d+-\d+)/.exec(params.url);
+    if (!m) throw new Error('glyph');
+    return { data: await getGlyph(decodeURIComponent(m[1]), m[2], abort && abort.signal) };
+  });
+}
+const baseStyle = (maxzoom) => ({ key: KEY, sources: { [KEY]: { type: 'vector', tiles: ['fpv://{z}/{x}/{y}'], minzoom: 0, maxzoom } }, glyphs: 'fpg://{fontstack}/{range}' });
 
 const NM = ['coalesce', ['get', 'name:it'], ['get', 'name']];
 const HALO = { 'text-halo-color': '#fffdf5', 'text-halo-width': 2, 'text-halo-blur': 0.4 };
@@ -72,7 +132,8 @@ function labelLayers(S) {
 export async function addRefLayer(lmap, onFail, opts = {}) {
   const maplibregl = (await import('maplibre-gl')).default;
   await import('maplibre-gl/dist/maplibre-gl.css');
-  const base = await baseStyle();
+  registerProtocols(maplibregl);
+  const base = baseStyle(opts.labels ? 12 : 14);
   const el = document.createElement('div');
   el.className = 'ref-gl';
   el.style.cssText = `position:absolute;left:0;top:0;right:0;bottom:0;z-index:${opts.labels ? 640 : 450};pointer-events:none`;

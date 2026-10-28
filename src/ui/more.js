@@ -1,7 +1,9 @@
+import L from 'leaflet';
+import { ITALY } from '../data/italy.js';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid } from '../lib/util.js';
-import { openPage, openSheet, toast, confirmBox } from '../lib/ui.js';
+import { openPage, openSheet, toast, confirmBox, leavePages } from '../lib/ui.js';
 import { getSettings, setSetting, apiKey } from '../lib/store.js';
 import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints } from '../lib/waypoints.js';
@@ -81,14 +83,6 @@ export function mountMore(el) {
 }
 
 // ---------- tracce ----------
-let backTracks = false;
-export function returnToTracks() {
-  if (!backTracks) return false;
-  backTracks = false;
-  openTracks();
-  return true;
-}
-export function clearTracksReturn() { backTracks = false; }
 function openTracks() {
   openPage('Le mie tracce', (pg) => {
     const draw = () => {
@@ -132,13 +126,12 @@ function trackSheet(t, pg) {
   });
   q('#t-show').onclick = () => {
     s.close();
-    pg && pg.close();
-    backTracks = true;
+    leavePages();
     bus.emit('track:show', { id: t.id, name: t.name });
   };
   q('#t-follow').onclick = () => {
     s.close();
-    pg && pg.close();
+    leavePages();
     bus.emit('track:follow', { id: t.id, name: t.name });
   };
   q('#t-share').onclick = async () => {
@@ -201,6 +194,22 @@ function openWaypointList() {
 }
 
 // ---------- mappe offline ----------
+let covMap = null;
+function drawCoverage(el, areas) {
+  if (!el) return;
+  covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: true });
+  const ll = ITALY.flatMap((poly) => poly.map((ring) => { const o = []; for (let i = 0; i < ring.length; i += 2) o.push([ring[i + 1], ring[i]]); return o; }));
+  const it = L.polygon(ll, { color: '#a89f86', weight: 1.2, fillColor: '#f6f2e6', fillOpacity: 1, interactive: false }).addTo(covMap);
+  covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
+  for (const a of areas) {
+    const b = a.bounds, mn = 0.12;
+    let n = b.north, s = b.south, e = b.east, w = b.west;
+    if (n - s < mn) { const c = (n + s) / 2; n = c + mn / 2; s = c - mn / 2; }
+    if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
+    L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
+  }
+  setTimeout(() => covMap && covMap.invalidateSize(), 250);
+}
 function openOffline() {
   openPage('Mappe offline', async (pg) => {
     const draw = async () => {
@@ -212,7 +221,8 @@ function openOffline() {
       } catch {}
       const qq = getQueue();
       const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
-      pg.body.innerHTML = `<div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
+      if (covMap) { try { covMap.remove(); } catch {} covMap = null; }
+      pg.body.innerHTML = `<div id="cov-it" style="height:310px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
             ? `<div class="list">${areas
@@ -223,6 +233,7 @@ function openOffline() {
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
+      drawCoverage(pg.body.querySelector('#cov-it'), areas);
       pg.body.querySelectorAll('[data-cancel]').forEach((b) => (b.onclick = () => cancelDownload(b.dataset.cancel)));
       pg.body.querySelectorAll('[data-del]').forEach(
         (b) =>
@@ -237,7 +248,7 @@ function openOffline() {
         (b) =>
           (b.onclick = () => {
             const a = areas.find((x) => x.id === b.dataset.go);
-            pg.close();
+            leavePages();
             bus.emit('nav:tab', 'map');
             bus.emit('map:fit', a.bounds);
           })
@@ -246,7 +257,7 @@ function openOffline() {
     draw();
     const o1 = bus.on('dl:update', () => draw());
     const o2 = bus.on('dl:done', () => draw());
-    pg.onClose = () => (o1 && o1(), o2 && o2());
+    pg.onClose = () => { o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
   });
 }
 

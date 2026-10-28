@@ -28,6 +28,7 @@ const DEFAULTS = {
   showWaypoints: true,
   wpCounter: 0,
   fungiProfile: 'autunnali',
+  mapProfile: 'autunnali',
   notifFungi: false,
   offTrackM: 80,
   wpYear: '',

@@ -1,7 +1,7 @@
 import { kvGet, kvSet, getSettings, setSetting } from './store.js';
 import { getTerrain, terrainText } from './terrain.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
-import { openSheet, toast, confirmBox, closeTopPage } from './ui.js';
+import { openSheet, toast, confirmBox, closeTopPage, leavePages } from './ui.js';
 import { orderedIcons, wpIcon, ico, TRUFFLE_ICONS } from './icons.js';
 import { lastPos, getOnce } from './geo.js';
 import { apiKey } from './store.js';
@@ -348,12 +348,12 @@ export function openWaypoint(w) {
     const a = b.dataset.a;
     if (a === 'view') {
       s.close();
-      while (closeTopPage()) {}
+      leavePages();
       bus.emit('nav:tab', 'map');
       bus.emit('wp:goto', w.id);
     } else if (a === 'go') {
       s.close();
-      while (closeTopPage()) {}
+      leavePages();
       bus.emit('wp:target', w.id);
     } else if (a === 'share') {
       s.close();

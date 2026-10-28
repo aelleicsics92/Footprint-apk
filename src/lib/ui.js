@@ -117,6 +117,7 @@ export function openPage(title, render, { actions = '' } = {}) {
   root.classList.remove('hidden');
   const api = {
     el,
+    reopen: () => openPage(title, render, { actions }),
     body: $('.page-body', el),
     head: $('.page-actions', el),
     close() {
@@ -136,6 +137,15 @@ export function openPage(title, render, { actions = '' } = {}) {
   render(api);
   return api;
 }
+// Chiude tutte le pagine ricordandole: il tasto indietro dalla mappa le riapre
+let backReturn = null;
+export function leavePages() {
+  const items = pageStack.map((p) => p.reopen).filter(Boolean);
+  pageStack.slice().forEach((p) => p.close());
+  backReturn = items.length ? () => items.forEach((f) => f()) : null;
+}
+export const takeBackReturn = () => { const f = backReturn; backReturn = null; return f; };
+export const clearBackReturn = () => { backReturn = null; };
 export const closeTopPage = () => {
   const p = pageStack[pageStack.length - 1];
   if (p) {

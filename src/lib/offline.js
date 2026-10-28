@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { get, set, del } from 'idb-keyval';
 import { tileStore, kvGet, kvSet } from './store.js';
 import { uid, sleep, bus } from './util.js';
+import { getVecTile } from './reflayer.js';
 
 export const SOURCES = {
   sat: {
@@ -159,12 +160,42 @@ export async function downloadArea({ name, bounds, zmin, zmax, sources, onProgre
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
   const aborted = signal && signal.aborted;
+  let vec = false;
+  if (!aborted) vec = await downloadVec(bounds, zmin, signal).catch(() => false);
   if (!aborted) {
     const areas = await listAreas();
-    areas.push({ id: uid(), name, bounds, zmin, zmax, sources, tiles: total - fail, bytes, created: Date.now() });
+    areas.push({ id: uid(), name, bounds, zmin, zmax, sources, tiles: total - fail, bytes, vec, created: Date.now() });
     await kvSet('areas', areas);
   }
   return { done, total, fail, bytes, aborted };
+}
+
+// Nomi (tile vettoriali) delle aree scaricate: zoom bassi fino a 12, bastano per paesi, cime e laghi a ogni ingrandimento
+export async function downloadVec(bounds, zmin, signal) {
+  const lo = Math.max(4, Math.min(zmin - 1, 12));
+  let n = 0;
+  const jobs = [];
+  for (const t of iterTiles(bounds, lo, 12)) { jobs.push(t); if (++n > 4000) break; }
+  let idx = 0, fail = 0;
+  const worker = async () => {
+    while (idx < jobs.length) {
+      if (signal && signal.aborted) return;
+      const j = jobs[idx++];
+      try { if (!(await getVecTile(j.z, j.x, j.y, signal))) fail++; } catch { fail++; }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return fail === 0;
+}
+export async function fillVecForAreas() {
+  if (!navigator.onLine) return;
+  const areas = await listAreas();
+  let ch = false;
+  for (const a of areas) {
+    if (a.vec) continue;
+    if (await downloadVec(a.bounds, a.zmin)) { a.vec = true; ch = true; }
+  }
+  if (ch) await kvSet('areas', areas);
 }
 
 export async function deleteArea(id) {
@@ -197,6 +228,7 @@ const emit = () => bus.emit('dl:update', queue);
 export async function initQueue() {
   if (qLoaded) return;
   qLoaded = true;
+  setTimeout(() => fillVecForAreas().catch(() => {}), 25000);
   queue = ((await kvGet('dlqueue')) || []).map((j) => ({ ...j, status: 'queued', done: 0 }));
   emit();
   pump();
