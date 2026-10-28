@@ -7,7 +7,7 @@ import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueu
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
-import { openSheet, toast, confirmBox } from '../lib/ui.js';
+import { openSheet, toast, confirmBox, pushBack } from '../lib/ui.js';
 import { lastPos, gpsStatus, ensurePermission, restartWatch } from '../lib/geo.js';
 import { getHeading, compassAlive } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
@@ -157,12 +157,13 @@ export function mountMap(el) {
     bar.className = 'pick-bar';
     bar.innerHTML = '<span>Sposta la mappa: la mira è la nuova posizione</span><button class="btn ghost" data-a="no">Annulla</button><button class="btn primary" data-a="ok">Conferma</button>';
     c.appendChild(cross); c.appendChild(bar);
+    const unb = pushBack(() => bar.querySelector('[data-a=no]').click());
     L.DomEvent.disableClickPropagation(bar);
     bar.addEventListener('click', (e) => {
       const a = e.target.closest('[data-a]');
       if (!a) return;
       const ctr = map.getCenter();
-      cross.remove(); bar.remove();
+      cross.remove(); bar.remove(); unb();
       done(a.dataset.a === 'ok' ? { lat: ctr.lat, lon: ctr.lng } : null);
     });
   });
@@ -480,7 +481,7 @@ function applyStorm() {
         bar.classList.remove('hidden');
         bar.innerHTML = `<div class="sb-top"><b id="sb-mode"></b><span id="sb-time"></span><button id="sb-x" aria-label="Chiudi">✕</button></div>
           <div class="sb-row"><button id="sb-play" aria-label="Avvia">▶</button><input id="sb-range" type="range" min="0" max="${frames.length - 1}" value="${start}"></div>
-          <div class="sb-ticks"><span>-${Math.max(1, Math.round(nr / 6))} h</span><span>ora</span><span>+${Math.max(1, frames.length - nr)} h</span></div>
+          <div class="sb-ticks"><span>-${Math.max(1, Math.round(nr / 6))} h</span><span>ora</span><span>${storm.fmt(frames[frames.length - 1].t)}</span></div>
           <div class="sb-leg"><i class="g"></i><small>debole</small><small>forte</small><i class="t"></i><small>temporale (stima)</small></div>`;
         bar.querySelector('#sb-x').onclick = () => { setSetting('showStorm', false); applyStorm(); };
         const pb = bar.querySelector('#sb-play');

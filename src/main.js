@@ -9,7 +9,7 @@ import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { $, bus, esc, fmtDist, fmtDur } from './lib/util.js';
 import { ico } from './lib/icons.js';
-import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast, takeBackReturn, clearBackReturn } from './lib/ui.js';
+import { installInputBehaviour, closeTopSheet, closeTopPage, openSheet, toast, takeBackReturn, clearBackReturn, runTopBack } from './lib/ui.js';
 import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
@@ -37,6 +37,13 @@ const TABS = [
 ];
 let current = 'map';
 
+const tabHist = [];
+function goTab(id) {
+  if (id !== 'map') clearBackReturn();
+  // navigazione da menu/pulsanti interni: ricordo la schermata di partenza per il tasto indietro
+  if (id !== current && TABS.some((t) => t[0] === id)) { tabHist.push(current); if (tabHist.length > 8) tabHist.shift(); }
+  showTab(id);
+}
 function showTab(id) {
   if (!TABS.some((t) => t[0] === id)) return;
   current = id;
@@ -55,11 +62,12 @@ async function boot() {
     const b = e.target.closest('[data-t]');
     if (b) {
       clearBackReturn();
+      tabHist.length = 0;
       showTab(b.dataset.t);
       bus.emit('nav:tab', b.dataset.t);
     }
   });
-  bus.on('nav:tab', showTab);
+  bus.on('nav:tab', goTab);
 
   if (Capacitor.isNativePlatform()) {
     try {
@@ -67,16 +75,26 @@ async function boot() {
       await StatusBar.setBackgroundColor({ color: '#12372a' });
     } catch {}
     App.addListener('backButton', () => {
+      if (runTopBack()) return;
       if (closeTopSheet()) return;
       if (closeTopPage()) return;
+      const br = takeBackReturn();
+      if (br) {
+        if (tabHist.length) { const t = tabHist.pop(); showTab(t); bus.emit('nav:tab', t); }
+        br();
+        return;
+      }
+      if (tabHist.length) {
+        const t = tabHist.pop();
+        showTab(t);
+        bus.emit('nav:tab', t);
+        return;
+      }
       if (current !== 'map') {
-        clearBackReturn();
         showTab('map');
         bus.emit('nav:tab', 'map');
         return;
       }
-      const br = takeBackReturn();
-      if (br) { br(); return; }
       App.exitApp();
     });
   }

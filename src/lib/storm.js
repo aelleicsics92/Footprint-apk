@@ -1,7 +1,14 @@
 // Radar e temporali sulla mappa: ultime 2 ore di radar reale (RainViewer) + previsione a griglia del modello (Open-Meteo) per le ore successive.
 import L from 'leaflet';
 
-const hhmm = (t) => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+const hhmm = (t) => {
+  const d = new Date(t), n = new Date(), m0 = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const k = Math.round((m0(d) - m0(n)) / 86400000);
+  return (k === 0 ? '' : k === 1 ? 'domani ' : k === -1 ? 'ieri ' : d.toLocaleDateString('it-IT', { weekday: 'short' }) + ' ') + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+};
+// ore da mostrare: da adesso fino alla fine di domani
+const endTomorrow = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 2); return d.getTime(); };
+const modelFrames = (grid) => grid.times.map((t, h) => ({ kind: 'model', t, h })).filter((f) => f.t > Date.now() - 30 * 60000 && f.t < endTomorrow());
 const RAMP = [
   [0.1, 120, 190, 255, 0.3], [0.5, 70, 140, 240, 0.55], [2, 40, 190, 120, 0.65], [5, 250, 220, 40, 0.72], [10, 250, 130, 30, 0.8], [25, 220, 40, 40, 0.85],
 ];
@@ -41,7 +48,7 @@ export function createStorm(map, ui) {
       lats.push((b.getSouth() + ((b.getNorth() - b.getSouth()) * i) / (N - 1)).toFixed(3));
       lons.push((b.getWest() + ((b.getEast() - b.getWest()) * k) / (N - 1)).toFixed(3));
     }
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=precipitation,cape,weather_code&forecast_hours=14&timezone=UTC`;
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=precipitation,cape,weather_code&forecast_hours=49&timezone=UTC`;
     const j = await (await fetch(u)).json();
     const arr = Array.isArray(j) ? j : [j];
     const times = arr[0].hourly.time.map((t) => Date.parse(t + 'Z'));
@@ -102,8 +109,7 @@ export function createStorm(map, ui) {
       let model = [];
       try {
         await loadGrid();
-        const now = Date.now();
-        model = grid.times.map((t, h) => ({ kind: 'model', t, h })).filter((f) => f.t > now - 30 * 60000);
+        model = modelFrames(grid);
       } catch {}
       const keep = frames[idx] && frames[idx].t;
       frames = [...radar, ...model];
@@ -128,7 +134,7 @@ export function createStorm(map, ui) {
       if (f && f.kind === 'model') await build();
       else {
         const before = grid && grid.key;
-        try { await loadGrid(); if (grid.key !== before) { const now = Date.now(); const model = grid.times.map((t, h) => ({ kind: 'model', t, h })).filter((q) => q.t > now - 30 * 60000); frames = [...radar, ...model]; ui.setup(frames, idx); ui.frame(frames[idx], idx, frames.length); } } catch {}
+        try { await loadGrid(); if (grid.key !== before) { const model = modelFrames(grid); frames = [...radar, ...model]; ui.setup(frames, idx); ui.frame(frames[idx], idx, frames.length); } } catch {}
       }
     }, 900);
   };
@@ -154,7 +160,7 @@ export function createStorm(map, ui) {
     seek: show,
     toggle() {
       if (timer) { clearInterval(timer); timer = null; return false; }
-      timer = setInterval(() => show(idx + 1 >= frames.length ? 0 : idx + 1), 800);
+      timer = setInterval(() => show(idx + 1 >= frames.length ? 0 : idx + 1), 550);
       return true;
     },
     isOn: () => on,

@@ -3,6 +3,8 @@ import { getSettings } from './store.js';
 import { getRec } from './track.js';
 import { lastPos } from './geo.js';
 import { haversine } from './util.js';
+import { pushBack } from './ui.js';
+let unbackMd = null;
 
 const LIMIT = 15 * 60000, COUNT = 60;
 let anchor = null, lastMotion = Date.now(), ui = null, ctx = null, osc = null, vib = null;
@@ -12,6 +14,7 @@ function stopAlarm() {
   osc = null;
   clearInterval(vib);
   if (ui) { ui.remove(); ui = null; }
+  if (unbackMd) { unbackMd(); unbackMd = null; }
   anchor = { p: lastPos(), t: Date.now() };
 }
 function beep(loud) {
@@ -34,6 +37,7 @@ function alarm() {
   ui.innerHTML = `<div class="md-box"><b>Sei fermo da 15 minuti</b><div class="md-n" id="md-n">${n}</div><p>Tocca se stai bene, altrimenti suona l'allarme.</p><button class="btn primary big" id="md-ok">Sto bene</button></div>`;
   document.body.appendChild(ui);
   ui.querySelector('#md-ok').onclick = stopAlarm;
+  unbackMd = pushBack(() => {}); // il tasto indietro non spegne l'allarme per sbaglio
   const tick = setInterval(() => {
     if (!ui) return clearInterval(tick);
     n--;

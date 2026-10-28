@@ -1,5 +1,7 @@
 // Torcia, segnale SOS luminoso (Morse) e fischietto acustico
 import { ico } from '../lib/icons.js';
+import { pushBack } from '../lib/ui.js';
+let unback = null;
 
 let layer = null, audio = null, timer = null;
 function close() {
@@ -11,6 +13,7 @@ function close() {
   }
   if (layer) layer.remove();
   layer = null;
+  if (unback) { unback(); unback = null; }
 }
 function overlay(html) {
   close();
@@ -19,6 +22,7 @@ function overlay(html) {
   layer.innerHTML = `${html}<button class="tool-x" aria-label="Chiudi">${ico('close', 26)}</button>`;
   document.body.appendChild(layer);
   layer.querySelector('.tool-x').onclick = close;
+  unback = pushBack(close);
   return layer;
 }
 

@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import { ITALY } from '../data/italy.js';
+import { CITIES, LAKES, RIVERS } from '../data/italyfeat.js';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid } from '../lib/util.js';
@@ -197,10 +198,25 @@ function openWaypointList() {
 let covMap = null;
 function drawCoverage(el, areas) {
   if (!el) return;
-  covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: true });
+  covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: false });
   const ll = ITALY.flatMap((poly) => poly.map((ring) => { const o = []; for (let i = 0; i < ring.length; i += 2) o.push([ring[i + 1], ring[i]]); return o; }));
   const it = L.polygon(ll, { color: '#a89f86', weight: 1.2, fillColor: '#f6f2e6', fillOpacity: 1, interactive: false }).addTo(covMap);
   covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
+  for (const [, pts] of RIVERS) L.polyline(pts, { color: '#7fb0d6', weight: 1.6, opacity: 0.9, interactive: false }).addTo(covMap);
+  for (const [nm, la, lo, a, b, rot] of LAKES) {
+    const r = (rot * Math.PI) / 180, pts = [];
+    for (let k = 0; k < 24; k++) { const t = (k / 24) * 2 * Math.PI, y = a * Math.cos(t), x = b * Math.sin(t); pts.push([la + y * Math.cos(r) - x * Math.sin(r), lo + y * Math.sin(r) + x * Math.cos(r)]); }
+    L.polygon(pts, { color: '#5f9ccb', weight: 0.8, fillColor: '#a9cde8', fillOpacity: 1 }).bindTooltip(nm, { sticky: true }).addTo(covMap);
+  }
+  const MAJOR = ['Torino', 'Milano', 'Venezia', 'Bologna', 'Firenze', 'Roma', 'Napoli', 'Bari', 'Palermo', 'Cagliari'];
+  const minors = [];
+  for (const [nm, la, lo] of CITIES) {
+    const mk = L.circleMarker([la, lo], { radius: 2.6, color: '#fff', weight: 1, fillColor: '#3b3a36', fillOpacity: 1, interactive: false }).addTo(covMap);
+    const lab = () => mk.bindTooltip(nm, { permanent: true, direction: 'right', offset: [3, 0], className: 'it-lbl' });
+    if (MAJOR.includes(nm)) lab(); else minors.push([mk, lab]);
+  }
+  const upd = () => { const on = covMap.getZoom() >= 6.5; for (const [mk, lab] of minors) { if (on) { if (!mk.getTooltip()) lab(); } else mk.unbindTooltip(); } };
+  covMap.on('zoomend', upd);
   for (const a of areas) {
     const b = a.bounds, mn = 0.12;
     let n = b.north, s = b.south, e = b.east, w = b.west;
@@ -208,7 +224,7 @@ function drawCoverage(el, areas) {
     if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
     L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
   }
-  setTimeout(() => covMap && covMap.invalidateSize(), 250);
+  setTimeout(() => { if (covMap) { covMap.invalidateSize(); covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); upd(); } }, 320);
 }
 function openOffline() {
   openPage('Mappe offline', async (pg) => {
@@ -222,7 +238,7 @@ function openOffline() {
       const qq = getQueue();
       const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
       if (covMap) { try { covMap.remove(); } catch {} covMap = null; }
-      pg.body.innerHTML = `<div id="cov-it" style="height:310px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
+      pg.body.innerHTML = `<div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
             ? `<div class="list">${areas

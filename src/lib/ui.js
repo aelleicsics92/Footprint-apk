@@ -137,6 +137,18 @@ export function openPage(title, render, { actions = '' } = {}) {
   render(api);
   return api;
 }
+// Overlay a schermo intero senza sheet/pagina (torcia, selezione posizione...): il tasto indietro li chiude
+const backs = [];
+export function pushBack(fn) {
+  backs.push(fn);
+  return () => { const i = backs.indexOf(fn); if (i >= 0) backs.splice(i, 1); };
+}
+export function runTopBack() {
+  const f = backs.pop();
+  if (!f) return false;
+  f();
+  return true;
+}
 // Chiude tutte le pagine ricordandole: il tasto indietro dalla mappa le riapre
 let backReturn = null;
 export function leavePages() {
