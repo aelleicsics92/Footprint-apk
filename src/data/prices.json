@@ -1,64 +1,256 @@
 {
-  "updated": "2026-10-23",
-  "note": "Prezzi indicativi in euro al kg, media nazionale. Cambiano anche nell'arco di 24 ore: sul mercato di Alba i prezzi di apertura del bianco superano i 4.000 euro al kg.",
+  "updated": "2026-10-28",
+  "note": "Prezzi indicativi in euro al kg, media pesata di più fonti (le più recenti contano di più). Cambiano anche nell'arco di 24 ore: sul mercato di Alba il bianco apre oltre i 3.000-4.000 euro al kg.",
   "items": [
     {
       "id": "bianco",
       "name": "Tartufo bianco pregiato",
       "latin": "Tuber magnatum",
-      "min": 700,
-      "max": 2100,
-      "mix": 1400,
-      "date": "2026-10-01",
-      "kind": "cavatore",
-      "src": "andareatartufi.it",
-      "url": "https://www.andareatartufi.it/2026/10/01/quotazioni-tartufo-bianco-pregiato/"
+      "sources": [
+        {
+          "name": "tartufo.com",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 3040,
+          "mix": 4443,
+          "max": 5650,
+          "sizes": {
+            "p": 3040,
+            "m": 4640,
+            "g": 5650
+          },
+          "url": "https://www.tartufo.com/en/truffle-prices/"
+        },
+        {
+          "name": "andareatartufi.app",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 2392,
+          "mix": 4234,
+          "max": 5454,
+          "sizes": {
+            "p": 2392,
+            "m": 4857,
+            "g": 5454
+          },
+          "url": "https://andareatartufi.app/tartufi-quotazione/"
+        },
+        {
+          "name": "WineNews (Alba, cavatori)",
+          "kind": "cavatore",
+          "date": "2026-10-09",
+          "min": 3000,
+          "mix": 3500,
+          "max": 4000,
+          "url": "https://winenews.it/it/tartufo-aaa-autunno-cercasi-qualita-buona-ma-pezzature-piccole-prezzi-a-3-000-4-000-euro-kg_603794/"
+        },
+        {
+          "name": "andareatartufi.it (cavatore)",
+          "kind": "cavatore",
+          "date": "2026-10-01",
+          "min": 700,
+          "mix": 1400,
+          "max": 2100,
+          "sizes": {
+            "p": 700,
+            "m": 1400,
+            "g": 2100
+          },
+          "url": "https://www.andareatartufi.it/2026/10/01/quotazioni-tartufo-bianco-pregiato/"
+        },
+        {
+          "name": "prezzitartufo.it",
+          "kind": "mercato",
+          "date": null,
+          "min": 1500,
+          "mix": 3000,
+          "max": 4500,
+          "url": "https://prezzitartufo.it/"
+        }
+      ]
     },
     {
       "id": "uncinato",
       "name": "Tartufo uncinato",
       "latin": "Tuber aestivum var. uncinatum",
-      "min": 126,
-      "max": 380,
-      "mix": 255,
-      "date": "2026-10-12",
-      "kind": "cavatore",
-      "src": "andareatartufi.it",
-      "url": "https://www.andareatartufi.it/2026/10/06/quotazioni-tartufo-uncinato/"
+      "sources": [
+        {
+          "name": "tartufo.com",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 475,
+          "mix": 772,
+          "max": 1050,
+          "sizes": {
+            "p": 475,
+            "m": 790,
+            "g": 1050
+          },
+          "url": "https://www.tartufo.com/en/truffle-prices/"
+        },
+        {
+          "name": "andareatartufi.app",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 360,
+          "mix": 491,
+          "max": 599,
+          "sizes": {
+            "p": 360,
+            "m": 514,
+            "g": 599
+          },
+          "url": "https://andareatartufi.app/tartufi-quotazione/"
+        },
+        {
+          "name": "andareatartufi.it (cavatore)",
+          "kind": "cavatore",
+          "date": "2026-10-12",
+          "min": 126,
+          "mix": 255,
+          "max": 380,
+          "url": "https://www.andareatartufi.it/2026/10/06/quotazioni-tartufo-uncinato/"
+        }
+      ]
     },
     {
       "id": "scorzone",
       "name": "Scorzone (estivo)",
       "latin": "Tuber aestivum",
-      "min": 25,
-      "max": 70,
-      "mix": 47,
-      "date": "2026-06-03",
-      "kind": "cavatore",
-      "src": "andareatartufi.it",
-      "url": "https://www.andareatartufi.it/2026/05/11/quotazioni-tartufo-scorzone-2026/"
+      "sources": [
+        {
+          "name": "andareatartufi.app",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 343,
+          "mix": 343,
+          "max": 343,
+          "sizes": {
+            "m": 343,
+            "g": 343
+          },
+          "url": "https://andareatartufi.app/tartufi-quotazione/"
+        },
+        {
+          "name": "tartufo.com",
+          "kind": "mercato",
+          "date": "2026-08-28",
+          "min": 270,
+          "mix": 323,
+          "max": 380,
+          "sizes": {
+            "p": 270,
+            "m": 320,
+            "g": 380
+          },
+          "url": "https://www.tartufo.com/en/truffle-prices/"
+        },
+        {
+          "name": "prezzitartufo.it",
+          "kind": "mercato",
+          "date": null,
+          "min": 80,
+          "mix": 165,
+          "max": 250,
+          "url": "https://prezzitartufo.it/"
+        },
+        {
+          "name": "andareatartufi.it (cavatore)",
+          "kind": "cavatore",
+          "date": "2026-06-03",
+          "min": 25,
+          "mix": 47,
+          "max": 70,
+          "url": "https://www.andareatartufi.it/2026/05/11/quotazioni-tartufo-scorzone-2026/"
+        }
+      ]
     },
     {
       "id": "nero",
       "name": "Nero pregiato",
       "latin": "Tuber melanosporum",
-      "min": 600,
-      "max": 1500,
-      "mix": 1000,
-      "date": "2026-10-01",
-      "kind": "mercato",
-      "src": "prezzitartufo.it"
+      "sources": [
+        {
+          "name": "andareatartufi.app",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 412,
+          "mix": 600,
+          "max": 736,
+          "sizes": {
+            "p": 412,
+            "m": 651,
+            "g": 736
+          },
+          "url": "https://andareatartufi.app/tartufi-quotazione/"
+        },
+        {
+          "name": "prezzitartufo.it",
+          "kind": "mercato",
+          "date": null,
+          "min": 600,
+          "mix": 1000,
+          "max": 1500,
+          "url": "https://prezzitartufo.it/"
+        },
+        {
+          "name": "tartufo.com",
+          "kind": "mercato",
+          "date": "2026-03-13",
+          "min": 900,
+          "mix": 1325,
+          "max": 1750,
+          "sizes": {
+            "p": 900,
+            "m": 1150,
+            "g": 1500
+          },
+          "url": "https://www.tartufo.com/en/truffle-prices/"
+        }
+      ]
     },
     {
       "id": "bianchetto",
       "name": "Bianchetto (marzuolo)",
       "latin": "Tuber borchii",
-      "min": 150,
-      "max": 400,
-      "mix": 250,
-      "date": "2026-10-01",
-      "kind": "mercato",
-      "src": "prezzitartufo.it"
+      "sources": [
+        {
+          "name": "andareatartufi.app",
+          "kind": "mercato",
+          "date": "2026-10-28",
+          "min": 429,
+          "mix": 472,
+          "max": 514,
+          "sizes": {
+            "p": 429,
+            "m": 472,
+            "g": 514
+          },
+          "url": "https://andareatartufi.app/tartufi-quotazione/"
+        },
+        {
+          "name": "tartufo.com",
+          "kind": "mercato",
+          "date": "2026-04-01",
+          "min": 500,
+          "mix": 625,
+          "max": 750,
+          "sizes": {
+            "p": 500,
+            "m": 750
+          },
+          "url": "https://www.tartufo.com/en/truffle-prices/"
+        },
+        {
+          "name": "prezzitartufo.it",
+          "kind": "mercato",
+          "date": null,
+          "min": 150,
+          "mix": 275,
+          "max": 400,
+          "url": "https://prezzitartufo.it/"
+        }
+      ]
     }
   ]
 }
