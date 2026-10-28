@@ -39,43 +39,69 @@ export function createStorm(map, ui) {
     }
   }
 
+  // Griglia fissa agganciata a multipli del passo: lo stesso punto della mappa ha sempre gli stessi valori,
+  // qualunque sia l'inquadratura. Il passo si infittisce con lo zoom.
+  const cache = new Map();
+  const stepFor = (z) => (z <= 6 ? 0.5 : z <= 7 ? 0.25 : z <= 9 ? 0.15 : z <= 11 ? 0.08 : 0.04);
+  async function fetchPts(list) {
+    const todo = list.filter(([la, lo]) => { const c = cache.get(la + ',' + lo); return !c || Date.now() - c.ts > 30 * 60000; });
+    const chunks = [];
+    for (let i = 0; i < todo.length; i += 90) chunks.push(todo.slice(i, i + 90));
+    await Promise.all(chunks.map(async (ch) => {
+      const u = `https://api.open-meteo.com/v1/forecast?latitude=${ch.map((q) => q[0]).join(',')}&longitude=${ch.map((q) => q[1]).join(',')}&hourly=precipitation,cape,weather_code&forecast_hours=49&timezone=UTC`;
+      const j = await (await fetch(u)).json();
+      const arr = Array.isArray(j) ? j : [j];
+      arr.forEach((o, i) => cache.set(ch[i][0] + ',' + ch[i][1], { ts: Date.now(), h: o.hourly }));
+    }));
+  }
   async function loadGrid() {
-    const b = map.getBounds().pad(0.35);
-    const key = [b.getSouth().toFixed(1), b.getWest().toFixed(1), b.getNorth().toFixed(1), b.getEast().toFixed(1), Math.round(map.getZoom())].join('|');
+    const z = map.getZoom();
+    let step = stepFor(z);
+    const bb = map.getBounds().pad(0.2);
+    const dims = (st) => ({ la0: Math.floor(bb.getSouth() / st), la1: Math.ceil(bb.getNorth() / st), lo0: Math.floor(bb.getWest() / st), lo1: Math.ceil(bb.getEast() / st) });
+    let d = dims(step);
+    while ((d.la1 - d.la0 + 1) * (d.lo1 - d.lo0 + 1) > 420) { step *= 1.5; d = dims(step); }
+    const key = [step, d.la0, d.la1, d.lo0, d.lo1].join('|');
     if (grid && grid.key === key && Date.now() - grid.ts < 15 * 60000) return grid;
-    const N = 8, lats = [], lons = [];
-    for (let i = 0; i < N; i++) for (let k = 0; k < N; k++) {
-      lats.push((b.getSouth() + ((b.getNorth() - b.getSouth()) * i) / (N - 1)).toFixed(3));
-      lons.push((b.getWest() + ((b.getEast() - b.getWest()) * k) / (N - 1)).toFixed(3));
-    }
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=precipitation,cape,weather_code&forecast_hours=49&timezone=UTC`;
-    const j = await (await fetch(u)).json();
-    const arr = Array.isArray(j) ? j : [j];
-    const times = arr[0].hourly.time.map((t) => Date.parse(t + 'Z'));
-    grid = { key, ts: Date.now(), bounds: b, N, times, pts: arr.map((o) => o.hourly) };
+    const nR = d.la1 - d.la0 + 1, nC = d.lo1 - d.lo0 + 1, list = [];
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    for (let i = 0; i < nR; i++) for (let k = 0; k < nC; k++) list.push([r3((d.la0 + i) * step), r3((d.lo0 + k) * step)]);
+    await fetchPts(list);
+    const pts = list.map(([la, lo]) => cache.get(la + ',' + lo).h);
+    const times = pts[0].time.map((t) => Date.parse(t + 'Z'));
+    const bounds = L.latLngBounds([d.la0 * step, d.lo0 * step], [d.la1 * step, d.lo1 * step]);
+    grid = { key, ts: Date.now(), bounds, nR, nC, times, pts };
     return grid;
   }
 
   function drawModel(h) {
     if (!grid) return;
-    const { N, pts, bounds } = grid, S = 128;
+    const { nR, nC, pts, bounds } = grid;
+    const sc = Math.max(3, Math.min(10, Math.floor(420 / Math.max(nR, nC))));
+    const W = (nC - 1) * sc + 1, H = (nR - 1) * sc + 1;
     const cv = document.createElement('canvas');
-    cv.width = cv.height = S;
-    const x = cv.getContext('2d'), im = x.createImageData(S, S);
-    const P = (i, k) => Math.max(0, pts[i * N + k].precipitation[h] || 0);
-    const T = (i, k) => { const q = pts[i * N + k]; const c = q.weather_code[h] || 0, ca = q.cape[h] || 0, p = q.precipitation[h] || 0; return c >= 95 ? 1 : ca > 800 && p > 0.3 ? Math.min(1, (ca - 800) / 1500) : 0; };
-    for (let py = 0; py < S; py++) {
-      const fy = ((S - 1 - py) / (S - 1)) * (N - 1), i0 = Math.min(N - 2, Math.floor(fy)), ty = fy - i0;
-      for (let px = 0; px < S; px++) {
-        const fx = (px / (S - 1)) * (N - 1), k0 = Math.min(N - 2, Math.floor(fx)), tx = fx - k0;
+    cv.width = W; cv.height = H;
+    const x = cv.getContext('2d'), im = x.createImageData(W, H);
+    const P = (i, k) => Math.max(0, pts[i * nC + k].precipitation[h] || 0);
+    const T = (i, k) => { const q = pts[i * nC + k], c = q.weather_code[h] || 0, ca = q.cape[h] || 0, p = q.precipitation[h] || 0; return c >= 95 ? 1 : ca > 800 && p > 0.3 ? Math.min(1, (ca - 800) / 1500) : 0; };
+    const sm = (t) => t * t * (3 - 2 * t);
+    // la latitudine nell'immagine è lineare in Mercatore: converto riga -> latitudine -> indice di griglia
+    const merc = (la) => Math.log(Math.tan(Math.PI / 4 + (la * Math.PI) / 360));
+    const mS = merc(bounds.getSouth()), mN = merc(bounds.getNorth());
+    const latStep = (bounds.getNorth() - bounds.getSouth()) / (nR - 1);
+    for (let py = 0; py < H; py++) {
+      const m = mN - ((mN - mS) * py) / (H - 1), la = (2 * Math.atan(Math.exp(m)) - Math.PI / 2) * (180 / Math.PI);
+      const fy = Math.max(0, Math.min(nR - 1.0001, (la - bounds.getSouth()) / latStep)), i0 = Math.floor(fy), ty = sm(fy - i0);
+      for (let px = 0; px < W; px++) {
+        const fx = (px / (W - 1)) * (nC - 1), k0 = Math.min(nC - 2, Math.floor(fx)), tx = sm(fx - k0);
         const bl = (f) => (f(i0, k0) * (1 - tx) + f(i0, k0 + 1) * tx) * (1 - ty) + (f(i0 + 1, k0) * (1 - tx) + f(i0 + 1, k0 + 1) * tx) * ty;
         let c = color(bl(P));
         const th = bl(T);
         if (th > 0.3 && c[3] > 0) {
-          const m = Math.min(1, (th - 0.3) / 0.4);
-          c = [c[0] + (175 - c[0]) * m, c[1] + (55 - c[1]) * m, c[2] + (210 - c[2]) * m, Math.max(c[3], 0.85)];
+          const mm = Math.min(1, (th - 0.3) / 0.4);
+          c = [c[0] + (175 - c[0]) * mm, c[1] + (55 - c[1]) * mm, c[2] + (210 - c[2]) * mm, Math.max(c[3], 0.85)];
         }
-        const o = (py * S + px) * 4;
+        const o = (py * W + px) * 4;
         im.data[o] = c[0]; im.data[o + 1] = c[1]; im.data[o + 2] = c[2]; im.data[o + 3] = Math.round(c[3] * 255);
       }
     }
@@ -85,6 +111,14 @@ export function createStorm(map, ui) {
     else over = L.imageOverlay(url, bounds, { opacity: 1, interactive: false, zIndex: 320 }).addTo(map);
   }
 
+  // il radar ha pixel da circa 1 km: oltre lo zoom 8 lo ammorbidisco per evitare i quadrettoni
+  function smoothRadar() {
+    const z = map.getZoom(), px = z <= 8 ? 0 : Math.min(16, (z - 8) * 3.2);
+    const el = map.getContainer();
+    el.style.setProperty('--radar-blur', px + 'px');
+  }
+  map.on('zoomend', smoothRadar);
+
   function show(i) {
     idx = Math.max(0, Math.min(frames.length - 1, i));
     const f = frames[idx];
@@ -92,6 +126,7 @@ export function createStorm(map, ui) {
     if (f.kind === 'radar') {
       if (over) { map.removeLayer(over); over = null; }
       const url = `${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`;
+      smoothRadar();
       if (!tile) tile = L.tileLayer(url, { opacity: 0.7, maxNativeZoom: 7, maxZoom: 22, zIndex: 310, className: 'storm-tiles' }).addTo(map);
       else tile.setUrl(url);
     } else {
