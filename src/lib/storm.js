@@ -1,5 +1,6 @@
 // Radar e temporali sulla mappa: ultime 2 ore di radar reale (RainViewer) + previsione a griglia del modello (Open-Meteo) per le ore successive.
 import L from 'leaflet';
+import { lastTime, downloadSri, parseTiff, renderSri } from './dpc.js';
 
 const hhmm = (t) => {
   const d = new Date(t), n = new Date(), m0 = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
@@ -29,7 +30,38 @@ export function createStorm(map, ui) {
   let radar = null, host = '', frames = [], idx = 0, tile = null, over = null, grid = null, gridKey = '', timer = null, on = false, busy = false;
   const info = { radarCount: 0, fcCount: 0 };
 
+  let dpcOver = null, seq = 0;
+  // Un fotogramma del radar della Protezione Civile: scarica, decodifica, riproietta, crea l'immagine
+  function ensure(f) {
+    if (!f.ready) {
+      f.ready = (async () => {
+        const tif = parseTiff(await downloadSri(f.t));
+        const r = renderSri(tif, color);
+        const cv = document.createElement('canvas');
+        cv.width = r.W; cv.height = r.H;
+        cv.getContext('2d').putImageData(new ImageData(r.px, r.W, r.H), 0, 0);
+        f.url = await new Promise((res) => cv.toBlob((b) => res(URL.createObjectURL(b)), 'image/png'));
+        f.bounds = r.bounds;
+      })();
+      f.ready.catch(() => { f.fail = true; });
+    }
+    return f.ready;
+  }
+  async function loadDpc() {
+    const T = await lastTime();
+    const fr = [];
+    for (let k = 12; k >= 0; k--) fr.push({ kind: 'radar', dpc: true, t: T - k * 15 * 60000 });
+    await ensure(fr[fr.length - 1]); // il più recente deve funzionare, altrimenti si passa a RainViewer
+    (async () => { for (let k = fr.length - 2; k >= 0; k--) { try { await ensure(fr[k]); } catch {} } })();
+    return fr;
+  }
   async function loadRadar() {
+    try {
+      radar = await loadDpc();
+      return;
+    } catch (e) {
+      ui.note && ui.note('Radar Protezione Civile non raggiungibile (' + String((e && e.message) || e).slice(0, 40) + '): uso RainViewer');
+    }
     try {
       const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json();
       host = j.host;
@@ -119,10 +151,22 @@ export function createStorm(map, ui) {
   }
   map.on('zoomend', smoothRadar);
 
-  function show(i) {
+  async function show(i) {
     idx = Math.max(0, Math.min(frames.length - 1, i));
-    const f = frames[idx];
+    const f = frames[idx], tok = ++seq;
     if (!f) return;
+    if (f.kind === 'radar' && f.dpc) {
+      if (over) { map.removeLayer(over); over = null; }
+      if (tile) { map.removeLayer(tile); tile = null; }
+      ui.frame(f, idx, frames.length);
+      try { await ensure(f); } catch { return; }
+      if (tok !== seq) return;
+      if (!dpcOver) dpcOver = L.imageOverlay(f.url, f.bounds, { opacity: 0.8, interactive: false, zIndex: 310, className: 'storm-tiles' }).addTo(map);
+      else dpcOver.setUrl(f.url);
+      smoothRadar();
+      return;
+    }
+    if (dpcOver) { map.removeLayer(dpcOver); dpcOver = null; }
     if (f.kind === 'radar') {
       if (over) { map.removeLayer(over); over = null; }
       const url = `${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`;
@@ -190,6 +234,7 @@ export function createStorm(map, ui) {
       map.off('moveend', onMove);
       if (tile) { map.removeLayer(tile); tile = null; }
       if (over) { map.removeLayer(over); over = null; }
+      if (dpcOver) { map.removeLayer(dpcOver); dpcOver = null; }
       ui.stopped();
     },
     seek: show,

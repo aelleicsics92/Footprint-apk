@@ -476,13 +476,15 @@ function applyStorm() {
       offline: () => toast('Radar e temporali: serve internet', 2600),
       error: () => { bar.innerHTML = '<div class="sb-top"><b>Radar non disponibile</b><button id="sb-x" aria-label="Chiudi">✕</button></div>'; bar.querySelector('#sb-x').onclick = () => { setSetting('showStorm', false); applyStorm(); }; },
       stopped: () => bar.classList.add('hidden'),
+      note: (t) => toast(t, 4200),
       setup: (frames, start) => {
         const nr = frames.filter((f) => f.kind === 'radar').length;
         bar.classList.remove('hidden');
         bar.innerHTML = `<div class="sb-top"><b id="sb-mode"></b><span id="sb-time"></span><button id="sb-x" aria-label="Chiudi">✕</button></div>
           <div class="sb-row"><button id="sb-play" aria-label="Avvia">▶</button><input id="sb-range" type="range" min="0" max="${frames.length - 1}" value="${start}"></div>
-          <div class="sb-ticks"><span>-${Math.max(1, Math.round(nr / 6))} h</span><span>ora</span><span>${storm.fmt(frames[frames.length - 1].t)}</span></div>
-          <div class="sb-leg"><i class="g"></i><small>debole</small><small>forte</small><i class="t"></i><small>temporale (stima)</small></div>`;
+          <div class="sb-ticks"><span>-${Math.max(1, Math.round((frames[Math.max(0, nr - 1)].t - frames[0].t) / 3600000))} h</span><span>ora</span><span>${storm.fmt(frames[frames.length - 1].t)}</span></div>
+          <div class="sb-leg"><i class="g"></i><small>debole</small><small>forte</small><i class="t"></i><small>temporale (stima)</small></div>
+          <div class="sb-leg" style="opacity:.6;margin-top:2px"><small>Radar-DPC (CC BY-SA 4.0), RainViewer, Open-Meteo</small></div>`;
         bar.querySelector('#sb-x').onclick = () => { setSetting('showStorm', false); applyStorm(); };
         const pb = bar.querySelector('#sb-play');
         pb.onclick = () => { pb.textContent = storm.toggle() ? '❚❚' : '▶'; };
@@ -492,7 +494,7 @@ function applyStorm() {
         const m = bar.querySelector('#sb-mode'), t = bar.querySelector('#sb-time'), r = bar.querySelector('#sb-range');
         if (!m) return;
         if (r) r.value = i;
-        m.textContent = f.kind === 'radar' ? 'Radar reale' : 'Previsione modello';
+        m.textContent = f.kind === 'radar' ? (f.dpc ? 'Radar reale · Prot. Civile' : 'Radar reale · RainViewer') : 'Previsione modello';
         t.textContent = storm.fmt(f.t);
         bar.classList.toggle('mod', f.kind !== 'radar');
       },
