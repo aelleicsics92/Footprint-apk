@@ -109,21 +109,22 @@ async function why(out, all) {
   const res = [];
   for (const [icon, ws] of list) {
     out.textContent = 'Leggo il meteo storico: ' + wpIcon(icon).label + '…';
+    const TR = ['bianco','nero','scorzone','uncinato','bianchetto'].includes(icon), WN = TR ? 30 : 14, BK = TR ? 50 : 20;
     const rain = [], temp = [], lag = [], alt = ws.filter((w) => w.alt != null).map((w) => w.alt);
     for (const w of ws.slice(0, 12)) {
       try {
-        const e = new Date(w.ts), s = new Date(w.ts - 20 * 86400000);
+        const e = new Date(w.ts), s = new Date(w.ts - BK * 86400000);
         const f = (d) => d.toISOString().slice(0, 10);
         const j = await (await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${w.lat.toFixed(3)}&longitude=${w.lon.toFixed(3)}&start_date=${f(s)}&end_date=${f(e)}&daily=precipitation_sum,temperature_2m_mean&timezone=auto`)).json();
         const p = j.daily.precipitation_sum, t = j.daily.temperature_2m_mean, n = p.length;
-        rain.push(p.slice(Math.max(0, n - 15), n - 1).reduce((a, b) => a + (b || 0), 0));
+        rain.push(p.slice(Math.max(0, n - 1 - WN), n - 1).reduce((a, b) => a + (b || 0), 0));
         temp.push(t.slice(Math.max(0, n - 8)).reduce((a, b) => a + (b || 0), 0) / Math.min(8, n));
         let l = null;
         for (let i = n - 2; i >= 0; i--) if ((p[i] || 0) >= 8) { l = n - 1 - i; break; }
         if (l != null) lag.push(l);
       } catch {}
     }
-    if (rain.length >= 3) res.push(`<b>${esc(wpIcon(icon).label)}</b> (${ws.length} ritrovamenti): ${Math.round(med(rain))} mm di pioggia nei 14 giorni prima${lag.length ? `, ultima pioggia utile (8 mm o più) circa ${med(lag)} giorni prima` : ''}, temperatura media ${med(temp).toFixed(0)} °C${alt.length ? `, quota tipica ${Math.round(med(alt))} m` : ''}.`);
+    if (rain.length >= 3) res.push(`<b>${esc(wpIcon(icon).label)}</b> (${ws.length} ritrovamenti): ${Math.round(med(rain))} mm di pioggia nei ${WN} giorni prima${lag.length ? `, ultima pioggia utile (8 mm o più) circa ${med(lag)} giorni prima` : ''}, temperatura media ${med(temp).toFixed(0)} °C${alt.length ? `, quota tipica ${Math.round(med(alt))} m` : ''}.`);
   }
   out.innerHTML = res.length ? res.map((r) => `<p style="margin:0 0 8px">${r}</p>`).join('') + '<small class="muted">Valori mediani dei tuoi punti, da dati meteo storici Open-Meteo. Indicativi.</small>' : 'Dati meteo non disponibili al momento.';
 }

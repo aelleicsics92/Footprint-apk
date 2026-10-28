@@ -2,7 +2,22 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { parseGpsText } from './gpsio.js';
 import { mergeWaypoints } from './waypoints.js';
 import { getTracks } from './track.js';
-import { saveTrack } from './track.js';
+import { saveTrack, loadTrackPoints } from './track.js';
+
+// Stessa traccia = stessi punti (primo, ultimo, numero e distanza), indipendentemente dal nome
+async function isDupTrack(tr) {
+  const pts = tr.points || [];
+  for (const x of getTracks()) {
+    if (Math.abs((x.dist || 0) - (tr.dist || 0)) > 5) continue;
+    if (x.start && tr.start && x.start === tr.start) return true;
+    const ps = await loadTrackPoints(x.id);
+    if (ps.length !== pts.length || !ps.length) continue;
+    const a = ps[0], b = ps[ps.length - 1], c = pts[0], d = pts[pts.length - 1];
+    const e = 2e-6;
+    if (Math.abs(a[0] - c[0]) < e && Math.abs(a[1] - c[1]) < e && Math.abs(b[0] - d[0]) < e && Math.abs(b[1] - d[1]) < e) return true;
+  }
+  return false;
+}
 import { toast, openSheet } from './ui.js';
 
 // files: [{ name, text }]
@@ -15,7 +30,7 @@ export async function importTexts(files) {
       w += await mergeWaypoints(r.waypoints);
       dup += (await import('./waypoints.js')).lastDup;
       for (const tr of r.tracks) {
-        if (getTracks().some((x) => x.start && x.start === tr.start && Math.abs((x.dist || 0) - (tr.dist || 0)) < 5)) { dup++; continue; }
+        if (await isDupTrack(tr)) { dup++; continue; }
         await saveTrack(tr);
         t++;
       }
