@@ -13,6 +13,7 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <item name="android:windowBackground">#12372A</item>
         <item name="colorPrimary">#1B3B2B</item>
         <item name="colorPrimaryDark">#12372A</item>
         <item name="colorAccent">#1B3B2B</item>

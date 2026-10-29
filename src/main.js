@@ -44,8 +44,10 @@ function goTab(id) {
   if (id !== current && TABS.some((t) => t[0] === id)) { tabHist.push(current); if (tabHist.length > 8) tabHist.shift(); }
   showTab(id);
 }
+let ensureMounted = () => {};
 function showTab(id) {
   if (!TABS.some((t) => t[0] === id)) return;
+  ensureMounted(id);
   current = id;
   TABS.forEach(([k]) => $('#screen-' + k).classList.toggle('active', k === id));
   $('#app').classList.toggle('on-map', id === 'map');
@@ -97,19 +99,33 @@ async function boot() {
     });
   }
 
-  await Promise.race([Promise.all([loadWaypoints(), loadTracks()]).catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
-  mountMap($('#screen-map'));
-  mountCompass($('#screen-compass'));
-  mountAI($('#screen-ai'));
-  mountFungi($('#screen-fungi'));
-  mountTrip($('#screen-trip'));
-  mountMore($('#screen-more'));
+  // avvio a stadi: prima mappa e traccia, poi waypoint, poi il resto
+  const mounts = {
+    compass: () => mountCompass($('#screen-compass')),
+    ai: () => mountAI($('#screen-ai')),
+    fungi: () => mountFungi($('#screen-fungi')),
+    trip: () => mountTrip($('#screen-trip')),
+    more: () => mountMore($('#screen-more')),
+  };
+  const mounted = {};
+  ensureMounted = (id) => { if (mounted[id] || !mounts[id]) return; mounted[id] = true; try { mounts[id](); } catch (e) { console.error(e); } };
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); } catch {}
+  const tracksP = loadTracks().then(() => bus.emit('tracks:changed')).catch(() => {});
+  const wpsP = loadWaypoints().catch(() => {});
+  mountMap($('#screen-map'));
   showTab('map');
   try { const bs = document.getElementById('bootsplash'); if (bs) bs.remove(); } catch {}
   startWatch();
-  initWalked();
+  await Promise.race([tracksP, new Promise((r) => setTimeout(r, 3000))]);
   recover();
+  initWalked();
+  wpsP.then(() => bus.emit('wp:changed'));
+  const idle = (fn, ms) => setTimeout(() => { try { fn(); } catch (e) { console.error(e); } }, ms);
+  idle(() => ensureMounted('trip'), 600);
+  idle(() => ensureMounted('more'), 1200);
+  idle(() => ensureMounted('compass'), 1800);
+  idle(() => ensureMounted('fungi'), 2400);
+  idle(() => ensureMounted('ai'), 3000);
   setTimeout(() => {
     initNotifications();
     initPinned();
@@ -117,7 +133,7 @@ async function boot() {
     initIncomingFiles();
     startCompass();
     setWakeLock(getSettings().keepAwake);
-  }, 400);
+  }, 3500);
 }
 
 async function recover() {

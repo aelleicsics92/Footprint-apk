@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(IntentFilesPlugin.class);
         super.onCreate(savedInstanceState);
+        try { getBridge().getWebView().setBackgroundColor(0xFF12372A); } catch (Exception ignore) {}
         IntentFilesPlugin.collect(this, getIntent());
         Intent in = getIntent();
         // niente replay dell'azione se l'activity viene ricreata dal sistema o riaperta dalla cronologia
