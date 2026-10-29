@@ -15,7 +15,7 @@ import * as HAB from '../lib/habitat.js';
 import { areaBest, areaProb } from '../lib/area.js';
 import { analyze, applyProfile, explain, bestNear, confirmField, weatherField, soilField, soilAt, fillSoil, waterNear, probFrom, dayOfYear, LC_NAME } from '../lib/habitat.js';
 import { hasAI, askModel } from '../lib/ai.js';
-import { calibrate, applyResult, resetCal, findings, spotsFor } from '../lib/calib.js';
+import { calibrate, applyResult, resetCal, findings, spotsFor, autoLearn, calStatus } from '../lib/calib.js';
 import { openPage } from '../lib/ui.js';
 import { HabLayer, colorAt, placeCanvas, toF, clipItaly, forecastInputs } from './hablayer.js';
 
@@ -39,7 +39,7 @@ export function mountFungi(el) {
     <div class="sec-title">Previsione raccolta</div>
     <div class="chips" id="f-prof"></div>
     <div class="f-search"><input id="f-q" type="text" placeholder="Cerca paese o città…" autocomplete="off" enterkeyhint="search" onfocus="this.select()"><button class="chip" id="f-gps">${ico('locate', 16)} Qui</button></div>
-    <div class="f-tools"><button class="chip" id="f-calib">🎯 Calibra col diario</button><button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna dati</button></div>
+    <div class="f-tools"><span class="muted" id="f-calst" style="font-size:.8rem;align-self:center"></span><button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna dati</button></div>
     <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
@@ -50,7 +50,7 @@ export function mountFungi(el) {
   renderProfiles();
   setupSearch();
   root.querySelector('#f-refresh').onclick = () => load(true);
-  root.querySelector('#f-calib').onclick = openCalib;
+  bus.on('settings:changed', (k) => { if (k === 'fungiCal') { try { refreshView(); } catch {} calNote(); } });
   bus.on('pos', (p) => {
     if (shown && !state.point && !state.loading) {
       state.point = { lat: p.lat, lon: p.lon, name: '', gps: true };
@@ -142,7 +142,16 @@ function renderProfiles() {
 }
 
 let shown = false;
+function calNote() {
+  const el = root && root.querySelector('#f-calst');
+  if (!el) return;
+  const st = calStatus();
+  el.textContent = st.n ? `Calibrata sul tuo diario (${st.n} ritrovamenti)` : 'Nessun ritrovamento nel diario';
+}
 function onShow() {
+  // calibrazione automatica sul diario ad ogni apertura (parte solo se ci sono nuovi waypoint)
+  calNote();
+  autoLearn().then(calNote).catch(() => {});
   if (!fmap) initMap();
   setTimeout(() => {
     if (!fmap) return;

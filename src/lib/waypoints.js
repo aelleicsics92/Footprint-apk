@@ -110,6 +110,8 @@ const TAGS = [
 ];
 const STATI = [['verde', '🟢 In cacciata'], ['giallo', '🟡 A fine cacciata'], ['rosso', '🔴 Finito / secco']];
 
+const voiceHtml = (rec) => `<span style="width:38px;height:38px;border-radius:50%;background:${rec ? '#c0392b' : '#12372a'};color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none">${ico(rec ? 'stop' : 'mic', 22)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><b>${rec ? 'Stop registrazione' : 'Memo vocale'}</b><small style="font-weight:500;opacity:.75">${rec ? 'Tocca per fermare e trascrivere' : 'Parla e trascrivo io, ideale sul campo'}</small></span>`;
+
 function formHTML({ wp, pos, title, icon }) {
   const hid = getSettings().wpHidden || [];
   const grid = orderedIcons(getSettings().wpOrder).filter((i) => !hid.includes(i.id) || i.id === icon).map(
@@ -119,13 +121,13 @@ function formHTML({ wp, pos, title, icon }) {
   const acc = pos && pos.acc != null ? `±${Math.round(pos.acc)} m` : '';
   return `<div class="wp-form" data-enter-scope>
     <div class="icon-grid">${grid}</div>
+    <div class="field"><span>Stato della fungaia</span><div class="tagrow" id="wp-stato">${STATI.map(([k, l]) => `<button type="button" class="tagc ${wp && wp.stato === k ? 'sel' : ''}" data-st="${k}">${l}</button>`).join('')}</div></div>
     <label class="field"><span>Titolo</span><input id="wp-title" data-noselect type="text" value="${esc(title)}" maxlength="80" autocomplete="off"></label>
     <label class="field"><span>Descrizione</span><textarea id="wp-desc" rows="2" maxlength="400" placeholder="Note, zona, quantità…">${esc(wp ? wp.desc : '')}</textarea></label>
-    <div class="field"><span>Stato della fungaia</span><div class="tagrow" id="wp-stato">${STATI.map(([k, l]) => `<button type="button" class="tagc ${wp && wp.stato === k ? 'sel' : ''}" data-st="${k}">${l}</button>`).join('')}</div></div>
-    <div class="field"><span>Habitat</span>${TAGS.map(([g, a]) => `<div class="tagrow"><small>${g}</small>${a.map((t) => `<button type="button" class="tagc ${wp && (wp.tags || []).includes(t) ? 'sel' : ''}" data-tag="${t}">${t}</button>`).join('')}</div>`).join('')}</div>
+    <div class="field"><span>Habitat</span>${TAGS.map(([g, a]) => `<div class="tagrow tagscroll"><small>${g}</small>${a.map((t) => `<button type="button" class="tagc ${wp && (wp.tags || []).includes(t) ? 'sel' : ''}" data-tag="${t}">${t}</button>`).join('')}</div>`).join('')}</div>
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
     <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
-    <button type="button" class="btn ghost" id="wp-voice">${ico('mic', 18)} Memo vocale (trascrive)</button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
+    <button type="button" class="btn" id="wp-voice" style="width:100%;border:2px solid #12372a;background:#fff;color:#12372a;font-weight:800;gap:12px;padding:12px 14px;justify-content:flex-start"><span style="width:38px;height:38px;border-radius:50%;background:#12372a;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none">${ico('mic', 22)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><b>Memo vocale</b><small style="font-weight:500;opacity:.75">Parla e trascrivo io, ideale sul campo</small></span></button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
     <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small>${wp ? `<div class="row gap" style="margin-top:8px"><button type="button" class="btn ghost grow" id="wp-here">Posizione attuale</button><button type="button" class="btn ghost grow" id="wp-pick">Sposta sulla mappa</button></div>` : ''}<button type="button" class="btn ghost" id="wp-exif" style="margin-top:8px">Posizione da una foto (GPS)</button><input type="file" accept="image/*" id="wp-exif-f" hidden></div>
     <div class="save-bar"><button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button></div>
   </div>`;
@@ -204,7 +206,7 @@ function wireForm(s, { wp, pos, onSave }) {
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         rec = null;
-        vb.innerHTML = `${ico('mic', 18)} Memo vocale (trascrive)`;
+        vb.innerHTML = voiceHtml(false);
         memo = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
         vo.textContent = 'Memo salvato. Trascrivo…';
         try {
@@ -225,7 +227,7 @@ function wireForm(s, { wp, pos, onSave }) {
         }
       };
       rec.start();
-      vb.innerHTML = `${ico('stop', 18)} Stop registrazione`;
+      vb.innerHTML = voiceHtml(true);
       vo.textContent = 'Parla ora (max 60 s)…';
       setTimeout(() => rec && rec.stop(), 60000);
     } catch {
@@ -327,14 +329,15 @@ export function openWaypoint(w) {
       ${w.stato || (w.tags || []).length ? `<p class="muted" style="margin:4px 0">${[w.stato ? STATI.find((x) => x[0] === w.stato)[1] : '', ...(w.tags || [])].filter(Boolean).join(' · ')}</p>` : ''}
       <p class="muted" id="wp-terr" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
-      <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small><button type="button" class="cb-view" data-a="view">${ico('map', 16)} Visualizza</button></div>
-      <div class="row gap wrap">
-        <button class="btn primary grow" data-a="go">${ico('nav', 18)} Vai</button>
-        <button class="btn ghost grow" data-a="share">${ico('share', 18)} Condividi</button>
+      <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>
+      <div class="row gap" style="margin:10px 0 8px">
+        <button class="btn primary grow" data-a="go" style="flex:1.3">${ico('nav', 18)} Vai</button>
+        <button class="btn grow" data-a="view" style="background:#e3eee5;color:#12372a">${ico('map', 18)} Sulla mappa</button>
       </div>
-      <div class="row gap wrap">
+      <div class="row gap">
+        <button class="btn ghost grow" data-a="share">${ico('share', 18)} Condividi</button>
         <button class="btn ghost grow" data-a="edit">${ico('edit', 18)} Modifica</button>
-        <button class="btn ghost grow danger-t" data-a="del">${ico('trash', 18)} Elimina</button>
+        <button class="btn ghost grow danger-t" data-a="del" aria-label="Elimina">${ico('trash', 18)}</button>
       </div></div>`,
   });
   if (navigator.onLine) getTerrain(w.lat, w.lon).then((t) => { const el = s.body.querySelector('#wp-terr'); if (el) el.textContent = terrainText(t); }).catch(() => {});

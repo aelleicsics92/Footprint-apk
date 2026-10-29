@@ -203,6 +203,7 @@ export function openPrices() {
         <div class="pr-mix" style="display:block;margin-top:8px"><b style="font-size:.86rem">Fonti confrontate</b></div>${srcs}
         <small class="muted">Media pesata: le fonti recenti contano di più, quelle molto distanti dalle altre pesano meno. I prezzi "al cavatore" (quello che incassa chi cerca) sono più bassi di quelli di mercato.</small></div>`;
     };
+    let calcG = '', calcS = '';
     const render = (data, liveState) => {
     const today = new Date().toISOString().slice(0, 10);
     const items = data.items.map((x) => ({ ...x, open: !windowState(today, (PROFILES[x.id] || {}).window).closed })).sort((a, b) => Number(b.open) - Number(a.open));
@@ -215,16 +216,20 @@ export function openPrices() {
           <small>Partita mista circa <b>${eur(x.mix)} €/kg</b></small>
           <div class="pr-t"><span class="badge ${x.open ? 'b-ok' : 'b-warn'}">${x.open ? 'Di stagione' : 'Fuori stagione'}</span> <span class="badge b-warn" style="background:#eef0f2;color:#445">${x.kind === 'cavatore' ? 'al cavatore' : x.kind === 'media' ? 'media delle fonti' : 'media di mercato'}</span></div>
           <small class="muted">Dato più recente del ${fmt(x.date)} · ${esc(x.src)}</small>
-          <div class="pr-more">${open === x.id ? tiers(x) : 'Tocca per vedere le pezzature'}</div></div></div>`).join('')}</div>
+          <div class="pr-more">${open === x.id ? tiers(x) : ''}<span class="pr-btn">${open === x.id ? 'Nascondi pezzature' : 'Vedi pezzature (I, II, III scelta)'} <b>${open === x.id ? '▴' : '▾'}</b></span></div></div></div>`).join('')}</div>
       <div class="card" style="margin:10px 14px"><h3>Quanto vale il mio raccolto?</h3>
         <div class="row gap"><select id="pc-s" class="grow">${items.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="pc-g" class="grow" type="number" inputmode="numeric" placeholder="grammi" onfocus="this.select()"></div>
-        <div id="pc-o" style="margin-top:8px;font-weight:700;font-size:1.05rem"></div></div>
+        <div id="pc-o" style="margin-top:10px"></div></div>
       <p class="muted" style="margin:6px 18px 18px;font-size:.78rem;line-height:1.5">${esc(data.note || '')} Sono medie nazionali indicative: calibro, qualità e zona cambiano il prezzo. Per vendere servono tesserino e documenti fiscali in regola.</p>`;
     const calc = () => {
       const it = items.find((x) => x.id === pg.body.querySelector('#pc-s').value), g = Number(pg.body.querySelector('#pc-g').value) || 0;
-      pg.body.querySelector('#pc-o').textContent = g && it ? `${eur((g / 1000) * it.min)}-${eur((g / 1000) * it.max)} € (mista: ${eur((g / 1000) * it.mix)} €)` : '';
+      const f2 = (v) => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      pg.body.querySelector('#pc-o').innerHTML = g && it ? `<div style="font-size:2.1rem;font-weight:800;color:#12372a;line-height:1.1">${f2((g / 1000) * it.mix)} €</div><div class="muted" style="font-size:.85rem;margin-top:2px">stima partita mista · da ${f2((g / 1000) * it.min)} a ${f2((g / 1000) * it.max)} €</div>` : '<div class="muted" style="font-size:.85rem">Scegli la specie e inserisci i grammi</div>';
+      calcG = pg.body.querySelector('#pc-g').value; calcS = pg.body.querySelector('#pc-s').value;
     };
     pg.body.querySelectorAll('[data-x]').forEach((c) => (c.onclick = () => { open = open === c.dataset.x ? null : c.dataset.x; render(data, liveState); }));
+    if (calcG) { pg.body.querySelector('#pc-g').value = calcG; if (calcS) pg.body.querySelector('#pc-s').value = calcS; }
+    calc();
     pg.body.querySelector('#pc-s').onchange = calc;
     pg.body.querySelector('#pc-g').oninput = calc;
     };

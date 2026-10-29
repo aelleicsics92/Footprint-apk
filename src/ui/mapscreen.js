@@ -13,6 +13,7 @@ import { getHeading, compassAlive } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
+import { CITIES } from '../data/cities.js';
 import { toGPX, shareFile, safeName, segments } from '../lib/gpsio.js';
 import { openSOS } from './sos.js';
 import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
@@ -193,6 +194,7 @@ export function mountMap(el) {
     if ((k === 'mapProfile' || k === 'fungiCal') && getSettings().showForecast) applyForecast();
   });
   bus.on('track:show', showTrack);
+  bus.on('map:download', () => openDownload());
   bus.on('track:follow', async ({ id, name }) => {
     const pts = await loadTrackPoints(id);
     followPts = pts.map((q) => [q[0], q[1]]);
@@ -513,22 +515,28 @@ function openLayers() {
   const sh = openSheet({
     title: 'Livelli mappa',
     body: `<div class="stack">
+      <div class="ly-sec">Visualizzazione e layer</div>
       <div class="row gap"><button class="btn primary grow" id="ly-3d">Mappa 3D</button><button class="btn ghost grow" id="ly-dl">Scarica offline</button></div>
       <div class="seg" style="margin:0 0 4px"><button data-b="sat" class="${s.baseLayer === 'sat' ? 'sel' : ''}">Satellite</button><button data-b="topo" class="${s.baseLayer === 'topo' ? 'sel' : ''}">Topografica</button></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Nomi di luoghi e monti</b><small>Paesi, città, cime e laghi sul satellite. Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-labels" ${s.showLabels !== false ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Sentieri e percorsi CAI</b><small>Percorsi segnati, mulattiere, sentieri escursionistici</small></div><label class="switch"><input type="checkbox" id="ly-trails" ${s.overlayTrails ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Waypoint</b><small>Mostra i punti salvati</small></div><label class="switch"><input type="checkbox" id="ly-wp" ${s.showWaypoints ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Radar e temporali</b><small>Pioggia e temporali: radar delle ultime 2 ore e previsione delle prossime ore. Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-storm" ${s.showStorm ? 'checked' : ''}><i></i></label></div>
+      <div class="ly-sec">Previsione e funghi</div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Previsione raccolta</b><small>Colora dove è più probabile trovare (meteo e habitat). Serve internet</small></div><label class="switch"><input type="checkbox" id="ly-fc" ${s.showForecast ? 'checked' : ''}><i></i></label></div>
-      <select id="ly-fcp" style="width:100%;margin:0 0 4px">${Object.entries(PROFILES).map(([k, p]) => `<option value="${k}" ${k === (s.mapProfile || 'autunnali') ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
+      <select id="ly-fcp" style="width:100%;margin:0 0 4px;${s.showForecast ? '' : 'display:none'}">${Object.entries(PROFILES).map(([k, p]) => `<option value="${k}" ${k === (s.mapProfile || 'autunnali') ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Mappa di calore</b><small>Aree verdi dove hai più ritrovamenti</small></div><label class="switch"><input type="checkbox" id="ly-heat" ${s.showHeat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone senza campo dati</b><small>Puntini rossi dove eri senza internet (stima, non misura il segnale voce)</small></div><label class="switch"><input type="checkbox" id="ly-cov" ${s.showNoSignal ? 'checked' : ''}><i></i></label></div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Zone battute oggi</b><small>Leggera nebbia su tutta la mappa che si dissolve entro 6 m da dove sei passato nelle ultime 24 ore</small></div><label class="switch"><input type="checkbox" id="ly-fog" ${s.showExplored ? 'checked' : ''}><i></i></label></div>
+      <div class="ly-sec">Filtri avanzati e quote</div>
       <div class="set-row" style="padding:6px 0"><div class="ti"><b>Fascia di quota</b><small>Colora di giallo solo le zone tra due altitudini (m)</small></div><label class="switch"><input type="checkbox" id="ly-alt" ${s.altOn ? 'checked' : ''}><i></i></label></div>
-      <div class="row gap"><input id="ly-amin" class="grow" type="number" inputmode="numeric" value="${s.altMin || 800}" onfocus="this.select()"><input id="ly-amax" class="grow" type="number" inputmode="numeric" value="${s.altMax || 1200}" onfocus="this.select()"></div>
+      <div class="row gap" id="ly-altbox" style="${s.altOn ? '' : 'display:none'}"><input id="ly-amin" class="grow" type="number" inputmode="numeric" value="${s.altMin || 800}" onfocus="this.select()"><input id="ly-amax" class="grow" type="number" inputmode="numeric" value="${s.altMax || 1200}" onfocus="this.select()"></div>
+      <div class="set-row" style="padding:6px 0"><div class="ti"><b>Filtra i waypoint</b><small>Per habitat, anno o mese</small></div><label class="switch"><input type="checkbox" id="ly-wf" ${s.wpTag || s.wpYear || s.wpMonth ? 'checked' : ''}><i></i></label></div>
+      <div id="ly-wfbox" style="display:${s.wpTag || s.wpYear || s.wpMonth ? 'block' : 'none'}">
       <div><b style="font-size:.95rem">Filtra per habitat</b><select id="ly-tag" style="width:100%;margin-top:4px"><option value="">Tutti i waypoint</option>${[...new Set(getWaypoints().flatMap((w) => w.tags || []))].sort().map((t) => `<option ${s.wpTag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
       <div><b style="font-size:.95rem">Ritrovamenti per periodo</b><small class="muted" style="display:block;margin-bottom:6px">Mostra solo i waypoint di un anno o mese (es. dove hai trovato porcini a ottobre)</small>
         <div class="row gap"><select id="ly-year" class="grow" onfocus="this.select&&this.select()">${yearOpts(s.wpYear)}</select><select id="ly-month" class="grow" onfocus="this.select&&this.select()">${monthOpts(s.wpMonth)}</select></div></div>
+      </div>
     </div>`,
   });
   sh.body.querySelectorAll('[data-b]').forEach(
@@ -551,12 +559,20 @@ function openLayers() {
     renderWaypoints();
   };
   sh.body.querySelector('#ly-cov').onchange = (e) => { setSetting('showNoSignal', e.target.checked); drawOverlays(); };
-  sh.body.querySelector('#ly-fc').onchange = (e) => { setSetting('showForecast', e.target.checked); applyForecast(); };
+  sh.body.querySelector('#ly-fc').onchange = (e) => { setSetting('showForecast', e.target.checked); sh.body.querySelector('#ly-fcp').style.display = e.target.checked ? '' : 'none'; applyForecast(); };
+  sh.body.querySelector('#ly-wf').onchange = (e) => {
+    sh.body.querySelector('#ly-wfbox').style.display = e.target.checked ? 'block' : 'none';
+    if (!e.target.checked) {
+      setSetting('wpTag', ''); setSetting('wpYear', ''); setSetting('wpMonth', 0);
+      sh.body.querySelector('#ly-tag').value = ''; sh.body.querySelector('#ly-year').value = ''; sh.body.querySelector('#ly-month').value = '0';
+      renderWaypoints();
+    }
+  };
   sh.body.querySelector('#ly-fcp').onchange = (e) => { setSetting('mapProfile', e.target.value); bus.emit('settings:changed', 'mapProfile'); };
   sh.body.querySelector('#ly-heat').onchange = (e) => { setSetting('showHeat', e.target.checked); drawOverlays(); };
   sh.body.querySelector('#ly-fog').onchange = (e) => { setSetting('showExplored', e.target.checked); drawOverlays(); };
   const alt = () => { setSetting('altOn', sh.body.querySelector('#ly-alt').checked); setSetting('altMin', Number(sh.body.querySelector('#ly-amin').value) || 0); setSetting('altMax', Number(sh.body.querySelector('#ly-amax').value) || 9000); applyAlt(); drawOverlays(); };
-  ['#ly-alt', '#ly-amin', '#ly-amax'].forEach((q) => (sh.body.querySelector(q).onchange = alt));
+  ['#ly-alt', '#ly-amin', '#ly-amax'].forEach((q) => (sh.body.querySelector(q).onchange = () => { sh.body.querySelector('#ly-altbox').style.display = sh.body.querySelector('#ly-alt').checked ? '' : 'none'; alt(); }));
   sh.body.querySelector('#ly-tag').onchange = (e) => { setSetting('wpTag', e.target.value); renderWaypoints(); };
   sh.body.querySelector('#ly-year').onchange = filt;
   sh.body.querySelector('#ly-month').onchange = filt;
@@ -577,7 +593,14 @@ function openDownload() {
   const cur = Math.round(map.getZoom());
   const s = getSettings();
   const now = new Date();
-  const defName = `Area ${now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} ${now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+  // nome automatico: località più vicina al centro dell'area + tipo di mappa
+  const cx = (bounds.north + bounds.south) / 2, cy = (bounds.east + bounds.west) / 2;
+  let place = '', pd = 1e9;
+  for (const c of CITIES) { const d = haversine({ lat: cx, lon: cy }, { lat: c[1], lon: c[2] }); if (d < pd) { pd = d; place = c[0]; } }
+  if (pd > 60000) place = `Area ${now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}`;
+  const SRC = { sat: 'Satellite', topo: 'Topo', trails: 'Sentieri' };
+  const autoName = (srcs) => `${place} - ${(srcs.filter((x) => x !== 'trails')[0] ? SRC[srcs.filter((x) => x !== 'trails')[0]] : 'Sentieri')}`;
+  const defName = autoName([s.baseLayer === 'topo' ? 'topo' : 'sat']);
   const sh = openSheet({
     title: 'Scarica mappa offline',
     full: true,
@@ -611,7 +634,9 @@ function openDownload() {
       : `<b>${total.toLocaleString('it-IT')}</b> tile · circa <b>${fmtMB(mb)}</b> · zoom ${zmin()}–${zmax}`;
     q('#dl-go').disabled = big || !srcs.length;
   };
-  sh.body.querySelectorAll('[data-s]').forEach((c) => (c.onclick = () => (c.classList.toggle('sel'), upd())));
+  let nameEdited = false;
+  q('#dl-name').oninput = () => (nameEdited = true);
+  sh.body.querySelectorAll('[data-s]').forEach((c) => (c.onclick = () => { c.classList.toggle('sel'); if (!nameEdited) q('#dl-name').value = autoName(srcSel()); upd(); }));
   q('#dl-z').oninput = upd;
   upd();
   q('#dl-go').onclick = async () => {

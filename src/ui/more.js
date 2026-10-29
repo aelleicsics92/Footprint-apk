@@ -5,7 +5,7 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid } from '../lib/util.js';
 import { openPage, openSheet, toast, confirmBox, leavePages } from '../lib/ui.js';
-import { getSettings, setSetting, apiKey } from '../lib/store.js';
+import { getSettings, setSetting, apiKey, kvGet, kvSet } from '../lib/store.js';
 import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
@@ -92,16 +92,63 @@ function openTracks() {
         ? `<div class="list">${t
             .map(
               (x) =>
-                `<button class="item" data-id="${x.id}"><span class="lead">${ico('route', 22)}</span><div class="ti"><b>${esc(x.name)}</b><small>${fmtDate(x.start)} · ${fmtDist(x.dist)} · ${fmtDur(x.dur)} · +${Math.round(x.up)} m</small></div></button>`
+                `<button class="item" data-id="${x.id}"><span class="lead trk-th" data-th="${x.id}" style="width:54px;height:54px;border-radius:12px;background:#f6f2e6;display:flex;align-items:center;justify-content:center;overflow:hidden">${ico('route', 22)}</span><div class="ti"><b>${esc(x.name)}</b><small>${fmtDate(x.start)} · ${fmtDist(x.dist)} · ${fmtDur(x.dur)} · +${Math.round(x.up)} m</small></div></button>`
             )
             .join('')}</div>`
         : `<div class="empty">${ico('route', 40)}<p>Nessuna traccia salvata.<br>Attiva la registrazione in Impostazioni oppure importa un file GPX.</p></div>`;
-      pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => trackSheet(t.find((x) => x.id === b.dataset.id), pg)));
+      pg.body.querySelectorAll('[data-id]').forEach((b) => {
+        let lp = null, fired = false;
+        const id = b.dataset.id;
+        b.onclick = () => { if (fired) { fired = false; return; } trackSheet(t.find((x) => x.id === id), pg); };
+        b.addEventListener('touchstart', () => { fired = false; lp = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(20); } catch {} renameSheet(t.find((x) => x.id === id)); }, 550); }, { passive: true });
+        ['touchend', 'touchmove', 'touchcancel'].forEach((ev) => b.addEventListener(ev, () => clearTimeout(lp), { passive: true }));
+        b.oncontextmenu = (e) => { e.preventDefault(); };
+      });
+      thumbs(pg, t);
     };
     draw();
     const off = bus.on('tracks:changed', draw);
     pg.onClose = off;
   });
+}
+
+// miniature: tracciato semplificato in verde scuro su crema, calcolate una volta e salvate
+function thumbSvg(pts) {
+  const segs = [];
+  for (const p of pts) { if (!segs.length || p[4] === 1) segs.push([]); segs[segs.length - 1].push(p); }
+  const all = pts, la = all.map((p) => p[0]), lo = all.map((p) => p[1]);
+  const mnLa = Math.min(...la), mxLa = Math.max(...la), mnLo = Math.min(...lo), mxLo = Math.max(...lo);
+  const k = Math.cos(((mnLa + mxLa) / 2) * Math.PI / 180);
+  const w = Math.max((mxLo - mnLo) * k, 1e-6), h = Math.max(mxLa - mnLa, 1e-6), sc = 40 / Math.max(w, h);
+  const ox = (48 - w * sc) / 2, oy = (48 - h * sc) / 2;
+  const step = Math.max(1, Math.ceil(all.length / 70));
+  const d = segs.map((sg) => sg.filter((_, i) => i % step === 0 || i === sg.length - 1).map((p, i) => `${i ? 'L' : 'M'}${(ox + (p[1] - mnLo) * k * sc).toFixed(1)},${(oy + (mxLa - p[0]) * sc).toFixed(1)}`).join('')).join('');
+  return `<svg viewBox="0 0 48 48" width="54" height="54"><path d="${d}" fill="none" stroke="#12372a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+async function thumbs(pg, list) {
+  for (const x of list) {
+    const el = pg.body.querySelector(`[data-th="${x.id}"]`);
+    if (!el) continue;
+    try {
+      let sv = await kvGet('thumb:' + x.id);
+      if (!sv) {
+        const pts = await loadTrackPoints(x.id);
+        if (pts.length < 2) continue;
+        sv = thumbSvg(pts);
+        kvSet('thumb:' + x.id, sv);
+      }
+      const e2 = pg.body.querySelector(`[data-th="${x.id}"]`);
+      if (e2) e2.innerHTML = sv;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 0));
+  }
+}
+function renameSheet(t) {
+  if (!t) return;
+  const s = openSheet({ title: 'Modifica nome', body: `<label class="field"><span>Nome della traccia</span><input id="rn-n" type="text" maxlength="80" value="${esc(t.name)}" onfocus="this.select()"></label><button class="btn primary big" id="rn-s">${ico('check', 18)} Salva nome</button>` });
+  const go = async () => { await renameTrack(t.id, s.body.querySelector('#rn-n').value.trim() || t.name); s.close(); toast('Salvato'); };
+  s.body.querySelector('#rn-s').onclick = go;
+  s.body.querySelector('#rn-n').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
 }
 
 function trackSheet(t, pg) {
@@ -112,7 +159,7 @@ function trackSheet(t, pg) {
       <div id="t-prof"></div>
       <p class="muted" style="margin:4px 0 8px;font-size:.88rem">${fmtDate(t.start)}${t.maxAlt != null ? ` · quota ${Math.round(t.minAlt)}–${Math.round(t.maxAlt)} m` : ''}</p>
       <div class="row gap wrap"><button class="btn primary grow" id="t-show">${ico('map', 18)} Mostra sulla mappa</button><button class="btn ghost grow" id="t-share">${ico('share', 18)} Condividi GPX</button></div>
-      <div class="row gap wrap" style="margin-top:8px"><button class="btn ghost grow" id="t-follow">${ico('route', 18)} Segui con avviso fuori traccia</button></div>
+      <button class="btn big" id="t-follow" style="width:100%;margin-top:10px;background:#eef6ee;color:#12372a;border:2px solid #2e7d4f;justify-content:flex-start;gap:12px;padding:14px 16px;text-align:left"><span style="color:#2e7d4f;display:inline-flex">${ico('route', 26)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25"><b>Segui con avviso fuori traccia</b><small style="font-weight:500;opacity:.8">Ti avviso se ti allontani dal percorso</small></span></button>
       <label class="field"><span>Rinomina</span><input id="t-name" type="text" value="${esc(t.name)}" maxlength="80"></label>
       <div class="row gap"><button class="btn ghost grow danger-t" id="t-del">${ico('trash', 18)} Elimina</button><button class="btn primary grow" data-primary id="t-save">${ico('check', 18)} Salva nome</button></div></div>`,
   });
@@ -160,10 +207,13 @@ function openWaypointList() {
   openPage(
     'I miei waypoint',
     (pg) => {
-      let q = '';
+      let q = '', cat = 'all';
+      const CATS = { porcini: ['porcino', 'regius', 'pinaiolo', 'pinarolo'], tartufi: ['scorzone', 'uncinato', 'bianco', 'bianchetto', 'nero'], utility: ['parcheggio', 'acqua', 'pericolo', 'panorama', 'orma'] };
+      const inCat = (w) => cat === 'all' || (cat === 'altri' ? ![...CATS.porcini, ...CATS.tartufi, ...CATS.utility].includes(w.icon) : CATS[cat].includes(w.icon));
       const draw = () => {
         const s = q.trim().toLowerCase();
-        const list = getWaypoints().filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s) || wpIcon(w.icon).label.toLowerCase().includes(s) || (w.tags || []).some((t) => t.toLowerCase().includes(s))).sort((a, b) => b.ts - a.ts);
+        pg.body.querySelectorAll('[data-cat]').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
+        const list = getWaypoints().filter(inCat).filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s) || wpIcon(w.icon).label.toLowerCase().includes(s) || (w.tags || []).some((t) => t.toLowerCase().includes(s))).sort((a, b) => b.ts - a.ts);
         pg.body.querySelector('#wl').innerHTML = list.length
           ? list
               .map((w) => `<button class="item" data-id="${w.id}"><span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
@@ -171,17 +221,30 @@ function openWaypointList() {
           : `<div class="empty">${ico('pinplus', 40)}<p>Nessun waypoint.<br>Usa il pulsante sulla mappa per salvarne uno.</p></div>`;
         pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => openWaypoint(getWaypoints().find((w) => w.id === b.dataset.id))));
       };
-      pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div><div class="list" id="wl"></div>`;
+      pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
+        <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="list" id="wl"></div>`;
+      pg.body.querySelectorAll('[data-cat]').forEach((c) => (c.onclick = () => { cat = c.dataset.cat; draw(); }));
       pg.body.querySelector('#wq').oninput = (e) => ((q = e.target.value), draw());
       draw();
       const off = bus.on('wp:changed', draw);
       pg.onClose = off;
     },
     {
-      actions: `<button class="icon-btn" id="wl-share" aria-label="Esporta waypoint">${ico('share', 22)}</button>`,
+      actions: `<button class="icon-btn" id="wl-map" aria-label="Vedi sulla mappa">${ico('map', 22)}</button><button class="icon-btn" id="wl-share" aria-label="Esporta waypoint">${ico('share', 22)}</button>`,
     }
   );
   setTimeout(() => {
+    const mb = document.querySelector('#wl-map');
+    if (mb) mb.onclick = () => {
+      const w = getWaypoints().filter((x) => x.lat != null);
+      if (!w.length) return toast('Nessun waypoint da mostrare');
+      setSetting('showWaypoints', true);
+      leavePages();
+      bus.emit('nav:tab', 'map');
+      bus.emit('settings:changed', 'showWaypoints');
+      const la = w.map((x) => x.lat), lo = w.map((x) => x.lon);
+      bus.emit('map:fit', { north: Math.max(...la) + 0.002, south: Math.min(...la) - 0.002, east: Math.max(...lo) + 0.002, west: Math.min(...lo) - 0.002 });
+    };
     const b = document.querySelector('#wl-share');
     if (b)
       b.onclick = async () => {
@@ -244,11 +307,13 @@ function openOffline() {
             ? `<div class="list">${areas
                 .map(
                   (a) =>
-                    `<div class="item" style="cursor:default"><span class="lead">${ico('map', 22)}</span><div class="ti"><b>${esc(a.name)}</b><small>${fmtMB(a.bytes)} · zoom ${a.zmin}-${a.zmax} · ${a.sources.map((s) => ({ sat: 'Satellite', topo: 'Topo', trails: 'Sentieri' }[s])).join(', ')}</small></div><button class="icon-btn" data-go="${a.id}" aria-label="Vai">${ico('nav', 20)}</button><button class="icon-btn" data-del="${a.id}" aria-label="Elimina" style="color:var(--danger)">${ico('trash', 20)}</button></div>`
+                    `<div class="item" style="cursor:default"><span class="lead">${ico('map', 22)}</span><div class="ti"><b>${esc(a.name)}</b><small>${fmtMB(a.bytes)} · zoom ${a.zmin}-${a.zmax} · ${a.sources.map((s) => ({ sat: 'Satellite', topo: 'Topo', trails: 'Sentieri' }[s])).join(', ')}</small></div><div style="display:flex;gap:26px;align-items:center;margin-left:8px"><button class="icon-btn" data-go="${a.id}" aria-label="Vai">${ico('nav', 20)}</button><button class="icon-btn" data-del="${a.id}" aria-label="Elimina" style="color:var(--danger)">${ico('trash', 20)}</button></div></div>`
                 )
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
+      pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Scarica nuova zona dalla mappa</button></div>`);
+      pg.body.querySelector('#off-new').onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('map:download'), 250); };
       drawCoverage(pg.body.querySelector('#cov-it'), areas);
       pg.body.querySelectorAll('[data-cancel]').forEach((b) => (b.onclick = () => cancelDownload(b.dataset.cancel)));
       pg.body.querySelectorAll('[data-del]').forEach(

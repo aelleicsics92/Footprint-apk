@@ -60,6 +60,7 @@ export async function deleteTrack(id) {
   tracks = tracks.filter((t) => t.id !== id);
   await kvSet('tracks:index', tracks);
   await kvDel('track:' + id);
+  try { await kvDel('thumb:' + id); } catch {}
   bus.emit('tracks:changed');
 }
 
