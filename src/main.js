@@ -14,7 +14,7 @@ import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
 import { loadWaypoints, quickWaypoint, importQuick } from './lib/waypoints.js';
-import { loadTracks, startRecording, stopRecording, pendingRecovery, recoverSave, discardRecovery, getRec } from './lib/track.js';
+import { loadTracks, startRecording, stopRecording, pendingRecovery, nativeActive, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
 import { mountMap, invalidate } from './ui/mapscreen.js';
 import { mountCompass } from './ui/compassscreen.js';
@@ -126,7 +126,7 @@ async function recover() {
   if (cur) {
     // ripresa automatica: nessuna domanda, la traccia continua da dove era
     const gap = Math.max(0, Date.now() - (cur.savedAt || cur.points[cur.points.length - 1][3] || Date.now()));
-    await startRecording({ id: cur.id, name: cur.name, start: cur.start, points: cur.points, dist: cur.dist, up: cur.up, down: cur.down, paused: (cur.paused || 0) + (gap > 30 * 60000 ? gap : 0), lastAlt: cur.lastAlt });
+    await startRecording({ id: cur.id, name: cur.name, start: cur.start, points: cur.points, dist: cur.dist, up: cur.up, down: cur.down, paused: (cur.paused || 0) + (gap > 30 * 60000 && !(await nativeActive()) ? gap : 0), lastAlt: cur.lastAlt });
     toast(`Registrazione ripresa (${fmtDist(cur.dist || 0)})`);
     return;
   }

@@ -11,7 +11,13 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(IntentFilesPlugin.class);
         super.onCreate(savedInstanceState);
         IntentFilesPlugin.collect(this, getIntent());
-        if (getIntent() != null && getIntent().hasExtra("fp_action")) IntentFilesPlugin.action = getIntent().getStringExtra("fp_action");
+        Intent in = getIntent();
+        // niente replay dell'azione se l'activity viene ricreata dal sistema o riaperta dalla cronologia
+        boolean replay = savedInstanceState != null || (in != null && (in.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0);
+        if (in != null && in.hasExtra("fp_action")) {
+            if (!replay) IntentFilesPlugin.action = in.getStringExtra("fp_action");
+            in.removeExtra("fp_action");
+        }
     }
 
     @Override
@@ -29,7 +35,7 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         IntentFilesPlugin.collect(this, intent);
-        if (intent != null && intent.hasExtra("fp_action")) IntentFilesPlugin.action = intent.getStringExtra("fp_action");
+        if (intent != null && intent.hasExtra("fp_action")) { IntentFilesPlugin.action = intent.getStringExtra("fp_action"); intent.removeExtra("fp_action"); }
         try {
             PluginHandle h = getBridge().getPlugin("IntentFiles");
             if (h != null) ((IntentFilesPlugin) h.getInstance()).deliver();

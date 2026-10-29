@@ -1,10 +1,38 @@
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { kvGet, kvSet, kvDel } from './store.js';
 import { bus, haversine, uid, fmtDate } from './util.js';
 import { isNative, lastPos, ensurePermission, getOnce } from './geo.js';
 import { buildTrack } from './gpsio.js';
 
 const BG = registerPlugin('BackgroundGeolocation');
+const IF = () => (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
+
+// Punti scritti dal servizio nativo (continua anche se l'app viene chiusa dal sistema)
+export async function mergeNative() {
+  if (!isNative() || rec.status !== 'rec') return 0;
+  try {
+    const r = await IF().recRead();
+    let n = 0;
+    for (const q of r.points || []) {
+      const ts = q[3];
+      const last = rec.points[rec.points.length - 1];
+      if (last && ts <= last[3]) continue;
+      if (last) {
+        const d = haversine({ lat: last[0], lon: last[1] }, { lat: q[0], lon: q[1] });
+        if (d < 4) continue;
+        rec.dist += d;
+        if (q[2] != null && last[2] != null && Math.abs(q[2] - last[2]) >= 4) { if (q[2] > last[2]) rec.up += q[2] - last[2]; else rec.down += last[2] - q[2]; }
+      }
+      rec.points.push([q[0], q[1], q[2], ts]);
+      n++;
+    }
+    if (n) { persistCurrent(); bus.emit('rec:point', rec.points[rec.points.length - 1]); }
+    return n;
+  } catch { return 0; }
+}
+export async function nativeActive() {
+  try { return !!(isNative() && (await IF().recRead()).active); } catch { return false; }
+}
 
 const rec = { status: 'idle', id: null, name: '', start: 0, points: [], dist: 0, up: 0, down: 0, paused: 0, pauseAt: 0, lastAlt: null };
 let watcherId = null;
@@ -82,6 +110,17 @@ export async function startRecording(resume = null) {
   if (p) accept(p);
   if (isNative()) {
     try {
+      if (!resume) await IF().recClear();
+      await IF().recStart();
+      try {
+        if (!localStorage.getItem('fp.batAsked')) {
+          const b = await IF().batteryStatus();
+          if (!b.ignoring) { localStorage.setItem('fp.batAsked', '1'); IF().requestBatteryExemption(); }
+        }
+      } catch {}
+      if (resume) await mergeNative();
+    } catch (e) { console.warn('recService', e); }
+    try {
       watcherId = await BG.addWatcher(
         { backgroundTitle: 'Footprint: registrazione traccia', backgroundMessage: 'La traccia GPS è in registrazione', requestPermissions: true, stale: false, distanceFilter: 3 },
         (loc, err) => {
@@ -97,13 +136,15 @@ export async function startRecording(resume = null) {
     unsubPos = bus.on('pos', accept);
   }
   clearInterval(tickT);
-  tickT = setInterval(() => bus.emit('rec:tick'), 1000);
+  let tk = 0;
+  tickT = setInterval(() => { bus.emit('rec:tick'); if (++tk % 20 === 0 && rec.status === 'rec') mergeNative(); }, 1000);
   persistCurrent();
   bus.emit('rec:state');
 }
 
 async function stopWatching() {
   clearInterval(tickT);
+  if (isNative()) { try { await mergeNative(); await IF().recStop(); await IF().recClear(); } catch {} }
   if (unsubPos) unsubPos(), (unsubPos = null);
   if (watcherId != null) {
     try {
@@ -146,7 +187,7 @@ export async function stopRecording({ save = true } = {}) {
 }
 
 export async function pendingRecovery() {
-  const cur = await kvGet('rec:current');
+  let cur = await kvGet('rec:current');
   return cur && cur.points && cur.points.length > 1 && rec.status === 'idle' ? cur : null;
 }
 export async function recoverSave(cur) {
@@ -164,6 +205,7 @@ try {
     if (rec.status === 'idle') return;
     if (document.hidden) persistCurrent();
     else if (rec.status === 'rec') {
+      await mergeNative();
       try { accept(await getOnce(8000)); } catch {}
     }
   });

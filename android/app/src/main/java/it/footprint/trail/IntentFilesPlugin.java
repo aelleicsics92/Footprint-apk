@@ -102,6 +102,31 @@ public class IntentFilesPlugin extends Plugin {
     public static volatile String action = null;
 
     @PluginMethod
+    public void recStart(PluginCall call) {
+        try { RecService.start(getContext()); call.resolve(); } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+
+    @PluginMethod
+    public void recStop(PluginCall call) {
+        RecService.stop(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void recRead(PluginCall call) {
+        JSObject r = new JSObject();
+        try { r.put("points", new JSArray(RecService.read(getContext()))); } catch (Exception e) { r.put("points", new JSArray()); }
+        r.put("active", getContext().getSharedPreferences(RecService.PREFS, Context.MODE_PRIVATE).getBoolean("active", false));
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void recClear(PluginCall call) {
+        try { RecService.logFile(getContext()).delete(); } catch (Exception ignore) {}
+        call.resolve();
+    }
+
+    @PluginMethod
     public void takeQuick(PluginCall call) {
         JSObject r = new JSObject();
         try { r.put("items", new JSArray(QuickSave.take(getContext()))); } catch (Exception e) { r.put("items", new JSArray()); }
