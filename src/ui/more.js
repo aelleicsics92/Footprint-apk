@@ -47,7 +47,7 @@ export function mountMore(el) {
       ['mushroom', 'Previsione raccolta', 'Indice funghi e tartufi, pioggia', () => bus.emit('nav:tab', 'fungi')],
       ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
       ['sparkle', 'Footprint Wrapped', wrappedAvailable() ? 'Il riepilogo della tua stagione è pronto' : 'Riepilogo della stagione a storie', () => import('./wrapped.js').then((m) => m.openWrapped(new Date().getFullYear()))],
-      ['sparkle', 'Prezzi tartufo', 'Quotazioni aggiornate al cavatore', openPrices],
+      ['euro', 'Prezzi tartufo', 'Quotazioni aggiornate al cavatore', openPrices],
       ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
     ]],
     ['I MIEI DATI E MAPPE', [
