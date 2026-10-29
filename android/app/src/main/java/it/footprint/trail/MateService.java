@@ -35,6 +35,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Radar compagni offline: emette (a basso consumo) la presenza del gruppo e, su richiesta, scambia le coordinate via Nearby Connections. */
@@ -46,9 +49,10 @@ public class MateService extends Service {
     static volatile MateService inst;
 
     private ConnectionsClient cc;
-    private String key = "", keyHash = "", tag = "", myName = "Io";
+    private static class G { String key, hash, tag, name; }
+    private final List<G> groups = new ArrayList<>();
     private final Handler h = new Handler(Looper.getMainLooper());
-    private final Map<String, String> names = new HashMap<>();
+    private final Map<String, List<String>> common = new HashMap<>();
     private final Map<String, Long> reqAt = new HashMap<>();
     private boolean advertising = false;
 
@@ -63,8 +67,8 @@ public class MateService extends Service {
         } catch (Exception e) { return s; }
     }
 
-    static void start(Context c, String key, String name) {
-        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("active", true).putString("key", key).putString("name", name).apply();
+    static void start(Context c, String groupsJson) {
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("active", true).putString("groups", groupsJson).apply();
         Intent i = new Intent(c, MateService.class);
         if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i); else c.startService(i);
     }
@@ -85,14 +89,25 @@ public class MateService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         SharedPreferences sp = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         if (!sp.getBoolean("active", false)) { stopSelf(); return START_NOT_STICKY; }
-        key = sp.getString("key", "");
-        myName = sp.getString("name", "Io");
-        if (key.isEmpty()) { stopSelf(); return START_NOT_STICKY; }
-        keyHash = sha(key);
-        tag = keyHash.substring(0, 8);
+        groups.clear();
+        try {
+            JSONArray arr = new JSONArray(sp.getString("groups", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                G g = new G();
+                g.key = o.getString("key");
+                g.name = o.optString("name", "Io");
+                g.hash = sha(g.key);
+                g.tag = g.hash.substring(0, 6);
+                groups.add(g);
+            }
+        } catch (Exception ignore) {}
+        if (groups.isEmpty()) { stopSelf(); return START_NOT_STICKY; }
         inst = this;
         try { notifyFg(); } catch (Exception e) { stopSelf(); return START_NOT_STICKY; }
         cc = Nearby.getConnectionsClient(this);
+        try { cc.stopAdvertising(); } catch (Exception ignore) {}
+        advertising = false;
         startAdv();
         return START_STICKY;
     }
@@ -112,7 +127,23 @@ public class MateService extends Service {
         } else startForeground(7702, n);
     }
 
-    private String advName() { return tag + "|" + myName; }
+    private String advName() {
+        StringBuilder sb = new StringBuilder();
+        for (G g : groups) { if (sb.length() > 0) sb.append(','); sb.append(g.tag); }
+        return sb.append('|').toString();
+    }
+
+    // gruppi in comune con un endpoint (nome = "tag1,tag2|")
+    private List<String> commonTags(String endpointName) {
+        List<String> out = new ArrayList<>();
+        if (endpointName == null) return out;
+        int i = endpointName.indexOf('|');
+        if (i < 0) return out;
+        for (String t : endpointName.substring(0, i).split(",")) {
+            for (G g : groups) if (g.tag.equals(t) && !out.contains(t)) out.add(t);
+        }
+        return out;
+    }
 
     private void startAdv() {
         if (advertising || cc == null) return;
@@ -146,8 +177,7 @@ public class MateService extends Service {
 
     private final EndpointDiscoveryCallback disc = new EndpointDiscoveryCallback() {
         @Override public void onEndpointFound(String id, DiscoveredEndpointInfo info) {
-            String n = info.getEndpointName();
-            if (n == null || !n.startsWith(tag + "|")) return;
+            if (commonTags(info.getEndpointName()).isEmpty()) return;
             long now = System.currentTimeMillis();
             Long last = reqAt.get(id);
             if (last != null && now - last < 15000) return;
@@ -159,9 +189,9 @@ public class MateService extends Service {
 
     private final ConnectionLifecycleCallback life = new ConnectionLifecycleCallback() {
         @Override public void onConnectionInitiated(String id, ConnectionInfo info) {
-            String n = info.getEndpointName();
-            if (n == null || !n.startsWith(tag + "|")) { cc.rejectConnection(id); return; }
-            names.put(id, n.substring(n.indexOf('|') + 1));
+            List<String> c = commonTags(info.getEndpointName());
+            if (c.isEmpty()) { cc.rejectConnection(id); return; }
+            common.put(id, c);
             cc.acceptConnection(id, pay);
         }
         @Override public void onConnectionResult(String id, ConnectionResolution r) {
@@ -170,7 +200,7 @@ public class MateService extends Service {
                 h.postDelayed(() -> { try { cc.disconnectFromEndpoint(id); } catch (Exception ignore) {} }, 6000);
             }
         }
-        @Override public void onDisconnected(String id) { names.remove(id); }
+        @Override public void onDisconnected(String id) { common.remove(id); }
     };
 
     private final PayloadCallback pay = new PayloadCallback() {
@@ -179,10 +209,13 @@ public class MateService extends Service {
                 byte[] b = p.asBytes();
                 if (b == null) return;
                 JSONObject j = new JSONObject(new String(b, StandardCharsets.UTF_8));
-                if (!keyHash.equals(j.optString("k"))) { cc.disconnectFromEndpoint(id); return; }
-                String name = j.optString("n", names.containsKey(id) ? names.get(id) : "Compagno");
+                G gr = null;
+                for (G g : groups) if (g.hash.equals(j.optString("k"))) gr = g;
+                if (gr == null) return;
+                String name = j.optString("n", "Compagno");
                 JSONObject m = new JSONObject();
                 m.put("name", name);
+                m.put("gkey", gr.key);
                 m.put("lat", j.getDouble("lat"));
                 m.put("lon", j.getDouble("lon"));
                 m.put("alt", j.opt("alt"));
@@ -190,10 +223,11 @@ public class MateService extends Service {
                 m.put("rx", System.currentTimeMillis());
                 SharedPreferences sp = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                 JSONObject all = new JSONObject(sp.getString("mates", "{}"));
-                all.put(name, m);
+                all.put(gr.key + ":" + name, m);
                 sp.edit().putString("mates", all.toString()).apply();
                 JSObject ev = new JSObject();
                 ev.put("name", name);
+                ev.put("gkey", gr.key);
                 ev.put("lat", m.getDouble("lat"));
                 ev.put("lon", m.getDouble("lon"));
                 ev.put("t", m.getLong("t"));
@@ -204,17 +238,22 @@ public class MateService extends Service {
     };
 
     private void sendPos(String id) {
+        final List<String> tags = common.get(id);
+        if (tags == null) return;
         withLoc(l -> {
             try {
                 if (l == null) return;
-                JSONObject j = new JSONObject();
-                j.put("k", keyHash);
-                j.put("n", myName);
-                j.put("lat", l.getLatitude());
-                j.put("lon", l.getLongitude());
-                if (l.hasAltitude()) j.put("alt", l.getAltitude());
-                j.put("t", l.getTime() > 0 ? l.getTime() : System.currentTimeMillis());
-                cc.sendPayload(id, Payload.fromBytes(j.toString().getBytes(StandardCharsets.UTF_8)));
+                for (G g : groups) {
+                    if (!tags.contains(g.tag)) continue;
+                    JSONObject j = new JSONObject();
+                    j.put("k", g.hash);
+                    j.put("n", g.name);
+                    j.put("lat", l.getLatitude());
+                    j.put("lon", l.getLongitude());
+                    if (l.hasAltitude()) j.put("alt", l.getAltitude());
+                    j.put("t", l.getTime() > 0 ? l.getTime() : System.currentTimeMillis());
+                    cc.sendPayload(id, Payload.fromBytes(j.toString().getBytes(StandardCharsets.UTF_8)));
+                }
             } catch (Exception ignore) {}
         });
     }

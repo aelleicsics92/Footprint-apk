@@ -65,7 +65,7 @@ public class IntentFilesPlugin extends Plugin {
     @PluginMethod
     public void mateStart(PluginCall call) {
         if (!matePermsOk()) { call.reject("perms"); return; }
-        try { MateService.start(getContext(), call.getString("key", ""), call.getString("name", "Io")); call.resolve(); } catch (Exception e) { call.reject(String.valueOf(e)); }
+        try { MateService.start(getContext(), call.getString("groups", "[]")); call.resolve(); } catch (Exception e) { call.reject(String.valueOf(e)); }
     }
 
     @PluginMethod

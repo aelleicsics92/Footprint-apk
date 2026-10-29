@@ -1,4 +1,4 @@
-// Radar compagni offline (Nearby Connections): gruppo con chiave segreta, visibilità on/off, ricerca su richiesta
+// Radar compagni offline (Nearby Connections): più gruppi, ognuno con etichetta, nome tuo e interruttore on/off
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { lsGet, lsSet } from './store.js';
 import { bus } from './util.js';
@@ -7,29 +7,39 @@ const IF = () => (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registe
 const native = () => Capacitor.isNativePlatform();
 const AL = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-export const getGroup = () => lsGet('fp.mategroup', null);
-export const isVisible = () => lsGet('fp.mateVisible', true);
+// gruppi: [{ key, label, name, on }]; migrazione dal vecchio gruppo singolo
+export function getGroups() {
+  let g = lsGet('fp.mategroups', null);
+  if (g) return g;
+  g = [];
+  const old = lsGet('fp.mategroup', null);
+  if (old && old.key) g.push({ key: old.key, label: old.label || '', name: old.name || 'Io', on: lsGet('fp.mateVisible', true) !== false });
+  lsSet('fp.mategroups', g);
+  return g;
+}
+const save = (g) => lsSet('fp.mategroups', g);
 
 export function createGroup(name, label = '') {
   const a = new Uint8Array(8);
   crypto.getRandomValues(a);
   const key = Array.from(a, (x) => AL[x % AL.length]).join('');
-  lsSet('fp.mategroup', { key, name: name || 'Io', label });
+  save([...getGroups(), { key, label, name: name || 'Io', on: true }]);
   return key;
 }
 export function joinGroup(code, name, label = '') {
   const key = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (key.length < 6) return false;
-  lsSet('fp.mategroup', { key, name: name || 'Io', label });
+  const g = getGroups();
+  if (g.some((x) => x.key === key)) return 'dup';
+  save([...g, { key, label, name: name || 'Io', on: true }]);
   return true;
 }
-export function setLabel(label) {
-  const g = getGroup();
-  if (g) lsSet('fp.mategroup', { ...g, label: String(label).trim().slice(0, 30) });
+export function updateGroup(key, patch) {
+  save(getGroups().map((g) => (g.key === key ? { ...g, ...patch } : g)));
 }
-export async function leaveGroup() {
-  lsSet('fp.mategroup', null);
-  try { await IF().mateStop(); } catch {}
+export function removeGroup(key) {
+  save(getGroups().filter((g) => g.key !== key));
+  lsSet('fp.mates', lsGet('fp.mates', []).filter((m) => m.gkey !== key));
 }
 
 async function ensurePerms() {
@@ -43,31 +53,22 @@ async function ensurePerms() {
   return false;
 }
 
-// avvio silenzioso all'apertura (senza chiedere permessi)
-export async function startIfNeeded(ask = false) {
+// allinea il servizio nativo ai gruppi accesi (nessuno acceso = servizio spento, niente batteria)
+export async function syncService(ask = false) {
   if (!native()) return false;
-  const g = getGroup();
-  if (!g || !isVisible()) return false;
+  const on = getGroups().filter((g) => g.on);
   try {
+    if (!on.length) { await IF().mateStop(); return true; }
     const st = await IF().mateRead();
     if (!st.perms && !(ask && (await ensurePerms()))) return false;
-    if (!st.running) await IF().mateStart({ key: g.key, name: g.name });
+    await IF().mateStart({ groups: JSON.stringify(on.map((g) => ({ key: g.key, name: g.name }))) });
     return true;
   } catch { return false; }
 }
-export async function setVisible(v) {
-  lsSet('fp.mateVisible', !!v);
-  if (!native()) return true;
-  if (v) return startIfNeeded(true);
-  try { await IF().mateStop(); } catch {}
-  return true;
-}
 export async function search(seconds = 90) {
   if (!native()) return 'web';
-  const g = getGroup();
-  if (!g) return 'nogroup';
-  if (!(await startIfNeeded(true))) return 'perms';
-  // il servizio parte in modo asincrono: aspetto che sia attivo
+  if (!getGroups().some((g) => g.on)) return 'nogroup';
+  if (!(await syncService(true))) return 'perms';
   for (let i = 0; i < 10; i++) {
     if ((await IF().mateRead()).running) break;
     await new Promise((r) => setTimeout(r, 400));
@@ -76,16 +77,18 @@ export async function search(seconds = 90) {
 }
 
 function store(m) {
-  const list = lsGet('fp.mates', []).filter((x) => x.name !== m.name);
-  list.push({ name: m.name, lat: m.lat, lon: m.lon, ts: m.t || Date.now(), src: 'nearby' });
+  const list = lsGet('fp.mates', []).filter((x) => !(x.name === m.name && x.gkey === m.gkey));
+  list.push({ name: m.name, gkey: m.gkey, lat: m.lat, lon: m.lon, ts: m.t || Date.now(), src: 'nearby' });
   lsSet('fp.mates', list);
 }
 export async function syncFromNative() {
   if (!native()) return;
   try {
     const st = await IF().mateRead();
+    const keys = new Set(getGroups().map((g) => g.key));
     for (const m of Object.values(st.mates || {})) {
-      const cur = lsGet('fp.mates', []).find((x) => x.name === m.name);
+      if (!m.gkey || !keys.has(m.gkey)) continue;
+      const cur = lsGet('fp.mates', []).find((x) => x.name === m.name && x.gkey === m.gkey);
       if (!cur || (m.t || 0) > cur.ts) store(m);
     }
     bus.emit('mates:changed');
@@ -96,10 +99,10 @@ export function initMates() {
   if (inited || !native()) return;
   inited = true;
   try {
-    IF().addListener('mate', (ev) => { store(ev); bus.emit('mates:changed', { fresh: true }); });
+    IF().addListener('mate', (ev) => { if (getGroups().some((g) => g.key === ev.gkey)) { store(ev); bus.emit('mates:changed', { fresh: true }); } });
     IF().addListener('searching', (ev) => bus.emit('mates:search', !!ev.searching));
   } catch {}
-  startIfNeeded(false);
+  syncService(false);
   syncFromNative();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { syncFromNative(); startIfNeeded(false); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { syncFromNative(); syncService(false); } });
 }
