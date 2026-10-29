@@ -10,18 +10,22 @@ const AL = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const getGroup = () => lsGet('fp.mategroup', null);
 export const isVisible = () => lsGet('fp.mateVisible', true);
 
-export function createGroup(name) {
+export function createGroup(name, label = '') {
   const a = new Uint8Array(8);
   crypto.getRandomValues(a);
   const key = Array.from(a, (x) => AL[x % AL.length]).join('');
-  lsSet('fp.mategroup', { key, name: name || 'Io' });
+  lsSet('fp.mategroup', { key, name: name || 'Io', label });
   return key;
 }
-export function joinGroup(code, name) {
+export function joinGroup(code, name, label = '') {
   const key = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (key.length < 6) return false;
-  lsSet('fp.mategroup', { key, name: name || 'Io' });
+  lsSet('fp.mategroup', { key, name: name || 'Io', label });
   return true;
+}
+export function setLabel(label) {
+  const g = getGroup();
+  if (g) lsSet('fp.mategroup', { ...g, label: String(label).trim().slice(0, 30) });
 }
 export async function leaveGroup() {
   lsSet('fp.mategroup', null);

@@ -5,7 +5,7 @@ import { lastPos } from '../lib/geo.js';
 import { getHeading } from '../lib/compass.js';
 import { lsGet, lsSet } from '../lib/store.js';
 import { ico } from '../lib/icons.js';
-import { getGroup, isVisible, createGroup, joinGroup, leaveGroup, setVisible, search, initMates, syncFromNative } from '../lib/mates.js';
+import { getGroup, isVisible, createGroup, joinGroup, setLabel, leaveGroup, setVisible, search, initMates, syncFromNative } from '../lib/mates.js';
 
 // ---------- Radar compagni (posizione incollata da WhatsApp/Maps) ----------
 export function parseCoords(t) {
@@ -42,26 +42,31 @@ export function openRadar() {
       if (!g) {
         el.innerHTML = `<div class="card"><b>Radar offline (Bluetooth e Wi-Fi)</b><p class="muted" style="margin:6px 0 10px;font-size:.88rem">Crea un gruppo e condividi il codice con i compagni: poi puoi trovarli senza internet, nel raggio di circa 50-100 m.</p>
           <label class="field"><span>Il tuo nome</span><input id="g-n" type="text" maxlength="20" value="" onfocus="this.select()"></label>
+          <label class="field"><span>Etichetta del gruppo (es. Funghi con Marco)</span><input id="g-l" type="text" maxlength="30" onfocus="this.select()"></label>
           <button class="btn primary big" id="g-new">${ico('pinplus', 18)} Crea gruppo</button>
           <label class="field" style="margin-top:12px"><span>Oppure entra con un codice</span><input id="g-c" type="text" maxlength="12" autocapitalize="characters" onfocus="this.select()"></label>
           <button class="btn big" id="g-join">${ico('check', 18)} Entra nel gruppo</button></div>`;
         const nm = () => el.querySelector('#g-n').value.trim() || 'Io';
-        el.querySelector('#g-new').onclick = async () => { createGroup(nm()); await setVisible(true); drawGroup(); };
+        el.querySelector('#g-new').onclick = async () => { createGroup(nm(), el.querySelector('#g-l').value.trim()); await setVisible(true); drawGroup(); };
         el.querySelector('#g-join').onclick = async () => {
-          if (!joinGroup(el.querySelector('#g-c').value, nm())) return toast('Codice non valido');
+          if (!joinGroup(el.querySelector('#g-c').value, nm(), el.querySelector('#g-l').value.trim())) return toast('Codice non valido');
           await setVisible(true); drawGroup();
         };
         const kd = (e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target.id === 'g-c' ? el.querySelector('#g-join') : el.querySelector('#g-new')).click(); } };
-        el.querySelector('#g-n').onkeydown = kd; el.querySelector('#g-c').onkeydown = kd;
+        el.querySelector('#g-n').onkeydown = kd; el.querySelector('#g-c').onkeydown = kd; el.querySelector('#g-l').onkeydown = kd;
         return;
       }
       const vis = isVisible();
-      el.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>Gruppo: ${esc(g.key)}</b><div class="muted" style="font-size:.82rem">Tu sei: ${esc(g.name)}. Dai il codice ai compagni.</div></div><button class="btn ghost small" id="g-share">${ico('share', 16)}</button></div>
+      el.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b>${esc(g.label || 'Gruppo')}</b> <span class="muted">codice ${esc(g.key)}</span><div class="muted" style="font-size:.82rem">Tu sei: ${esc(g.name)}. Dai il codice ai compagni.</div></div><button class="btn ghost small" id="g-share">${ico('share', 16)}</button></div>
+        <label class="field" style="margin:10px 0 0"><span>Etichetta</span><input id="g-lab" type="text" maxlength="30" value="${esc(g.label || '')}" placeholder="es. Funghi con Marco" onfocus="this.select()"></label>
         <button class="btn ${vis ? 'primary' : ''} big" id="g-vis" style="margin-top:10px">${ico(vis ? 'check' : 'close', 18)} ${vis ? 'Visibile al gruppo (tocca per spegnere)' : 'Non visibile (tocca per accendere)'}</button>
         <button class="btn primary big" id="g-find" style="margin-top:8px" ${searching ? 'disabled' : ''}>${ico('search', 18)} ${searching ? `Cerco compagni... ${cd}s` : 'Cerca compagni'}</button>
         <div class="muted" style="font-size:.8rem;margin-top:8px">La ricerca dura 90 secondi e funziona se anche il compagno è visibile. Esci dal gruppo per ricominciare.</div>
         <button class="btn ghost small" id="g-leave" style="margin-top:6px">Esci dal gruppo</button></div>`;
       el.querySelector('#g-share').onclick = () => { try { navigator.share ? navigator.share({ text: `Entra nel mio gruppo Footprint con il codice ${g.key}` }) : (navigator.clipboard.writeText(g.key), toast('Codice copiato')); } catch { toast(g.key); } };
+      const lab = el.querySelector('#g-lab');
+      const saveLab = () => { setLabel(lab.value); };
+      lab.onblur = saveLab; lab.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveLab(); lab.blur(); toast('Etichetta salvata'); } };
       el.querySelector('#g-vis').onclick = async () => { await setVisible(!vis); toast(!vis ? 'Visibile al gruppo' : 'Non più visibile'); drawGroup(); };
       el.querySelector('#g-leave').onclick = async () => { await leaveGroup(); drawGroup(); };
       el.querySelector('#g-find').onclick = async () => {
