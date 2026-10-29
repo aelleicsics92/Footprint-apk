@@ -44,16 +44,14 @@ export function openSheet({ title = '', body = '', onMount, full = false, cls = 
   // trascina verso il basso per chiudere (da maniglia, titolo o dall'inizio del contenuto)
   const sheetEl = $('.sheet', wrap);
   let ty = null, dy = 0, fromHead = false;
-  let noDrag = false;
-  try { noDrag = !!JSON.parse(localStorage.getItem('fp.settings') || '{}').dbgNoDrag; } catch {}
-  if (!noDrag) sheetEl.addEventListener('touchstart', (e) => {
+  sheetEl.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
     fromHead = !!e.target.closest('.sheet-grip,.sheet-head');
     const top = fromHead || (bodyEl.contains(e.target) && bodyEl.scrollTop <= 0);
     ty = top ? t.clientY : null;
     dy = 0;
   }, { passive: true });
-  if (!noDrag) sheetEl.addEventListener('touchmove', (e) => {
+  sheetEl.addEventListener('touchmove', (e) => {
     if (ty == null) return;
     dy = e.touches[0].clientY - ty;
     if (dy > (fromHead ? 8 : 16) && (fromHead || bodyEl.scrollTop <= 0)) {

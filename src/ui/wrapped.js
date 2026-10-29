@@ -35,16 +35,24 @@ export function computeWrapped(year) {
   return { year, n: tr.length, km, up, hrs, rm: km ? MESI[rm] : null, rmKm: perM[rm], longest, maxAlt, top, kg, pieces, finds: wp.length, title };
 }
 
+const SV = {
+  boot: '<path d="M14 8c0 14-2 20-6 26 0 6 4 8 12 8h18c6 0 8-3 8-7 0-5-6-5-10-8-3-2-3-6-3-10z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8 34h28M22 12h8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  mount: '<path d="M4 42 22 14l8 12 6-8 12 24z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="m17 22 5 4 4-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  fungo: '<path d="M6 26c0-12 8-20 18-20s18 8 18 20z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M18 26v12c0 4 3 6 6 6s6-2 6-6V26" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/><circle cx="29" cy="14" r="2.5" fill="currentColor"/>',
+  cal: '<rect x="6" y="10" width="36" height="32" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6 20h36M15 5v9M33 5v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="31" r="4" fill="currentColor"/>',
+  star: '<path d="m24 4 6 13 14 2-10 10 3 14-13-7-13 7 3-14L4 19l14-2z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>',
+  trail: '<path d="M10 44c0-10 14-8 14-18S10 18 14 6M34 44c-4-8 8-10 6-20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+};
 function slides(s) {
   const f = (n, d = 0) => n.toLocaleString('it-IT', { maximumFractionDigits: d });
   const a = [
-    { bg: '#12372a', big: String(s.year), t: 'La tua stagione', sub: 'Footprint Wrapped' },
-    { bg: '#1f5a43', big: f(s.km, 0) + ' km', t: 'Hai camminato', sub: `${s.n} uscite · ${f(s.hrs, 0)} ore in movimento` },
-    { bg: '#8a4b21', big: f(s.up) + ' m', t: 'Dislivello salito', sub: `${s.maxAlt ? 'Punto più alto: ' + f(s.maxAlt) + ' m' : ''}` },
+    { g: ['#0b2a20', '#1f5a43'], acc: '#8ff0b4', ic: 'trail', big: String(s.year), t: 'La tua stagione', sub: 'Footprint Wrapped' },
+    { g: ['#0e2f26', '#1c5f4d'], acc: '#8ff0b4', ic: 'boot', big: f(s.km, 0) + ' km', t: 'Hai camminato', sub: `${s.n} uscite · ${f(s.hrs, 0)} ore in movimento` },
+    { g: ['#3a1d0d', '#9a5524'], acc: '#ffc27a', ic: 'mount', big: f(s.up) + ' m', t: 'Dislivello salito', sub: `${s.maxAlt ? 'Punto più alto: ' + f(s.maxAlt) + ' m' : ''}` },
   ];
-  if (s.top.length) a.push({ bg: '#6b3a18', big: s.top[0][0], t: 'Il tuo ritrovamento più frequente', sub: s.top.slice(0, 3).map((x) => `${esc(x[0])} ${x[1]}`).join(' · ') + (s.kg ? ` · ${f(s.kg, 1)} kg totali` : '') });
-  if (s.rm) a.push({ bg: '#2a4d6b', big: s.rm[0].toUpperCase() + s.rm.slice(1), t: 'Il tuo mese record', sub: `${f(s.rmKm, 0)} km percorsi${s.longest ? ' · uscita più lunga ' + f(s.longest.dist / 1000, 1) + ' km' : ''}` });
-  a.push({ bg: '#12372a', big: s.title[1] + ' ' + s.title[0], t: 'Il tuo titolo', sub: 'Buona stagione!', last: true });
+  if (s.top.length) a.push({ g: ['#2b1608', '#7a4a1e'], acc: '#ffb23e', ic: 'fungo', big: s.top[0][0], t: 'Il tuo ritrovamento più frequente', sub: s.top.slice(0, 3).map((x) => `${esc(x[0])} ${x[1]}`).join(' · ') + (s.kg ? ` · ${f(s.kg, 1)} kg totali` : '') });
+  if (s.rm) a.push({ g: ['#0d2236', '#2a5a7e'], acc: '#8fd3ff', ic: 'cal', big: s.rm[0].toUpperCase() + s.rm.slice(1), t: 'Il tuo mese record', sub: `${f(s.rmKm, 0)} km percorsi${s.longest ? ' · uscita più lunga ' + f(s.longest.dist / 1000, 1) + ' km' : ''}` });
+  a.push({ g: ['#0b2a20', '#2a6b4f'], acc: '#ffd36b', ic: 'star', big: s.title[1] + ' ' + s.title[0], t: 'Il tuo titolo', sub: 'Buona stagione!', last: true });
   return a;
 }
 
@@ -57,7 +65,7 @@ async function drawImage(s) {
   const f = (n, d = 0) => n.toLocaleString('it-IT', { maximumFractionDigits: d });
   x.font = '700 64px sans-serif'; x.fillText('FOOTPRINT WRAPPED ' + s.year, 540, 190);
   const rows = [[f(s.km) + ' km', 'percorsi'], [f(s.up) + ' m', 'di dislivello'], [String(s.n), 'uscite'], [s.top[0] ? s.top[0][0] : String(s.finds), s.top[0] ? 'più trovato' : 'ritrovamenti'], [s.rm ? s.rm : '-', 'mese record']];
-  rows.forEach((r, i) => { const y = 440 + i * 230; x.font = '800 120px sans-serif'; x.fillStyle = '#fff'; x.fillText(r[0].length > 12 ? r[0].slice(0, 12) : r[0], 540, y); x.font = '500 46px sans-serif'; x.fillStyle = '#b7d3c4'; x.fillText(r[1], 540, y + 62); });
+  rows.forEach((r, i) => { const y = 440 + i * 230; x.font = '900 120px sans-serif'; x.fillStyle = ['#8ff0b4','#ffc27a','#8ff0b4','#ffb23e','#8fd3ff'][i]; x.fillText(r[0].length > 12 ? r[0].slice(0, 12) : r[0], 540, y); x.font = '500 46px sans-serif'; x.fillStyle = '#b7d3c4'; x.fillText(r[1], 540, y + 62); });
   x.fillStyle = '#fff'; x.font = '800 78px sans-serif'; x.fillText(s.title[1] + ' ' + s.title[0], 540, 1700);
   x.fillStyle = '#b7d3c4'; x.font = '500 40px sans-serif'; x.fillText('Footprint', 540, 1810);
   return c.toDataURL('image/png');
@@ -83,10 +91,10 @@ export async function openWrapped(year = new Date().getFullYear() - (new Date().
   const unback = pushBack(close);
   const render = () => {
     const c = sl[i];
-    ov.style.background = c.bg;
+    ov.style.background = `linear-gradient(180deg,${c.g[0]},${c.g[1]})`;
     ov.innerHTML = `<div style="display:flex;gap:4px;padding:calc(var(--sat,0px) + 12px) 12px 0">${sl.map((_, k) => `<i style="flex:1;height:4px;border-radius:2px;background:${k <= i ? '#fff' : 'rgba(255,255,255,.3)'}"></i>`).join('')}</div>
       <button data-x style="position:absolute;right:14px;top:calc(var(--sat,0px) + 24px);background:none;border:0;color:#fff;font-size:1.6rem;z-index:2">✕</button>
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px"><div style="opacity:.8;font-size:1.1rem;margin-bottom:14px">${c.t}</div><div style="font-size:${c.big.length > 10 ? '2.4rem' : '4.2rem'};font-weight:800;line-height:1.1">${esc(c.big)}</div><div style="opacity:.85;margin-top:16px;font-size:1.05rem;max-width:300px">${c.sub}</div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px"><svg viewBox="0 0 48 48" width="96" height="96" style="color:${c.acc};margin-bottom:18px;opacity:.95">${SV[c.ic]}</svg><div style="opacity:.8;font-size:1.1rem;margin-bottom:12px">${c.t}</div><div style="font-size:${c.big.length > 10 ? '3rem' : '5.6rem'};font-weight:900;line-height:1.05;color:${c.acc};letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.35)">${esc(c.big)}</div><div style="opacity:.85;margin-top:16px;font-size:1.05rem;max-width:300px">${c.sub}</div>
       ${c.last ? '<button data-sh class="btn" style="margin-top:28px;background:#fff;color:#12372a;font-weight:800">Condividi immagine</button>' : ''}</div>
       <div style="padding:0 0 calc(var(--sab,0px) + 14px);text-align:center;opacity:.55;font-size:.8rem">Tocca per proseguire</div>`;
   };

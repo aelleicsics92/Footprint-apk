@@ -4,6 +4,8 @@ import { updateWaypoint } from './waypoints.js';
 import { lastPos } from './geo.js';
 
 const FUNGI = ['porcino', 'regius', 'pinaiolo', 'leccino', 'galletto', 'ovulo', 'scorzone', 'uncinato', 'bianco', 'bianchetto', 'nero'];
+const TR = ['bianco', 'nero', 'scorzone', 'uncinato', 'bianchetto'];
+export const isTruffle = (w) => TR.includes(w.icon);
 export const isFind = (w) => FUNGI.includes(w.icon);
 const round = (f) => ({ lag: f.lag, R14: Math.round(f.R14), R30: Math.round(f.R30), t: f.tmean == null ? null : Math.round(f.tmean * 10) / 10 });
 
@@ -21,15 +23,15 @@ export async function todayFeats(w) {
   const { i, series } = await seriesFor(me.lat, me.lon, Date.now());
   return round(feats(series, i));
 }
-export function compare(a, b) {
-  const ok = [];
-  const nr = a.R14 > 0 ? Math.abs(b.R14 - a.R14) / a.R14 : (b.R14 < 10 ? 0 : 1);
+export function compare(a, b, tr = false) {
+  const ok = [], k = tr ? 'R30' : 'R14';
+  const nr = a[k] > 0 ? Math.abs(b[k] - a[k]) / a[k] : (b[k] < 10 ? 0 : 1);
   ok.push(nr <= 0.35);
-  ok.push(a.lag == null || b.lag == null ? a.lag == b.lag : Math.abs(a.lag - b.lag) <= 4);
+  ok.push(a.lag == null || b.lag == null ? a.lag == b.lag : Math.abs(a.lag - b.lag) <= (tr ? 9 : 4));
   ok.push(a.t == null || b.t == null || Math.abs(a.t - b.t) <= 3);
   const n = ok.filter(Boolean).length;
   return n === 3 ? 'simile' : n === 2 ? 'in parte simile' : 'diverso';
 }
-export function snapText(s) {
-  return `Meteo al ritrovamento: ${s.R14} mm negli ultimi 14 gg, ${s.lag != null ? `pioggia utile ${s.lag} gg prima` : 'nessuna pioggia utile'}, ${s.t != null ? s.t + ' °C medi' : ''}`;
+export function snapText(s, tr = false) {
+  return `Meteo al ritrovamento: ${tr ? s.R30 + ' mm negli ultimi 30 gg' : s.R14 + ' mm negli ultimi 14 gg'}, ${s.lag != null ? `pioggia utile ${s.lag} gg prima` : 'nessuna pioggia utile'}, ${s.t != null ? s.t + ' °C medi' : ''}`;
 }

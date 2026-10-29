@@ -43,7 +43,7 @@ export function mountCompass(el) {
     <div class="compass-sub" id="c-card">BUSSOLA</div>
     <div class="dial"><div class="needle"></div>${dialSVG()}</div>
     <button class="btn ghost" id="c-ret" style="margin-top:12px;color:#ffb23e;border-color:#ffb23e;font-weight:800">🧭 Bussola del rientro (freccia gigante)</button>
-    <button class="btn ghost" id="c-back" style="margin-top:12px;color:#fff;border-color:rgba(255,255,255,.4)">↩ Torna indietro sui tuoi passi</button>
+    <button class="btn ghost" id="c-back" hidden style="display:none;margin-top:12px;color:#fff;border-color:rgba(255,255,255,.4)">↩ Torna indietro sui tuoi passi</button>
     <div class="target-card hidden" id="c-bt"></div>
     <div class="target-card hidden" id="c-target"></div>
     <div class="gps-grid" id="c-gps"></div>

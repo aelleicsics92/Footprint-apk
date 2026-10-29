@@ -374,9 +374,10 @@ export function openWaypoint(w) {
     const el = s.body.querySelector('#wp-snap');
     const sn = w.snap || (await m.ensureSnap(w));
     if (!sn || !el) return;
-    el.textContent = m.snapText(sn);
+    const tr = m.isTruffle(w);
+    el.textContent = m.snapText(sn, tr);
     if (!navigator.onLine) return;
-    try { const t = await m.todayFeats(w); el.innerHTML = esc(m.snapText(sn)) + `<br><b>Oggi è ${m.compare(sn, t)}</b> (${t.R14} mm in 14 gg${t.lag != null ? ', pioggia utile ' + t.lag + ' gg fa' : ''}, ${t.t ?? '-'} °C)`; } catch {}
+    try { const t = await m.todayFeats(w); el.innerHTML = esc(m.snapText(sn, tr)) + `<br><b>Oggi è ${m.compare(sn, t, tr)}</b> (${tr ? t.R30 + ' mm in 30 gg' : t.R14 + ' mm in 14 gg'}${t.lag != null ? ', pioggia utile ' + t.lag + ' gg fa' : ''}, ${t.t ?? '-'} °C)`; } catch {}
   }).catch(() => {});
   if (w.memo) kvGet('memo:' + w.id).then((b) => {
     const el = s.body.querySelector('#wp-memo');

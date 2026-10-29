@@ -472,10 +472,6 @@ function openSettings() {
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Sole diretto (alto contrasto)</b><small>Testi più neri e più spessi, per leggere con la luce forte</small></div><label class="switch"><input type="checkbox" data-k="hiContrast" ${s.hiContrast ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Tasto volume giù = waypoint rapido</b><small>Con l'app aperta, senza toccare lo schermo (mani sporche)</small></div><label class="switch"><input type="checkbox" data-k="volumeWp" ${s.volumeWp ? 'checked' : ''}><i></i></label></div>
-      <div class="sec-title" style="font-size:1rem;padding:14px 0 2px">Diagnosi scroll dei fogli (prova uno alla volta)</div>
-      <div class="set-row"><div class="ti"><b>A. Senza trascinamento per chiudere</b><small>Se lo scatto sparisce, la causa è quel gesto</small></div><label class="switch"><input type="checkbox" data-k="dbgNoDrag" ${s.dbgNoDrag ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>B. Foglio su livello grafico dedicato</b><small>Forza l'accelerazione GPU dello scroll</small></div><label class="switch"><input type="checkbox" data-k="dbgGpu" ${s.dbgGpu ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>C. Foglio senza animazioni e ombre</b><small>Apertura istantanea, niente transizioni</small></div><label class="switch"><input type="checkbox" data-k="dbgFlat" ${s.dbgFlat ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Uomo a terra</b><small>Durante la registrazione, se resti fermo 15 minuti parte un conto alla rovescia e poi un allarme sonoro. Funziona con l'app aperta e lo schermo acceso.</small></div><label class="switch"><input type="checkbox" data-k="manDown" ${s.manDown ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Scadenza tesserino / permesso</b><small>Ti avviso 30 giorni prima</small></div><input type="date" data-k="permitExpiry" value="${esc(s.permitExpiry)}" onfocus="this.select&&this.select()"></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
@@ -548,8 +544,6 @@ function openSettings() {
         setSetting(k, v);
         if (k === 'keepAwake') setWakeLock(v);
         if (k === 'hiContrast') document.documentElement.classList.toggle('hc', !!v);
-        if (k === 'dbgGpu') document.documentElement.classList.toggle('dbg-gpu', !!v);
-        if (k === 'dbgFlat') document.documentElement.classList.toggle('dbg-flat', !!v);
         if (k === 'volumeWp') { try { const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles'); IF.setVolumeKey({ enabled: !!v }); } catch {} }
         if (k === 'nightMode') document.documentElement.classList.toggle('night', !!v);
         if (k === 'statusNotif' && v && !(await askNotifPermission())) {

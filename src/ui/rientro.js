@@ -25,16 +25,16 @@ export function openReturn() {
   const el = document.createElement('div');
   el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:#000;color:#ffb23e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;padding:24px;text-align:center;font-family:sans-serif';
   el.innerHTML = `<div id="rt-n" style="font-size:1.1rem;letter-spacing:.2em;text-transform:uppercase;opacity:.8">Verso ${d.name}</div>
-    <div id="rt-a" style="font-size:min(62vw,52vh);line-height:1;transition:transform .15s linear;will-change:transform;text-shadow:0 0 30px rgba(255,178,62,.55)">▲</div>
-    <div id="rt-d" style="font-size:min(20vw,12vh);font-weight:800;line-height:1">--</div>
+    <div id="rt-a" style="font-size:min(50vw,38vh);line-height:1;transition:transform .15s linear;will-change:transform;text-shadow:0 0 30px rgba(255,178,62,.55)">▲</div>
+    <div id="rt-d" style="font-size:min(34vw,18vh);font-weight:900;line-height:1;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.35);letter-spacing:-.02em">--</div>
     <div id="rt-c" style="font-size:1.3rem;opacity:.85"></div>
-    <button id="rt-x" style="margin-top:3vh;background:none;border:2px solid #ffb23e;color:#ffb23e;border-radius:16px;padding:12px 28px;font-size:1.1rem;font-weight:700">Chiudi</button>`;
+    <button id="rt-x" style="margin-top:2vh;width:100%;max-width:420px;min-height:76px;background:#ffb23e;border:4px solid #ffb23e;color:#000;border-radius:22px;padding:20px 28px;font-size:1.6rem;font-weight:900">Chiudi</button>`;
   document.body.appendChild(el);
   const q = (x) => el.querySelector(x);
   let lastH = 0;
   const upd = () => {
     const me = lastPos();
-    if (!me) { q('#rt-d').textContent = 'attendo il GPS'; q('#rt-d').style.fontSize = '2rem'; return; }
+    if (!me) { q('#rt-d').textContent = 'attendo il GPS'; q('#rt-d').style.fontSize = '2.4rem'; return; }
     const dist = haversine(me, d), b = bearing(me, d);
     let h = getHeading();
     if (h == null || isNaN(h)) h = lastH;
