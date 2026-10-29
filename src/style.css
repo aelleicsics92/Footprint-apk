@@ -628,4 +628,4 @@ html.night .set-row.clk.sel{background:#243a2c}
 
 .fc-dots i{box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
 
-.tagscroll{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;align-items:center;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tagscroll::-webkit-scrollbar{display:none}.tagscroll small{flex:none;width:auto;min-width:78px}.tagscroll .tagc{flex:none;padding:5px 11px;font-size:.8rem;white-space:nowrap}
+.tagscroll{margin:2px 0 4px;gap:5px}.tagscroll small{width:100%}.tagscroll .tagc{padding:4px 10px;font-size:.78rem}
