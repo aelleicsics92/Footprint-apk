@@ -57,9 +57,8 @@ export function openSheet({ title = '', body = '', onMount, full = false, cls = 
     if (dy > (fromHead ? 8 : 16) && (fromHead || bodyEl.scrollTop <= 0)) {
       sheetEl.style.transition = 'none';
       sheetEl.style.transform = `translateY(${dy}px)`;
-      e.cancelable && e.preventDefault();
     } else if (dy < 0) ty = null;
-  }, { passive: false });
+  }, { passive: true });
   const endDrag = () => {
     if (ty == null) return;
     ty = null;
