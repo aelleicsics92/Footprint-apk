@@ -42,6 +42,7 @@ export function mountFungi(el) {
     <div class="f-tools"><span class="muted" id="f-calst" style="font-size:.8rem;align-self:center"></span><button class="chip" id="f-refresh">${ico('locate', 16)} Aggiorna dati</button></div>
     <div id="f-sug" class="f-sug"></div>
     <div id="f-card"></div>
+    <div id="f-wm"></div>
     <div class="sec-title" style="font-size:1.15rem;padding-top:10px">Italia <span class="muted" id="f-daylabel" style="font-size:.85rem;font-family:var(--sans)"></span></div>
     <div class="fmap-wrap"><div id="fungi-map"></div><div id="f-banner" class="f-banner" hidden></div><button id="f-north" class="f-north" hidden aria-label="Nord"><i>▲</i><b>N</b></button></div>
     <div class="hstat" id="f-hstat"></div>
@@ -341,6 +342,7 @@ async function loadPoint() {
   } catch {
     state.ptData = null;
   }
+  import('../lib/windmoon.js').then((m) => m.windMoonHtml(pt.lat, pt.lon)).then((h) => { if (state.point === pt) { const e = root.querySelector('#f-wm'); if (e) e.innerHTML = h; } }).catch(() => {});
   state.habAt = null;
   const tryHab = (n) => habFor(pt.lat, pt.lon).then((h) => {
     if (state.point !== pt) return;

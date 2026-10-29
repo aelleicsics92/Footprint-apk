@@ -108,6 +108,26 @@ const TAGS = [
   ['Sottobosco', ['Felci', 'Muschio', 'Mirtillo', 'Aghi di pino', 'Erba']],
   ['Terreno', ['Umido', 'Secco', 'Sotto roccia']],
 ];
+const NUMW = { un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10, undici: 11, dodici: 12, quindici: 15, venti: 20 };
+export function parseMemo(t) {
+  const x = ' ' + t.toLowerCase().replace(/[.,;!?]+(?=\s|$)/g, ' ') + ' ';
+  const out = { tags: [], qty: 0, kg: 0, stato: '' };
+  const alias = { 'aghi di pino': ['aghi'], 'sotto roccia': ['roccia', 'sasso'], umido: ['umido', 'bagnato'], secco: ['secco', 'asciutto'], erba: ['erba'], felci: ['felce', 'felci'], muschio: ['muschio'], mirtillo: ['mirtill'] };
+  for (const [, a] of TAGS) for (const tg of a) {
+    const k = tg.toLowerCase();
+    const keys = alias[k] || [k.replace(/[aeio]$/, '')];
+    if (keys.some((q) => x.includes(' ' + q) )) out.tags.push(tg);
+  }
+  const kg = x.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|chil\w*)/);
+  if (kg) out.kg = parseFloat(kg[1].replace(',', '.'));
+  const nm = '(\\d+|' + Object.keys(NUMW).join('|') + ')';
+  const q = x.match(new RegExp(nm + '\\s+(?:bei\\s+|grossi\\s+|piccoli\\s+)?(?:porcin\\w*|funghi|fungo|pezz\\w*|pz|tartuf\\w*|ovol\\w*|galletti|finferli|chiodini|colonnari|mazze|boleti|boleto|esemplari)'));
+  if (q) out.qty = NUMW[q[1]] || Number(q[1]) || 0;
+  if (/fine cacciata|a fine|passat[oi]/.test(x)) out.stato = 'giallo';
+  else if (/finit[oi]|secch[ie]|marc[ie]|nulla|niente/.test(x)) out.stato = 'rosso';
+  else if (/in cacciata|freschi|fresco|ottim|tanti/.test(x)) out.stato = 'verde';
+  return out;
+}
 const STATI = [['verde', '🟢 In cacciata'], ['giallo', '🟡 A fine cacciata'], ['rosso', '🔴 Finito / secco']];
 
 const voiceHtml = (rec) => `<span style="width:38px;height:38px;border-radius:50%;background:${rec ? '#c0392b' : '#12372a'};color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none">${ico(rec ? 'stop' : 'mic', 22)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><b>${rec ? 'Stop registrazione' : 'Memo vocale'}</b><small style="font-weight:500;opacity:.75">${rec ? 'Tocca per fermare e trascrivere' : 'Parla e trascrivo io, ideale sul campo'}</small></span>`;
@@ -221,7 +241,13 @@ function wireForm(s, { wp, pos, onSave }) {
           const t = ((await r.json()).text || '').trim();
           const d = s.body.querySelector('#wp-desc');
           d.value = (d.value ? d.value + ' ' : '') + t;
-          vo.textContent = 'Memo salvato e trascritto.';
+          const pm = parseMemo(t), got = [];
+          for (const tg of pm.tags) { if (!tags.has(tg)) { tags.add(tg); got.push(tg); } }
+          s.body.querySelectorAll('[data-tag]').forEach((b) => b.classList.toggle('sel', tags.has(b.dataset.tag)));
+          const qe = s.body.querySelector('#wp-qty'), ke = s.body.querySelector('#wp-kg');
+          if (pm.qty && !Number(qe.value)) { qe.value = pm.qty; got.push(pm.qty + ' pz'); }
+          if (pm.kg && !Number(ke.value)) { ke.value = pm.kg; got.push(pm.kg + ' kg'); }
+          vo.textContent = 'Memo salvato e trascritto.' + (got.length ? ' Compilato: ' + got.join(', ') + '.' : '');
         } catch {
           vo.textContent = 'Memo salvato (trascrizione non disponibile: serve internet).';
         }
@@ -270,6 +296,7 @@ export async function openNewWaypoint() {
       const w = { id: uid(), title, desc, icon, qty, kg, dog, stato, tags, memo: !!memo, lat: at.lat, lon: at.lon, alt: at.alt, acc: at.acc, ts: Date.now() };
       if (memo) await kvSet('memo:' + w.id, memo);
       await addWaypoint(w);
+      import('./snap.js').then((m) => m.ensureSnap(w)).catch(() => {});
       toast(`Salvato: ${title}`);
     },
   });
@@ -328,6 +355,7 @@ export function openWaypoint(w) {
       ${w.qty || w.kg || w.dog ? `<p class="muted" style="margin:4px 0">${[w.qty ? w.qty + ' pz' : '', w.kg ? w.kg + ' kg' : '', w.dog ? '🐕 ' + esc(w.dog) : ''].filter(Boolean).join(' · ')}</p>` : ''}
       ${w.stato || (w.tags || []).length ? `<p class="muted" style="margin:4px 0">${[w.stato ? STATI.find((x) => x[0] === w.stato)[1] : '', ...(w.tags || [])].filter(Boolean).join(' · ')}</p>` : ''}
       <p class="muted" id="wp-terr" style="margin:4px 0"></p>
+      <p class="muted" id="wp-snap" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
       <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${fmtCoord(w.lat, w.lon)}</b><small>${[w.alt != null ? `quota ${Math.round(w.alt)} m` : '', info].filter(Boolean).join(' · ')}</small></div>
       <div class="row gap" style="margin:10px 0 8px">
@@ -341,6 +369,15 @@ export function openWaypoint(w) {
       </div></div>`,
   });
   if (navigator.onLine) getTerrain(w.lat, w.lon).then((t) => { const el = s.body.querySelector('#wp-terr'); if (el) el.textContent = terrainText(t); }).catch(() => {});
+  import('./snap.js').then(async (m) => {
+    if (!m.isFind(w)) return;
+    const el = s.body.querySelector('#wp-snap');
+    const sn = w.snap || (await m.ensureSnap(w));
+    if (!sn || !el) return;
+    el.textContent = m.snapText(sn);
+    if (!navigator.onLine) return;
+    try { const t = await m.todayFeats(w); el.innerHTML = esc(m.snapText(sn)) + `<br><b>Oggi è ${m.compare(sn, t)}</b> (${t.R14} mm in 14 gg${t.lag != null ? ', pioggia utile ' + t.lag + ' gg fa' : ''}, ${t.t ?? '-'} °C)`; } catch {}
+  }).catch(() => {});
   if (w.memo) kvGet('memo:' + w.id).then((b) => {
     const el = s.body.querySelector('#wp-memo');
     if (b && el) el.innerHTML = `<audio controls style="width:100%" src="${URL.createObjectURL(b)}"></audio>`;

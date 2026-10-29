@@ -12,7 +12,7 @@ const DAILY = 'precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_e
 const iso = (ts) => new Date(ts).toLocaleDateString('sv-SE');
 const PRIOR_N = 8;
 
-async function seriesFor(lat, lon, ts) {
+export async function seriesFor(lat, lon, ts) {
   const end = iso(ts), days = (Date.now() - ts) / 86400000;
   let url;
   if (days < 85) url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&daily=${DAILY}&past_days=92&forecast_days=1&timezone=auto`;
@@ -29,7 +29,7 @@ async function seriesFor(lat, lon, ts) {
   return { i, series: { time: cut(d.time), p: cut(d.precipitation_sum), tmax: cut(d.temperature_2m_max), tmin: cut(d.temperature_2m_min), et0: cut(d.et0_fao_evapotranspiration), w: cut(d.wind_speed_10m_max), elev: j.elevation } };
 }
 const sum = (a, x, y) => { let s = 0; for (let k = Math.max(0, x); k <= y; k++) s += a[k] || 0; return s; };
-function feats(s, i) {
+export function feats(s, i) {
   let lag = null, best = 0;
   for (let j = i - 30; j <= i - 2; j++) {
     const ev = (s.p[j] || 0) + (s.p[j - 1] || 0);

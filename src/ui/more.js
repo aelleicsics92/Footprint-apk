@@ -15,6 +15,7 @@ import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/o
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
+const wrappedAvailable = () => [11, 0].includes(new Date().getMonth());
 import { openPrices } from './prices.js';
 import { openRadar } from './extras.js';
 import { importTexts } from '../lib/importer.js';
@@ -45,6 +46,7 @@ export function mountMore(el) {
     ['ATTIVITÀ E RACCOLTA', [
       ['mushroom', 'Previsione raccolta', 'Indice funghi e tartufi, pioggia', () => bus.emit('nav:tab', 'fungi')],
       ['book', 'Diario raccolti', 'Statistiche, stagioni e record', () => openDiary()],
+      ['sparkle', 'Footprint Wrapped', wrappedAvailable() ? 'Il riepilogo della tua stagione è pronto' : 'Riepilogo della stagione a storie', () => import('./wrapped.js').then((m) => m.openWrapped(new Date().getFullYear()))],
       ['sparkle', 'Prezzi tartufo', 'Quotazioni aggiornate al cavatore', openPrices],
       ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
     ]],
