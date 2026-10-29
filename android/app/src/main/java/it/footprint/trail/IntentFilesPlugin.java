@@ -25,6 +25,79 @@ import java.util.List;
 /** Riceve file GPX/KML aperti o condivisi con Footprint (es. da Garmin Explore o dal file manager). */
 @CapacitorPlugin(name = "IntentFiles")
 public class IntentFilesPlugin extends Plugin {
+    static volatile IntentFilesPlugin inst;
+
+    @Override
+    public void load() { inst = this; }
+
+    static void mateEvent(String name, JSObject data) {
+        try { IntentFilesPlugin p = inst; if (p != null) p.notifyListeners(name, data); } catch (Exception ignore) {}
+    }
+
+    private String[] matePermList() {
+        List<String> l = new ArrayList<>();
+        l.add(android.Manifest.permission.ACCESS_FINE_LOCATION);
+        if (Build.VERSION.SDK_INT >= 31) {
+            l.add("android.permission.BLUETOOTH_SCAN");
+            l.add("android.permission.BLUETOOTH_ADVERTISE");
+            l.add("android.permission.BLUETOOTH_CONNECT");
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            l.add("android.permission.NEARBY_WIFI_DEVICES");
+            l.add("android.permission.POST_NOTIFICATIONS");
+        }
+        return l.toArray(new String[0]);
+    }
+
+    private boolean matePermsOk() {
+        for (String p : matePermList()) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(getContext(), p) != android.content.pm.PackageManager.PERMISSION_GRANTED) return false;
+        }
+        return true;
+    }
+
+    @PluginMethod
+    public void mateAskPerms(PluginCall call) {
+        if (!matePermsOk()) androidx.core.app.ActivityCompat.requestPermissions(getActivity(), matePermList(), 9911);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void mateStart(PluginCall call) {
+        if (!matePermsOk()) { call.reject("perms"); return; }
+        try { MateService.start(getContext(), call.getString("key", ""), call.getString("name", "Io")); call.resolve(); } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+
+    @PluginMethod
+    public void mateStop(PluginCall call) {
+        MateService.stop(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void mateSearch(PluginCall call) {
+        if (MateService.inst == null) { call.reject("off"); return; }
+        MateService.search(getContext(), call.getInt("seconds", 90));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void mateRead(PluginCall call) {
+        JSObject r = new JSObject();
+        android.content.SharedPreferences sp = getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE);
+        try { r.put("mates", new JSObject(sp.getString("mates", "{}"))); } catch (Exception e) { r.put("mates", new JSObject()); }
+        r.put("running", MateService.inst != null);
+        r.put("searching", MateService.searching);
+        r.put("perms", matePermsOk());
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void mateClear(PluginCall call) {
+        getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE).edit().remove("mates").apply();
+        call.resolve();
+    }
+
     private static final List<JSObject> pending = new ArrayList<>();
     private static final int MAX_BYTES = 12 * 1024 * 1024;
 

@@ -26,6 +26,7 @@ import { initNotifications, initPinned } from './lib/notify.js';
 import { initCoverage } from './lib/coverage.js';
 import { initWalked } from './lib/walked.js';
 import { initIncomingFiles } from './lib/importer.js';
+import { initMates } from './lib/mates.js';
 
 const TABS = [
   ['map', 'Mappa', 'map'],
@@ -131,6 +132,7 @@ async function boot() {
     initPinned();
     initCoverage();
     initIncomingFiles();
+    initMates();
     startCompass();
     setWakeLock(getSettings().keepAwake);
   }, 3500);
