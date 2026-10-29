@@ -71,11 +71,16 @@ function parseGPX(doc) {
   for (const trk of Array.from(doc.getElementsByTagName('trk'))) {
     const name = txt(trk, 'name') || 'Traccia importata';
     const pts = [];
-    for (const p of Array.from(trk.getElementsByTagName('trkpt'))) {
-      const lat = num(p.getAttribute('lat')), lon = num(p.getAttribute('lon'));
-      if (lat == null || lon == null) continue;
-      const t = txt(p, 'time');
-      pts.push([lat, lon, num(txt(p, 'ele')), t ? Date.parse(t) || 0 : 0]);
+    for (const seg of Array.from(trk.getElementsByTagName('trkseg'))) {
+      let first = pts.length > 0;
+      for (const p of Array.from(seg.getElementsByTagName('trkpt'))) {
+        const lat = num(p.getAttribute('lat')), lon = num(p.getAttribute('lon'));
+        if (lat == null || lon == null) continue;
+        const t = txt(p, 'time');
+        const q = [lat, lon, num(txt(p, 'ele')), t ? Date.parse(t) || 0 : 0];
+        if (first) { q.push(1); first = false; }
+        pts.push(q);
+      }
     }
     segs.push({ name, pts });
   }
@@ -102,10 +107,12 @@ function parseKML(doc) {
       const c = txt(pt, 'coordinates').split(',').map(Number);
       if (c.length >= 2 && !isNaN(c[0]) && !isNaN(c[1])) waypoints.push({ id: uid(), title: name, desc, lat: c[1], lon: c[0], alt: isNaN(c[2]) ? null : c[2], ts: Date.now(), icon: guessIcon('', '', name) });
     }
+    const all = [];
     for (const ls of Array.from(pm.getElementsByTagName('LineString'))) {
       const pts = txt(ls, 'coordinates').split(/\s+/).map((s) => s.split(',').map(Number)).filter((c) => c.length >= 2 && !isNaN(c[0]) && !isNaN(c[1])).map((c) => [c[1], c[0], isNaN(c[2]) ? null : c[2], 0]);
-      if (pts.length > 1) tracks.push(buildTrack(name, pts));
+      if (pts.length > 1) { if (all.length) pts[0].push(1); all.push(...pts); }
     }
+    if (all.length > 1) tracks.push(buildTrack(name, all));
   }
   return { waypoints, tracks };
 }
