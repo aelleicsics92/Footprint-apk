@@ -44,13 +44,9 @@ export function openSheet({ title = '', body = '', onMount, full = false, cls = 
   // trascina verso il basso per chiudere (da maniglia, titolo o dall'inizio del contenuto)
   const sheetEl = $('.sheet', wrap);
   let ty = null, dy = 0;
-  sheetEl.addEventListener('touchstart', (e) => {
-    const t = e.touches[0];
-    const top = e.target.closest('.sheet-grip,.sheet-head') || (bodyEl.contains(e.target) && bodyEl.scrollTop <= 0);
-    ty = top ? t.clientY : null;
-    dy = 0;
-  }, { passive: true });
-  sheetEl.addEventListener('touchmove', (e) => {
+  // il trascinamento per chiudere vale solo da maniglia e titolo: un listener non passivo sul contenuto rallenta lo scroll (scatto iniziale)
+  const startDrag = (e) => { ty = e.touches[0].clientY; dy = 0; };
+  const moveDrag = (e) => {
     if (ty == null) return;
     dy = e.touches[0].clientY - ty;
     if (dy > 8) {
@@ -58,7 +54,11 @@ export function openSheet({ title = '', body = '', onMount, full = false, cls = 
       sheetEl.style.transform = `translateY(${dy}px)`;
       e.cancelable && e.preventDefault();
     } else if (dy < 0) ty = null;
-  }, { passive: false });
+  };
+  sheetEl.querySelectorAll('.sheet-grip,.sheet-head').forEach((h) => {
+    h.addEventListener('touchstart', startDrag, { passive: true });
+    h.addEventListener('touchmove', moveDrag, { passive: false });
+  });
   const endDrag = () => {
     if (ty == null) return;
     ty = null;
