@@ -70,10 +70,8 @@ async function boot() {
   bus.on('nav:tab', goTab);
 
   if (Capacitor.isNativePlatform()) {
-    try {
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#12372a' });
-    } catch {}
+    StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+    StatusBar.setBackgroundColor({ color: '#12372a' }).catch(() => {});
     App.addListener('backButton', () => {
       if (runTopBack()) return;
       if (closeTopSheet()) return;
@@ -99,7 +97,7 @@ async function boot() {
     });
   }
 
-  await Promise.all([loadWaypoints(), loadTracks()]);
+  await Promise.race([Promise.all([loadWaypoints(), loadTracks()]).catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
   mountMap($('#screen-map'));
   mountCompass($('#screen-compass'));
   mountAI($('#screen-ai'));
@@ -108,6 +106,7 @@ async function boot() {
   mountMore($('#screen-more'));
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); } catch {}
   showTab('map');
+  try { const bs = document.getElementById('bootsplash'); if (bs) bs.remove(); } catch {}
   startWatch();
   initWalked();
   recover();
@@ -165,4 +164,4 @@ setTimeout(pullQuick, 3500);
 setTimeout(() => { try { initWidgetSync(); } catch {} }, 2500);
 import('./lib/calib.js').then((m) => m.initAutoLearn()).catch(() => {});
 
-boot();
+boot().catch((e) => { console.error(e); try { const bs = document.getElementById('bootsplash'); if (bs) bs.textContent = 'Errore di avvio, riapri l\'app'; } catch {} });
