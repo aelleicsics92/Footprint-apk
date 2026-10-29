@@ -629,3 +629,6 @@ html.night .set-row.clk.sel{background:#243a2c}
 .fc-dots i{box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
 
 .tagline{display:flex;align-items:center;gap:8px;margin:4px 0}.tagline small{flex:none;width:86px;color:var(--muted);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.tagscr{flex:1;min-width:0;display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}.tagscr::-webkit-scrollbar{display:none}.tagscr .tagc{flex:none;padding:5px 11px;font-size:.8rem;white-space:nowrap}
+
+.dbg-gpu .sheet-body{will-change:scroll-position;transform:translateZ(0)}.dbg-gpu .sheet{will-change:transform}
+.dbg-flat .sheet,.dbg-flat .sheet-back{transition:none!important}.dbg-flat .sheet{box-shadow:none!important}

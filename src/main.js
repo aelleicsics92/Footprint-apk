@@ -110,7 +110,7 @@ async function boot() {
   };
   const mounted = {};
   ensureMounted = (id) => { if (mounted[id] || !mounts[id]) return; mounted[id] = true; try { mounts[id](); } catch (e) { console.error(e); } };
-  try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); } catch {}
+  try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); document.documentElement.classList.toggle('dbg-gpu', !!getSettings().dbgGpu); document.documentElement.classList.toggle('dbg-flat', !!getSettings().dbgFlat); } catch {}
   const tracksP = loadTracks().then(() => bus.emit('tracks:changed')).catch(() => {});
   const wpsP = loadWaypoints().catch(() => {});
   mountMap($('#screen-map'));
