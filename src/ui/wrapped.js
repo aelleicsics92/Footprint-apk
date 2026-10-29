@@ -36,12 +36,12 @@ export function computeWrapped(year) {
 }
 
 const SV = {
-  boot: '<path d="M14 8c0 14-2 20-6 26 0 6 4 8 12 8h18c6 0 8-3 8-7 0-5-6-5-10-8-3-2-3-6-3-10z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8 34h28M22 12h8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
-  mount: '<path d="M4 42 22 14l8 12 6-8 12 24z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="m17 22 5 4 4-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
-  fungo: '<path d="M6 26c0-12 8-20 18-20s18 8 18 20z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M18 26v12c0 4 3 6 6 6s6-2 6-6V26" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/><circle cx="29" cy="14" r="2.5" fill="currentColor"/>',
-  cal: '<rect x="6" y="10" width="36" height="32" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6 20h36M15 5v9M33 5v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="31" r="4" fill="currentColor"/>',
-  star: '<path d="m24 4 6 13 14 2-10 10 3 14-13-7-13 7 3-14L4 19l14-2z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>',
-  trail: '<path d="M10 44c0-10 14-8 14-18S10 18 14 6M34 44c-4-8 8-10 6-20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  trail: '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" fill-opacity="0.2"/>',
+  boot: '<path d="M4 16v-2.38C4 11.5 5.29 9 7.5 9h0c2.21 0 3.5 2.5 3.5 4.62V16"/><path d="M13 19v-2.38C13 14.5 14.29 12 16.5 12h0c2.21 0 3.5 2.5 3.5 4.62V19"/><path d="M2 19h20"/>',
+  mount: '<path d="m8 3 4 8 5-5 5 15H2L8 3z" fill="currentColor" fill-opacity="0.15"/>',
+  cal: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  fungo: '<path d="M12 2C8 2 5 5 5 9c0 1.5.5 3 1.5 4H17.5c1-1 1.5-2.5 1.5-4 0-4-3-7-7-7z" fill="currentColor" fill-opacity="0.2"/><path d="M10 13v7a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-7"/>',
+  star: '<path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" fill="currentColor" fill-opacity="0.2"/><path d="M4 20h16"/>',
 };
 function slides(s) {
   const f = (n, d = 0) => n.toLocaleString('it-IT', { maximumFractionDigits: d });
@@ -94,7 +94,7 @@ export async function openWrapped(year = new Date().getFullYear() - (new Date().
     ov.style.background = `linear-gradient(180deg,${c.g[0]},${c.g[1]})`;
     ov.innerHTML = `<div style="display:flex;gap:4px;padding:calc(var(--sat,0px) + 12px) 12px 0">${sl.map((_, k) => `<i style="flex:1;height:4px;border-radius:2px;background:${k <= i ? '#fff' : 'rgba(255,255,255,.3)'}"></i>`).join('')}</div>
       <button data-x style="position:absolute;right:14px;top:calc(var(--sat,0px) + 24px);background:none;border:0;color:#fff;font-size:1.6rem;z-index:2">✕</button>
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px"><svg viewBox="0 0 48 48" width="96" height="96" style="color:${c.acc};margin-bottom:18px;opacity:.95">${SV[c.ic]}</svg><div style="opacity:.8;font-size:1.1rem;margin-bottom:12px">${c.t}</div><div style="font-size:${c.big.length > 10 ? '3rem' : '5.6rem'};font-weight:900;line-height:1.05;color:${c.acc};letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.35)">${esc(c.big)}</div><div style="opacity:.85;margin-top:16px;font-size:1.05rem;max-width:300px">${c.sub}</div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px"><svg viewBox="0 0 24 24" width="96" height="96" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${c.acc};margin-bottom:18px">${SV[c.ic]}</svg><div style="opacity:.8;font-size:1.1rem;margin-bottom:12px">${c.t}</div><div style="font-size:${c.big.length > 10 ? '3rem' : '5.6rem'};font-weight:900;line-height:1.05;color:${c.acc};letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.35)">${esc(c.big)}</div><div style="opacity:.85;margin-top:16px;font-size:1.05rem;max-width:300px">${c.sub}</div>
       ${c.last ? '<button data-sh class="btn" style="margin-top:28px;background:#fff;color:#12372a;font-weight:800">Condividi immagine</button>' : ''}</div>
       <div style="padding:0 0 calc(var(--sab,0px) + 14px);text-align:center;opacity:.55;font-size:.8rem">Tocca per proseguire</div>`;
   };
