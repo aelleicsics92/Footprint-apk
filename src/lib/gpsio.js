@@ -23,6 +23,7 @@ export function toGPX({ waypoints = [], tracks = [], name = 'Footprint' }) {
   for (const t of tracks) {
     out.push(`<trk><name>${esc(t.name)}</name><trkseg>`);
     for (const p of t.points) {
+      if (p[4] === 1) out.push('</trkseg><trkseg>');
       out.push(`<trkpt lat="${p[0].toFixed(7)}" lon="${p[1].toFixed(7)}">${p[2] != null ? `<ele>${Number(p[2]).toFixed(1)}</ele>` : ''}<time>${iso(p[3])}</time></trkpt>`);
     }
     out.push('</trkseg></trk>');
@@ -146,10 +147,21 @@ function parseLOC(doc) {
   return { waypoints, tracks: [] };
 }
 
+// divide in segmenti (pause/buchi) per il disegno
+export function segments(pts) {
+  const out = [];
+  for (const p of pts) {
+    if (!out.length || p[4] === 1) out.push([]);
+    out[out.length - 1].push([p[0], p[1], p[2]]);
+  }
+  return out;
+}
 export function buildTrack(name, pts) {
   let dist = 0, up = 0, down = 0, maxAlt = -1e9, minAlt = 1e9, lastAlt = null;
   for (let i = 0; i < pts.length; i++) {
-    if (i) dist += hav(pts[i - 1], pts[i]);
+    const brk = pts[i][4] === 1;
+    if (i && !brk) dist += hav(pts[i - 1], pts[i]);
+    if (brk) lastAlt = null;
     const a = pts[i][2];
     if (a != null) {
       maxAlt = Math.max(maxAlt, a); minAlt = Math.min(minAlt, a);

@@ -13,7 +13,7 @@ import { getHeading, compassAlive } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
-import { toGPX, shareFile, safeName } from '../lib/gpsio.js';
+import { toGPX, shareFile, safeName, segments } from '../lib/gpsio.js';
 import { openSOS } from './sos.js';
 import { fetchWx, wmo, openWeather, pressureDrop } from './weather.js';
 import { sunTimes } from '../lib/sun.js';
@@ -183,7 +183,9 @@ export function mountMap(el) {
   bus.on('rec:state', renderRec);
   bus.on('rec:tick', updateRecChip);
   bus.on('rec:point', (pt) => {
-    recLine.addLatLng([pt[0], pt[1]]);
+    if (pt[4] === 1 && recLine.getLatLngs().length) recLine.setLatLngs([...(Array.isArray(recLine.getLatLngs()[0]) ? recLine.getLatLngs() : [recLine.getLatLngs()]), [[pt[0], pt[1]]]]);
+    else if (Array.isArray(recLine.getLatLngs()[0])) { const l = recLine.getLatLngs(); l[l.length - 1].push(L.latLng(pt[0], pt[1])); recLine.setLatLngs(l); }
+    else recLine.addLatLng([pt[0], pt[1]]);
     updateRecChip();
   });
   bus.on('settings:changed', (k) => {
@@ -369,6 +371,7 @@ function renderRec() {
     recLine.setLatLngs([]);
     chip.className = 'rec-chip hidden';
   } else {
+    if (!recLine.getLatLngs().length && r.points.length) recLine.setLatLngs(segments(r.points));
     chip.className = 'rec-chip' + (r.status === 'pause' ? ' pause' : '');
     chip.innerHTML = `<span class="dot"></span><span id="rec-t"></span><button data-r="${r.status === 'pause' ? 'resume' : 'pause'}" aria-label="Pausa/riprendi">${ico(r.status === 'pause' ? 'play' : 'pause', 18)}</button><button class="stop" data-r="stop" aria-label="Stop e salva">${ico('stop', 16)}</button>`;
     updateRecChip();
@@ -421,7 +424,7 @@ async function showTrack({ id, name }) {
   if (!pts.length) return;
   shownGroup.clearLayers();
   const ll = pts.map((p) => [p[0], p[1]]);
-  L.polyline(ll, { color: '#ffb23e', weight: 5, opacity: 0.95 }).addTo(shownGroup);
+  L.polyline(segments(pts), { color: '#ffb23e', weight: 5, opacity: 0.95 }).addTo(shownGroup);
   L.circleMarker(ll[0], { radius: 7, color: '#fff', weight: 2, fillColor: '#1b7a4a', fillOpacity: 1 }).addTo(shownGroup);
   L.circleMarker(ll[ll.length - 1], { radius: 7, color: '#fff', weight: 2, fillColor: '#c0392b', fillOpacity: 1 }).addTo(shownGroup);
   shownTrackName = name;

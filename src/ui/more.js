@@ -9,7 +9,7 @@ import { getSettings, setSetting, apiKey } from '../lib/store.js';
 import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
-import { toGPX, shareFile, safeName, parseGpsText } from '../lib/gpsio.js';
+import { toGPX, shareFile, safeName, parseGpsText, segments } from '../lib/gpsio.js';
 import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
@@ -308,7 +308,7 @@ function toKML(wps, tracks, name) {
   const x = (t) => String(t).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(name)}</name>` +
     wps.map((w) => `<Placemark><name>${x(w.title || 'Waypoint')}</name><description>${x(w.note || '')}</description><Point><coordinates>${w.lon},${w.lat},${w.alt || 0}</coordinates></Point></Placemark>`).join('') +
-    tracks.map((t) => `<Placemark><name>${x(t.name)}</name><LineString><tessellate>1</tessellate><coordinates>${t.points.map((q) => `${q[1]},${q[0]},${q[2] || 0}`).join(' ')}</coordinates></LineString></Placemark>`).join('') +
+    tracks.map((t) => `<Placemark><name>${x(t.name)}</name><MultiGeometry>${segments(t.points).map((sg) => `<LineString><tessellate>1</tessellate><coordinates>${sg.map((q) => `${q[1]},${q[0]},${q[2] || 0}`).join(' ')}</coordinates></LineString>`).join('')}</MultiGeometry></Placemark>`).join('') +
     `</Document></kml>`;
 }
 function exportAll() {

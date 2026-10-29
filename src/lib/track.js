@@ -17,14 +17,8 @@ export async function mergeNative() {
       const ts = q[3];
       const last = rec.points[rec.points.length - 1];
       if (last && ts <= last[3]) continue;
-      if (last) {
-        const d = haversine({ lat: last[0], lon: last[1] }, { lat: q[0], lon: q[1] });
-        if (d < 4) continue;
-        rec.dist += d;
-        if (q[2] != null && last[2] != null && Math.abs(q[2] - last[2]) >= 4) { if (q[2] > last[2]) rec.up += q[2] - last[2]; else rec.down += last[2] - q[2]; }
-      }
-      rec.points.push([q[0], q[1], q[2], ts]);
-      n++;
+      if ((rec.gaps || []).some((g) => ts >= g[0] && ts <= g[1])) continue;
+      if (pushPoint([q[0], q[1], q[2], ts])) n++;
     }
     if (n) { persistCurrent(); bus.emit('rec:point', rec.points[rec.points.length - 1]); }
     return n;
@@ -34,7 +28,7 @@ export async function nativeActive() {
   try { return !!(isNative() && (await IF().recRead()).active); } catch { return false; }
 }
 
-const rec = { status: 'idle', id: null, name: '', start: 0, points: [], dist: 0, up: 0, down: 0, paused: 0, pauseAt: 0, lastAlt: null };
+const rec = { status: 'idle', id: null, name: '', start: 0, points: [], dist: 0, up: 0, down: 0, paused: 0, pauseAt: 0, lastAlt: null, brk: false, gaps: [] };
 let watcherId = null;
 let unsubPos = null;
 let tickT = null;
@@ -69,27 +63,38 @@ export async function deleteTrack(id) {
   bus.emit('tracks:changed');
 }
 
-function accept(p) {
-  if (rec.status !== 'rec') return;
-  if (p.acc != null && p.acc > 45) return;
+// aggiunge un punto: dopo pausa o buco lungo apre un nuovo segmento (5° elemento = 1), senza distanza di collegamento
+function pushPoint(cur) {
   const last = rec.points[rec.points.length - 1];
-  const cur = [p.lat, p.lon, p.alt != null ? p.alt : null, p.ts || Date.now()];
+  let brk = false;
   if (last) {
-    const d = haversine({ lat: last[0], lon: last[1] }, p);
-    if (d < 4) return;
-    rec.dist += d;
-    if (cur[2] != null) {
-      if (rec.lastAlt == null) rec.lastAlt = cur[2];
-      else if (Math.abs(cur[2] - rec.lastAlt) >= 4) {
-        if (cur[2] > rec.lastAlt) rec.up += cur[2] - rec.lastAlt;
-        else rec.down += rec.lastAlt - cur[2];
-        rec.lastAlt = cur[2];
+    const d = haversine({ lat: last[0], lon: last[1] }, { lat: cur[0], lon: cur[1] });
+    if (!rec.brk && d < 4) return false;
+    if (rec.brk || (cur[3] - last[3] > 10 * 60000 && d > 150)) brk = true;
+    if (!brk) {
+      rec.dist += d;
+      if (cur[2] != null) {
+        if (rec.lastAlt == null) rec.lastAlt = cur[2];
+        else if (Math.abs(cur[2] - rec.lastAlt) >= 4) {
+          if (cur[2] > rec.lastAlt) rec.up += cur[2] - rec.lastAlt;
+          else rec.down += rec.lastAlt - cur[2];
+          rec.lastAlt = cur[2];
+        }
       }
-    }
+    } else rec.lastAlt = cur[2];
   } else if (cur[2] != null) rec.lastAlt = cur[2];
+  if (brk) cur = [cur[0], cur[1], cur[2], cur[3], 1];
+  rec.brk = false;
   rec.points.push(cur);
   bus.emit('rec:point', cur);
   if (rec.points.length % 3 === 0) persistCurrent();
+  return true;
+}
+
+function accept(p) {
+  if (rec.status !== 'rec') return;
+  if (p.acc != null && p.acc > 45) return;
+  pushPoint([p.lat, p.lon, p.alt != null ? p.alt : null, p.ts || Date.now()]);
 }
 
 const persistCurrent = () => kvSet('rec:current', { ...rec, live: rec.status === 'rec', savedAt: Date.now() });
@@ -103,7 +108,7 @@ export function elapsed() {
 export async function startRecording(resume = null) {
   if (rec.status !== 'idle') return;
   await ensurePermission();
-  Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null });
+  Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
   rec.status = 'rec';
   if (!rec.name) rec.name = `Traccia ${fmtDate(rec.start).replace(',', '')}`;
   const p = lastPos();
@@ -156,6 +161,7 @@ async function stopWatching() {
 
 export function pauseRecording() {
   if (rec.status !== 'rec') return;
+  mergeNative();
   rec.status = 'pause';
   rec.pauseAt = Date.now();
   persistCurrent();
@@ -164,6 +170,8 @@ export function pauseRecording() {
 export function resumeRecording() {
   if (rec.status !== 'pause') return;
   rec.paused += Date.now() - rec.pauseAt;
+  (rec.gaps = rec.gaps || []).push([rec.pauseAt, Date.now()]);
+  rec.brk = true;
   rec.status = 'rec';
   bus.emit('rec:state');
 }
@@ -176,7 +184,7 @@ export async function stopRecording({ save = true } = {}) {
   const pts = rec.points.slice();
   const name = rec.name;
   const dur = Math.max(0, (end - rec.start - rec.paused) / 1000);
-  Object.assign(rec, { status: 'idle', id: null, points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null });
+  Object.assign(rec, { status: 'idle', id: null, points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
   await kvDel('rec:current');
   bus.emit('rec:state');
   if (!save || pts.length < 2) return null;

@@ -1,4 +1,5 @@
 // Foschia leggera su tutta la mappa che si dissolve entro ~6 m dal percorso già fatto oggi
+import { segments } from './gpsio.js';
 import { getTracks, loadTrackPoints, getRec } from './track.js';
 import { getWalked } from './walked.js';
 import { lastPos } from './geo.js';
@@ -25,7 +26,7 @@ export class Fog {
     if (!this.on) return;
     const since = Date.now() - 24 * 3600 * 1000;
     const lines = [];
-    for (const t of getTracks().filter((t) => t.start >= since)) lines.push((await loadTrackPoints(t.id)).map((q) => [q[0], q[1]]));
+    for (const t of getTracks().filter((t) => t.start >= since)) for (const sg of segments(await loadTrackPoints(t.id))) lines.push(sg);
     this.walked = await getWalked();
     this.lines = lines;
     this.schedule();
@@ -63,7 +64,7 @@ export class Fog {
     g.lineWidth = w;
     const lines = this.lines.slice();
     if (this.walked) lines.push(this.walked);
-    lines.push(getRec().points);
+    for (const sg of segments(getRec().points)) lines.push(sg);
     const p = lastPos();
     if (p) lines.push([[p.lat, p.lon]]);
     g.beginPath();
