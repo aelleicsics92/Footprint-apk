@@ -71,6 +71,15 @@ async function boot() {
     }
   });
   bus.on('nav:tab', goTab);
+  // tenendo premuto Bussola: bussola del rientro
+  (() => {
+    const b = $('#nav').querySelector('[data-t=compass]');
+    if (!b) return;
+    let lp = null;
+    b.addEventListener('touchstart', () => { lp = setTimeout(() => { lp = 'done'; try { navigator.vibrate && navigator.vibrate(30); } catch {} import('./ui/rientro.js').then((m) => m.openReturn()); }, 600); }, { passive: true });
+    ['touchend', 'touchcancel', 'touchmove'].forEach((ev) => b.addEventListener(ev, () => { if (lp && lp !== 'done') clearTimeout(lp); }, { passive: true }));
+    b.addEventListener('click', (e) => { if (lp === 'done') { e.stopPropagation(); e.preventDefault(); lp = null; } }, true);
+  })();
 
   if (Capacitor.isNativePlatform()) {
     StatusBar.setStyle({ style: Style.Dark }).catch(() => {});

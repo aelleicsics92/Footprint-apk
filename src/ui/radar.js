@@ -5,7 +5,7 @@ import { lastPos } from '../lib/geo.js';
 import { getHeading } from '../lib/compass.js';
 import { lsGet, lsSet } from '../lib/store.js';
 import { ico } from '../lib/icons.js';
-import { getGroups, createGroup, joinGroup, updateGroup, removeGroup, syncService, search, initMates, syncFromNative } from '../lib/mates.js';
+import { getGroups, createGroup, joinGroup, updateGroup, removeGroup, syncService, search, sendPing, initMates, syncFromNative } from '../lib/mates.js';
 
 const FRESH = 15 * 60000;
 const parseCoords = (t) => {
@@ -42,7 +42,7 @@ export function openRadar() {
       const row = (m, idx) => {
         const d = me ? haversine(me, m) : null, b = me ? bearing(me, m) : null, min = Math.round((Date.now() - m.ts) / 60000);
         return `<div class="rc-m"><div class="rc-ar"><div style="transform:rotate(${b == null ? 0 : b - h}deg);font-size:1.3rem;line-height:1;color:var(--moss)">▲</div></div>
-          <div style="flex:1;min-width:0"><b>${esc(m.name)}</b><div class="muted" style="font-size:.85rem">${d == null ? 'attendo il GPS' : `${fmtDist(d)} a ${cardinal(b)}`} · ${min < 1 ? 'ora' : min + ' min fa'}</div></div>
+          <div style="flex:1;min-width:0"><b>${esc(m.name)}</b>${m.ping && Date.now() - m.ping < 3600e3 ? ' <span style="background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.75rem">CHIAMA</span>' : ''}<div class="muted" style="font-size:.85rem">${d == null ? 'attendo il GPS' : `${fmtDist(d)} a ${cardinal(b)}`} · ${min < 1 ? 'ora' : min + ' min fa'}</div></div>
           ${m.gkey ? '' : `<button class="rc-ib" data-rm="${idx}" aria-label="Rimuovi">${ico('trash', 18)}</button>`}</div>`;
       };
       const cards = gs.map((g) => {
@@ -58,7 +58,7 @@ export function openRadar() {
             <span style="flex:1"></span>
             <button class="rc-ib" data-a="menu" aria-label="Impostazioni gruppo">${ico('sliders', 20)}</button></div>
           <div class="rc-st"><span class="rc-dot"></span><span>${st}</span></div>
-          ${g.on ? `<button class="btn small" data-a="find" style="margin-top:10px" ${searching ? 'disabled' : ''}>${ico('search', 16)} ${searching ? 'Cerco...' : 'Cerca compagni'}</button>` : ''}
+          ${g.on ? `<button class="btn small" data-a="find" style="margin-top:10px" ${searching ? 'disabled' : ''}>${ico('search', 16)} ${searching ? 'Cerco...' : 'Cerca compagni'}</button> <button class="btn small" data-a="ping" style="margin-top:10px;background:#c0392b;color:#fff">Vienimi a prendere</button>` : ''}
           ${ms.map((x) => row(x.m, x.i)).join('')}</div>`;
       }).join('');
       const manual = mates.map((m, i) => ({ m, i })).filter((x) => !x.m.gkey);
@@ -85,6 +85,11 @@ export function openRadar() {
         c.querySelector('[data-a=menu]').onclick = () => openMenu(key);
         const f = c.querySelector('[data-a=find]');
         if (f) f.onclick = startSearch;
+        const pb = c.querySelector('[data-a=ping]');
+        if (pb) pb.onclick = async () => {
+          const r = await sendPing(key, 'Vienimi a prendere qui');
+          toast(r === 'ok' ? 'Chiamata inviata ai compagni vicini (2 min)' : r === 'perms' ? 'Servono i permessi Bluetooth' : r === 'web' ? 'Solo nell\'app' : 'Servizio non attivo');
+        };
       });
     };
 

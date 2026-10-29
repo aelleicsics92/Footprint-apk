@@ -55,6 +55,8 @@ public class MateService extends Service {
     private final Map<String, List<String>> common = new HashMap<>();
     private final Map<String, Long> reqAt = new HashMap<>();
     private boolean advertising = false;
+    private String pingGroup = null, pingMsg = "";
+    static final String CH_PING = "fp_ping_ch";
 
     interface LocCb { void on(Location l); }
 
@@ -81,6 +83,14 @@ public class MateService extends Service {
     static void search(Context c, int seconds) {
         MateService s = inst;
         if (s != null) s.startSearch(seconds);
+    }
+
+    static void ping(Context c, String gkey, String msg, int seconds) {
+        MateService s = inst;
+        if (s == null) return;
+        s.pingGroup = gkey;
+        s.pingMsg = msg == null ? "" : msg;
+        s.startSearch(seconds);
     }
 
     @Override public IBinder onBind(Intent i) { return null; }
@@ -127,6 +137,23 @@ public class MateService extends Service {
         } else startForeground(7702, n);
     }
 
+    private void notifyPing(String name, String msg) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= 26 && nm != null) {
+                NotificationChannel ch = new NotificationChannel(CH_PING, "Ping dai compagni", NotificationManager.IMPORTANCE_HIGH);
+                ch.enableVibration(true);
+                nm.createNotificationChannel(ch);
+            }
+            Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            PendingIntent pi = PendingIntent.getActivity(this, 2, open, Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+            Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH_PING) : new Notification.Builder(this);
+            b.setContentTitle(name + " ti chiama").setContentText(msg == null || msg.isEmpty() ? "Vienimi a prendere qui" : msg)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert).setAutoCancel(true).setContentIntent(pi).setPriority(Notification.PRIORITY_MAX).setDefaults(Notification.DEFAULT_ALL);
+            if (nm != null) nm.notify(7710, b.build());
+        } catch (Exception ignore) {}
+    }
+
     private String advName() {
         StringBuilder sb = new StringBuilder();
         for (G g : groups) { if (sb.length() > 0) sb.append(','); sb.append(g.tag); }
@@ -171,6 +198,7 @@ public class MateService extends Service {
         @Override public void run() {
             try { if (cc != null) cc.stopDiscovery(); } catch (Exception ignore) {}
             searching = false;
+            pingGroup = null;
             event("searching", false);
         }
     };
@@ -225,6 +253,18 @@ public class MateService extends Service {
                 JSONObject all = new JSONObject(sp.getString("mates", "{}"));
                 all.put(gr.key + ":" + name, m);
                 sp.edit().putString("mates", all.toString()).apply();
+                if (j.optBoolean("ping")) {
+                    JSONObject pg = new JSONObject();
+                    pg.put("name", name); pg.put("gkey", gr.key); pg.put("lat", m.getDouble("lat")); pg.put("lon", m.getDouble("lon"));
+                    pg.put("t", m.getLong("t")); pg.put("msg", j.optString("msg", ""));
+                    JSONArray pa = new JSONArray(sp.getString("pings", "[]"));
+                    pa.put(pg);
+                    sp.edit().putString("pings", pa.toString()).apply();
+                    notifyPing(name, j.optString("msg", ""));
+                    JSObject pe = new JSObject();
+                    pe.put("name", name); pe.put("gkey", gr.key); pe.put("lat", m.getDouble("lat")); pe.put("lon", m.getDouble("lon")); pe.put("t", m.getLong("t")); pe.put("msg", j.optString("msg", ""));
+                    IntentFilesPlugin.mateEvent("ping", pe);
+                }
                 JSObject ev = new JSObject();
                 ev.put("name", name);
                 ev.put("gkey", gr.key);
@@ -252,6 +292,7 @@ public class MateService extends Service {
                     j.put("lon", l.getLongitude());
                     if (l.hasAltitude()) j.put("alt", l.getAltitude());
                     j.put("t", l.getTime() > 0 ? l.getTime() : System.currentTimeMillis());
+                    if (pingGroup != null && pingGroup.equals(g.key)) { j.put("ping", true); j.put("msg", pingMsg); }
                     cc.sendPayload(id, Payload.fromBytes(j.toString().getBytes(StandardCharsets.UTF_8)));
                 }
             } catch (Exception ignore) {}

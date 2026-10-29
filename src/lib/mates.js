@@ -91,8 +91,36 @@ export async function syncFromNative() {
       const cur = lsGet('fp.mates', []).find((x) => x.name === m.name && x.gkey === m.gkey);
       if (!cur || (m.t || 0) > cur.ts) store(m);
     }
+    for (const p of st.pings || []) { if (Date.now() - (p.t || 0) < 3600e3) onPing(p); }
     bus.emit('mates:changed');
   } catch {}
+}
+export async function sendPing(gkey, msg = '') {
+  if (!native()) return 'web';
+  if (!(await syncService(true))) return 'perms';
+  for (let i = 0; i < 10; i++) {
+    if ((await IF().mateRead()).running) break;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  try { await IF().matePing({ gkey, msg, seconds: 120 }); return 'ok'; } catch { return 'off'; }
+}
+function onPing(ev) {
+  if (!getGroups().some((g) => g.key === ev.gkey)) return;
+  const seen = lsGet('fp.pingseen', []);
+  const id = ev.name + ev.t;
+  if (seen.includes(id)) return;
+  lsSet('fp.pingseen', seen.concat(id).slice(-30));
+  store(ev);
+  const l = lsGet('fp.mates', []);
+  const m = l.find((x) => x.name === ev.name && x.gkey === ev.gkey);
+  if (m) { m.ping = ev.t || Date.now(); lsSet('fp.mates', l); }
+  bus.emit('mates:changed', { fresh: false });
+  bus.emit('mates:ping', ev);
+  import('./ui.js').then((u) => {
+    const sh = u.openSheet({ title: `${ev.name} ti chiama`, body: `<p style="font-size:1.1rem;margin:4px 0 14px"><b>${String(ev.msg || 'Vienimi a prendere qui').replace(/[<>&]/g, '')}</b></p><button class="btn primary big" id="pg-go">Apri radar</button>` });
+    sh.body.querySelector('#pg-go').onclick = () => { sh.close && sh.close(); import('../ui/radar.js').then((r) => r.openRadar()); };
+    try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch {}
+  }).catch(() => {});
 }
 let inited = false;
 export function initMates() {
@@ -100,6 +128,7 @@ export function initMates() {
   inited = true;
   try {
     IF().addListener('mate', (ev) => { if (getGroups().some((g) => g.key === ev.gkey)) { store(ev); bus.emit('mates:changed', { fresh: true }); } });
+    IF().addListener('ping', onPing);
     IF().addListener('searching', (ev) => bus.emit('mates:search', !!ev.searching));
   } catch {}
   syncService(false);

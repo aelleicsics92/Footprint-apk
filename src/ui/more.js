@@ -3,7 +3,8 @@ import { ITALY } from '../data/italy.js';
 import { CITIES, LAKES, RIVERS } from '../data/italyfeat.js';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
-import { esc, bus, fmtDist, fmtDur, fmtDate, uid } from '../lib/util.js';
+import { esc, bus, fmtDist, fmtDur, fmtDate, uid, haversine } from '../lib/util.js';
+import { lastPos } from '../lib/geo.js';
 import { openPage, openSheet, toast, confirmBox, leavePages } from '../lib/ui.js';
 import { getSettings, setSetting, apiKey, kvGet, kvSet } from '../lib/store.js';
 import { openWeather } from './weather.js';
@@ -207,22 +208,35 @@ function openWaypointList() {
   openPage(
     'I miei waypoint',
     (pg) => {
-      let q = '', cat = 'all';
+      let q = '', cat = 'all', sortD = false, near = false;
       const CATS = { porcini: ['porcino', 'regius', 'pinaiolo', 'pinarolo'], tartufi: ['scorzone', 'uncinato', 'bianco', 'bianchetto', 'nero'], utility: ['parcheggio', 'acqua', 'pericolo', 'panorama', 'orma'] };
       const inCat = (w) => cat === 'all' || (cat === 'altri' ? ![...CATS.porcini, ...CATS.tartufi, ...CATS.utility].includes(w.icon) : CATS[cat].includes(w.icon));
       const draw = () => {
         const s = q.trim().toLowerCase();
         pg.body.querySelectorAll('[data-cat]').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
-        const list = getWaypoints().filter(inCat).filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s) || wpIcon(w.icon).label.toLowerCase().includes(s) || (w.tags || []).some((t) => t.toLowerCase().includes(s))).sort((a, b) => b.ts - a.ts);
+        const list = getWaypoints().filter(inCat).filter((w) => !s || w.title.toLowerCase().includes(s) || (w.desc || '').toLowerCase().includes(s) || wpIcon(w.icon).label.toLowerCase().includes(s) || (w.tags || []).some((t) => t.toLowerCase().includes(s)));
+        const me = lastPos();
+        const dm = new Map();
+        if (me) for (const w of list) dm.set(w.id, haversine(me, w));
+        if (near && me) { for (let i = list.length - 1; i >= 0; i--) if (dm.get(list[i].id) > 2000) list.splice(i, 1); }
+        list.sort(sortD && me ? (a, b) => dm.get(a.id) - dm.get(b.id) : (a, b) => b.ts - a.ts);
+        pg.body.querySelectorAll('[data-sort]').forEach((c) => c.classList.toggle('sel', (c.dataset.sort === 'near' ? near : c.dataset.sort === 'dist' ? sortD : !sortD && !near)));
         pg.body.querySelector('#wl').innerHTML = list.length
           ? list
-              .map((w) => `<button class="item" data-id="${w.id}"><span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
+              .map((w) => `<button class="item" data-id="${w.id}"><span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${dm.has(w.id) ? ' · ' + fmtDist(dm.get(w.id)) : ''}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
               .join('')
           : `<div class="empty">${ico('pinplus', 40)}<p>Nessun waypoint.<br>Usa il pulsante sulla mappa per salvarne uno.</p></div>`;
         pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => openWaypoint(getWaypoints().find((w) => w.id === b.dataset.id))));
       };
       pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
-        <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="list" id="wl"></div>`;
+        <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}</div><div class="list" id="wl"></div>`;
+      pg.body.querySelectorAll('[data-sort]').forEach((c) => (c.onclick = () => {
+        if (c.dataset.sort === 'near') { near = !near; if (near) sortD = true; }
+        else if (c.dataset.sort === 'dist') { sortD = true; }
+        else { sortD = false; near = false; }
+        if (!lastPos() && (sortD || near)) toast('Attendo il GPS per le distanze');
+        draw();
+      }));
       pg.body.querySelectorAll('[data-cat]').forEach((c) => (c.onclick = () => { cat = c.dataset.cat; draw(); }));
       pg.body.querySelector('#wq').oninput = (e) => ((q = e.target.value), draw());
       draw();

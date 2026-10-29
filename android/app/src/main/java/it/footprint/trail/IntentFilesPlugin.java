@@ -82,10 +82,18 @@ public class IntentFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void matePing(PluginCall call) {
+        if (MateService.inst == null) { call.reject("off"); return; }
+        MateService.ping(getContext(), call.getString("gkey", ""), call.getString("msg", ""), call.getInt("seconds", 120));
+        call.resolve();
+    }
+
+    @PluginMethod
     public void mateRead(PluginCall call) {
         JSObject r = new JSObject();
         android.content.SharedPreferences sp = getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE);
         try { r.put("mates", new JSObject(sp.getString("mates", "{}"))); } catch (Exception e) { r.put("mates", new JSObject()); }
+        try { r.put("pings", new JSArray(sp.getString("pings", "[]"))); } catch (Exception e) { r.put("pings", new JSArray()); }
         r.put("running", MateService.inst != null);
         r.put("searching", MateService.searching);
         r.put("perms", matePermsOk());
@@ -94,7 +102,7 @@ public class IntentFilesPlugin extends Plugin {
 
     @PluginMethod
     public void mateClear(PluginCall call) {
-        getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE).edit().remove("mates").apply();
+        getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE).edit().remove("mates").remove("pings").apply();
         call.resolve();
     }
 

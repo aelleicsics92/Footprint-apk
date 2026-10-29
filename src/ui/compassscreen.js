@@ -42,12 +42,14 @@ export function mountCompass(el) {
     <div class="compass-head" id="c-deg">--°</div>
     <div class="compass-sub" id="c-card">BUSSOLA</div>
     <div class="dial"><div class="needle"></div>${dialSVG()}</div>
+    <button class="btn ghost" id="c-ret" style="margin-top:12px;color:#ffb23e;border-color:#ffb23e;font-weight:800">🧭 Bussola del rientro (freccia gigante)</button>
     <button class="btn ghost" id="c-back" style="margin-top:12px;color:#fff;border-color:rgba(255,255,255,.4)">↩ Torna indietro sui tuoi passi</button>
     <div class="target-card hidden" id="c-bt"></div>
     <div class="target-card hidden" id="c-target"></div>
     <div class="gps-grid" id="c-gps"></div>
     <p class="muted" id="c-note" style="color:#a6c4b1;text-align:center;font-size:.8rem;margin-top:14px">Tieni il telefono in piano. Per calibrare, muovilo disegnando un otto.</p>
   </div>`;
+  el.querySelector('#c-ret').onclick = () => import('./rientro.js').then((m) => m.openReturn());
   el.querySelector('#c-back').onclick = async () => {
     if (bt) { bt = null; updateInfo(); return; }
     let pts = getRec().points;
