@@ -43,17 +43,18 @@ export function openSheet({ title = '', body = '', onMount, full = false, cls = 
   });
   // trascina verso il basso per chiudere (da maniglia, titolo o dall'inizio del contenuto)
   const sheetEl = $('.sheet', wrap);
-  let ty = null, dy = 0;
+  let ty = null, dy = 0, fromHead = false;
   sheetEl.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    const top = e.target.closest('.sheet-grip,.sheet-head') || (bodyEl.contains(e.target) && bodyEl.scrollTop <= 0);
+    fromHead = !!e.target.closest('.sheet-grip,.sheet-head');
+    const top = fromHead || (bodyEl.contains(e.target) && bodyEl.scrollTop <= 0);
     ty = top ? t.clientY : null;
     dy = 0;
   }, { passive: true });
   sheetEl.addEventListener('touchmove', (e) => {
     if (ty == null) return;
     dy = e.touches[0].clientY - ty;
-    if (dy > 8) {
+    if (dy > (fromHead ? 8 : 16) && (fromHead || bodyEl.scrollTop <= 0)) {
       sheetEl.style.transition = 'none';
       sheetEl.style.transform = `translateY(${dy}px)`;
       e.cancelable && e.preventDefault();
