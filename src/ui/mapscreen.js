@@ -25,6 +25,7 @@ import { createStorm } from '../lib/storm.js';
 import { HabLayer, forecastInputs } from './hablayer.js';
 import { PROFILES, LEVELS } from '../lib/fungi.js';
 
+let mateGroup;
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
 let followPts = null, offTrack = null, lastAlert = 0;
@@ -32,6 +33,23 @@ let covGroup, backtrack = false, btLast = null, btAt = 0, sunDay = '', heatGroup
 let root;
 
 export const getMap = () => map;
+function mateList(key) {
+  const on = new Set(lsGet('fp.mategroups', []).filter((g) => g.on).map((g) => g.key));
+  return lsGet('fp.mates', []).filter((m) => m.lat != null && (m.gkey ? on.has(m.gkey) && (!key || m.gkey === key || key === 'all') : !key || key === 'all'));
+}
+function renderMates() {
+  if (!mateGroup) return;
+  mateGroup.clearLayers();
+  const p = lastPos();
+  for (const m of mateList()) {
+    const min = Math.round((Date.now() - m.ts) / 60000), old = min > 15, call = m.ping && Date.now() - m.ping < 3600e3;
+    const col = call ? '#c0392b' : old ? '#8a8f87' : '#1f6fd1';
+    const mk = L.marker([m.lat, m.lon], { icon: L.divIcon({ className: '', iconSize: [120, 36], iconAnchor: [60, 36], html: `<div style="width:120px;display:flex;flex-direction:column;align-items:center"><span style="display:block;max-width:120px;overflow:hidden;text-overflow:ellipsis;background:${col};color:#fff;border-radius:12px;padding:3px 10px;font-weight:700;font-size:.8rem;line-height:1.3;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.35)">${call ? '🆘 ' : ''}${esc(m.name)}</span><span style="display:block;width:0;height:0;border:7px solid transparent;border-top-color:${col};border-bottom:0"></span></div>` }), zIndexOffset: 800 });
+    const d = p ? fmtDist(haversine(p, m)) + ' · ' : '';
+    mk.bindTooltip(`${d}${min < 1 ? 'ora' : min + ' min fa'}`, { direction: 'bottom', offset: [0, 4] });
+    mk.addTo(mateGroup);
+  }
+}
 
 export function hasShownTrack() { return !!shownTrackName; }
 export function mountMap(el) {
@@ -82,6 +100,10 @@ export function mountMap(el) {
   applyStorm();
   wpGroup = L.layerGroup().addTo(map);
   shownGroup = L.layerGroup().addTo(map);
+  mateGroup = L.layerGroup().addTo(map);
+  renderMates();
+  bus.on('mates:changed', renderMates);
+  bus.on('mates:show', (key) => { renderMates(); const l = mateList(key); const p = lastPos(); if (!map || !l.length) return; setFollow(false); const pts = l.map((m) => [m.lat, m.lon]); if (p) pts.push([p.lat, p.lon]); pts.length === 1 ? map.setView(pts[0], 17) : map.fitBounds(pts, { padding: [70, 70], maxZoom: 17 }); });
   recLine = L.polyline([], { color: '#ff5a4a', weight: 5, opacity: 0.95 }).addTo(map);
   targetLine = L.polyline([], { color: '#d28a2c', weight: 4, dashArray: '2 9', lineCap: 'round' }).addTo(map);
 

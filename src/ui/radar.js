@@ -1,5 +1,5 @@
 // Radar compagni: elenco gruppi a card, interruttore per gruppo, creazione/unione da bottom sheet
-import { openPage, openSheet, toast } from '../lib/ui.js';
+import { openPage, openSheet, toast, leavePages } from '../lib/ui.js';
 import { esc, bus, haversine, bearing, cardinal, fmtDist } from '../lib/util.js';
 import { lastPos } from '../lib/geo.js';
 import { getHeading } from '../lib/compass.js';
@@ -41,7 +41,7 @@ export function openRadar() {
       const gs = getGroups(), mates = lsGet('fp.mates', []), me = lastPos(), h = getHeading() || 0;
       const row = (m, idx) => {
         const d = me ? haversine(me, m) : null, b = me ? bearing(me, m) : null, min = Math.round((Date.now() - m.ts) / 60000);
-        return `<div class="rc-m"><div class="rc-ar"><div style="transform:rotate(${b == null ? 0 : b - h}deg);font-size:1.3rem;line-height:1;color:var(--moss)">▲</div></div>
+        return `<div class="rc-m" ${m.lat != null ? `data-mk="${esc(m.gkey || 'all')}"` : ''} style="cursor:pointer"><div class="rc-ar"><svg viewBox="0 0 24 24" width="30" height="30" style="transform:rotate(${b == null ? 0 : b - h}deg);color:var(--moss)" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V4M5 11l7-7 7 7"/></svg></div>
           <div style="flex:1;min-width:0"><b>${esc(m.name)}</b>${m.ping && Date.now() - m.ping < 3600e3 ? ' <span style="background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.75rem">CHIAMA</span>' : ''}<div class="muted" style="font-size:.85rem">${d == null ? 'attendo il GPS' : `${fmtDist(d)} a ${cardinal(b)}`} · ${min < 1 ? 'ora' : min + ' min fa'}</div></div>
           ${m.gkey ? '' : `<button class="rc-ib" data-rm="${idx}" aria-label="Rimuovi">${ico('trash', 18)}</button>`}</div>`;
       };
@@ -59,6 +59,7 @@ export function openRadar() {
             <button class="rc-ib" data-a="menu" aria-label="Impostazioni gruppo">${ico('sliders', 20)}</button></div>
           <div class="rc-st"><span class="rc-dot"></span><span>${st}</span></div>
           ${g.on ? `<button class="btn small" data-a="find" style="margin-top:10px" ${searching ? 'disabled' : ''}>${ico('search', 16)} ${searching ? 'Cerco...' : 'Cerca compagni'}</button> <button class="btn small" data-a="ping" style="margin-top:10px;background:#c0392b;color:#fff">Vienimi a prendere</button>` : ''}
+          ${g.on && ms.length ? `<button class="btn small" data-a="onmap" style="margin-top:8px;background:#e3eee5;color:#12372a;width:100%">${ico('map', 16)} Mostra i compagni sulla mappa</button>` : ''}
           ${ms.map((x) => row(x.m, x.i)).join('')}</div>`;
       }).join('');
       const manual = mates.map((m, i) => ({ m, i })).filter((x) => !x.m.gkey);
@@ -72,6 +73,7 @@ export function openRadar() {
     const wire = () => {
       wrap.querySelector('[data-a=new]').onclick = openNew;
       wrap.querySelector('[data-a=manual]').onclick = openManual;
+      wrap.querySelectorAll('[data-mk]').forEach((r) => (r.onclick = (e) => { if (e.target.closest('[data-rm]')) return; leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('mates:show', r.dataset.mk), 150); }));
       wrap.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { const l = lsGet('fp.mates', []); l.splice(Number(b.dataset.rm), 1); lsSet('fp.mates', l); render(); }));
       wrap.querySelectorAll('.rc[data-k]').forEach((c) => {
         const key = c.dataset.k, g = getGroups().find((x) => x.key === key);
@@ -85,6 +87,8 @@ export function openRadar() {
         c.querySelector('[data-a=menu]').onclick = () => openMenu(key);
         const f = c.querySelector('[data-a=find]');
         if (f) f.onclick = startSearch;
+        const om = c.querySelector('[data-a=onmap]');
+        if (om) om.onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('mates:show', key), 150); };
         const pb = c.querySelector('[data-a=ping]');
         if (pb) pb.onclick = async () => {
           const r = await sendPing(key, 'Vienimi a prendere qui');
@@ -108,7 +112,7 @@ export function openRadar() {
     const openNew = () => {
       const s = openSheet({ title: 'Nuovo gruppo', body: `<div style="display:flex;gap:8px;margin-bottom:12px"><button class="chip active" data-t="c" style="flex:1">Crea</button><button class="chip" data-t="j" style="flex:1">Unisciti</button></div>
         <label class="field" id="n-l"><span>Nome del gruppo</span><input id="n-label" type="text" maxlength="30" placeholder="es. Funghi con Marco" onfocus="this.select()"></label>
-        <label class="field" id="n-c" style="display:none"><span>Codice del gruppo</span><input id="n-code" type="text" maxlength="12" autocapitalize="characters" placeholder="es. NJK4DD9M" onfocus="this.select()"></label>
+        <label class="field" id="n-c" style="display:none"><span>Codice del gruppo</span><input id="n-code" type="text" maxlength="12" autocapitalize="characters" placeholder="Incolla il codice ricevuto" onfocus="this.select()"></label>
         <label class="field"><span>Il tuo nome</span><input id="n-me" type="text" maxlength="20" value="${esc(getGroups()[0]?.name || '')}" onfocus="this.select()"></label>
         <button class="btn primary big" id="n-go" style="margin-top:6px">${ico('check', 18)} Crea gruppo</button>` });
       let mode = 'c';
