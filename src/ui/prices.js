@@ -204,6 +204,7 @@ export function openPrices() {
         <small class="muted">Media pesata: le fonti recenti contano di più, quelle molto distanti dalle altre pesano meno. I prezzi "al cavatore" (quello che incassa chi cerca) sono più bassi di quelli di mercato.</small></div>`;
     };
     let calcG = '', calcS = '';
+    const calcList = [];
     const render = (data, liveState) => {
     const today = new Date().toISOString().slice(0, 10);
     const items = data.items.map((x) => ({ ...x, open: !windowState(today, (PROFILES[x.id] || {}).window).closed })).sort((a, b) => Number(b.open) - Number(a.open));
@@ -218,15 +219,36 @@ export function openPrices() {
           <small class="muted">Dato più recente del ${fmt(x.date)} · ${esc(x.src)}</small>
           <div class="pr-more">${open === x.id ? tiers(x) : ''}<span class="pr-btn">${open === x.id ? 'Nascondi pezzature' : 'Vedi pezzature (I, II, III scelta)'} <b>${open === x.id ? '▴' : '▾'}</b></span></div></div></div>`).join('')}</div>
       <div class="card" style="margin:10px 14px"><h3>Quanto vale il mio raccolto?</h3>
-        <div class="row gap"><select id="pc-s" class="grow">${items.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="pc-g" class="grow" type="number" inputmode="numeric" placeholder="grammi" onfocus="this.select()"></div>
-        <div id="pc-o" style="margin-top:10px"></div></div>
+        <div class="row gap"><select id="pc-s" class="grow">${items.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="pc-g" class="grow" type="number" inputmode="numeric" placeholder="peso di 1 tartufo (g)" onfocus="this.select()"></div>
+        <div id="pc-o" style="margin-top:10px"></div>
+        <button class="btn primary" id="pc-add" style="width:100%;margin-top:10px">Aggiungi questo tartufo</button>
+        <div id="pc-l" style="margin-top:10px"></div></div>
       <p class="muted" style="margin:6px 18px 18px;font-size:.78rem;line-height:1.5">${esc(data.note || '')} Sono medie nazionali indicative: calibro, qualità e zona cambiano il prezzo. Per vendere servono tesserino e documenti fiscali in regola.</p>`;
-    const calc = () => {
-      const it = items.find((x) => x.id === pg.body.querySelector('#pc-s').value), g = Number(pg.body.querySelector('#pc-g').value) || 0;
-      const f2 = (v) => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      pg.body.querySelector('#pc-o').innerHTML = g && it ? `<div style="font-size:2.1rem;font-weight:800;color:#12372a;line-height:1.1">${f2((g / 1000) * it.mix)} €</div><div class="muted" style="font-size:.85rem;margin-top:2px">stima partita mista · da ${f2((g / 1000) * it.min)} a ${f2((g / 1000) * it.max)} €</div>` : '<div class="muted" style="font-size:.85rem">Scegli la specie e inserisci i grammi</div>';
-      calcG = pg.body.querySelector('#pc-g').value; calcS = pg.body.querySelector('#pc-s').value;
+    const f2 = (v) => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // un tartufo alla volta: la pezzatura (piccola fino a 20 g, media 20-50 g, grande oltre 50 g) decide il prezzo
+    const priceOf = (it, g) => {
+      const p = it.sizes && it.sizes.p ? it.sizes.p : it.min, m = it.sizes && it.sizes.m ? it.sizes.m : (it.min + it.max) / 2, gr = it.sizes && it.sizes.g ? it.sizes.g : it.max;
+      const t = g < 20 ? ['Piccola', p] : g < 50 ? ['Media', m] : ['Grande', gr];
+      return { tier: t[0], kg: t[1], eur: (g / 1000) * t[1] };
     };
+    const q = (x) => pg.body.querySelector(x);
+    const calc = () => {
+      const it = items.find((x) => x.id === q('#pc-s').value), g = Number(q('#pc-g').value) || 0;
+      if (g && it) { const r = priceOf(it, g); q('#pc-o').innerHTML = `<div style="font-size:2.1rem;font-weight:800;color:#12372a;line-height:1.1">${f2(r.eur)} €</div><div class="muted" style="font-size:.85rem;margin-top:2px">pezzatura ${r.tier.toLowerCase()} · ${eur(r.kg)} €/kg</div>`; }
+      else q('#pc-o').innerHTML = '<div class="muted" style="font-size:.85rem">Scegli la specie e inserisci il peso di un tartufo</div>';
+      const tot = calcList.reduce((a, c) => a + c.eur, 0);
+      q('#pc-l').innerHTML = calcList.length ? calcList.map((c, i) => `<div class="pr-t3"><div><b>${esc(c.name)}</b><small>${c.g} g · ${c.tier.toLowerCase()}</small></div><div class="r"><b>${f2(c.eur)} €</b><small><a data-rm="${i}" style="color:#c0392b">rimuovi</a></small></div></div>`).join('') + `<div style="margin-top:8px;font-size:1.3rem;font-weight:800;color:#12372a">Totale ${f2(tot)} € <small class="muted" style="font-size:.8rem;font-weight:500">(${calcList.length} ${calcList.length === 1 ? 'tartufo' : 'tartufi'}, ${calcList.reduce((a, c) => a + c.g, 0)} g)</small></div>` : '';
+      q('#pc-l').querySelectorAll('[data-rm]').forEach((a) => (a.onclick = () => { calcList.splice(Number(a.dataset.rm), 1); calc(); }));
+      calcG = q('#pc-g').value; calcS = q('#pc-s').value;
+    };
+    q('#pc-add').onclick = () => {
+      const it = items.find((x) => x.id === q('#pc-s').value), g = Number(q('#pc-g').value) || 0;
+      if (!it || !g) return;
+      const r = priceOf(it, g);
+      calcList.push({ name: it.name, g, tier: r.tier, eur: r.eur });
+      q('#pc-g').value = ''; calc(); q('#pc-g').focus();
+    };
+    q('#pc-g').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); q('#pc-add').click(); } };
     pg.body.querySelectorAll('[data-x]').forEach((c) => (c.onclick = () => { open = open === c.dataset.x ? null : c.dataset.x; render(data, liveState); }));
     if (calcG) { pg.body.querySelector('#pc-g').value = calcG; if (calcS) pg.body.querySelector('#pc-s').value = calcS; }
     calc();

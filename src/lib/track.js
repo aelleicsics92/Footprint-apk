@@ -128,7 +128,7 @@ export async function startRecording(resume = null) {
     } catch (e) { console.warn('recService', e); }
     try {
       watcherId = await BG.addWatcher(
-        { backgroundTitle: 'Footprint: registrazione traccia', backgroundMessage: 'La traccia GPS è in registrazione', requestPermissions: true, stale: false, distanceFilter: 3 },
+        { requestPermissions: true, stale: false, distanceFilter: 3 },
         (loc, err) => {
           if (err || !loc) return;
           accept({ lat: loc.latitude, lon: loc.longitude, alt: loc.altitude, acc: loc.accuracy, ts: loc.time || Date.now() });
