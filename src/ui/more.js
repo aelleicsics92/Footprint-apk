@@ -466,7 +466,8 @@ function openSettings() {
     };
     pg.body.innerHTML = `
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa con "Segna punto" e "Auto" che salva senza aprire l'app, e tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
@@ -543,6 +544,7 @@ function openSettings() {
         let v = inp.type === 'checkbox' ? inp.checked : inp.type === 'number' ? Number(inp.value) || 0 : inp.value.trim();
         setSetting(k, v);
         if (k === 'keepAwake') setWakeLock(v);
+        if (k === 'keepAlive') { try { const IFk = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles'); v ? (getRec().status === 'idle' && IFk.keepStart()) : IFk.keepStop(); } catch {} }
         if (k === 'hiContrast') document.documentElement.classList.toggle('hc', !!v);
         if (k === 'volumeWp') { try { const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles'); IF.setVolumeKey({ enabled: !!v }); } catch {} }
         if (k === 'nightMode') document.documentElement.classList.toggle('night', !!v);

@@ -78,7 +78,7 @@ export async function search(seconds = 90) {
 
 function store(m) {
   const list = lsGet('fp.mates', []).filter((x) => !(x.name === m.name && x.gkey === m.gkey));
-  list.push({ name: m.name, gkey: m.gkey, lat: m.lat, lon: m.lon, ts: m.t || Date.now(), src: 'nearby' });
+  list.push({ name: m.name, gkey: m.gkey, lat: m.lat, lon: m.lon, ts: m.t || Date.now(), src: 'nearby', bat: m.bat >= 0 ? m.bat : undefined, acc: m.acc > 0 ? m.acc : undefined });
   lsSet('fp.mates', list);
 }
 export async function syncFromNative() {
@@ -134,4 +134,13 @@ export function initMates() {
   syncService(false);
   syncFromNative();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { syncFromNative(); syncService(false); } });
+}
+
+// occhio per compagno: nascondi o mostra sulla mappa
+export const matesHidden = () => lsGet('fp.matehide', []);
+export const isMateHidden = (m) => matesHidden().includes((m.gkey || '') + '|' + m.name);
+export function toggleMateHidden(m) {
+  const k = (m.gkey || '') + '|' + m.name, l = matesHidden();
+  lsSet('fp.matehide', l.includes(k) ? l.filter((x) => x !== k) : [...l, k]);
+  bus.emit('mates:changed');
 }

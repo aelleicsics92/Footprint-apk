@@ -17,6 +17,7 @@ const DEFAULTS = {
   sosName: 'Emergenze',
   declination: 3.5,
   keepAwake: true,
+  keepAlive: true,
   geminiKey: '',
   openrouterKey: '',
   groqKey: '',

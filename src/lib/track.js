@@ -1,5 +1,5 @@
 import { registerPlugin, Capacitor } from '@capacitor/core';
-import { kvGet, kvSet, kvDel } from './store.js';
+import { kvGet, kvSet, kvDel, getSettings } from './store.js';
 import { bus, haversine, uid, fmtDate } from './util.js';
 import { isNative, lastPos, ensurePermission, getOnce } from './geo.js';
 import { buildTrack } from './gpsio.js';
@@ -118,6 +118,7 @@ export async function startRecording(resume = null) {
     try {
       if (!resume) await IF().recClear();
       await IF().recStart();
+      try { await IF().keepStop(); } catch {}
       try {
         if (!localStorage.getItem('fp.batAsked')) {
           const b = await IF().batteryStatus();
@@ -150,7 +151,7 @@ export async function startRecording(resume = null) {
 
 async function stopWatching() {
   clearInterval(tickT);
-  if (isNative()) { try { await mergeNative(); await IF().recStop(); await IF().recClear(); } catch {} }
+  if (isNative()) { try { await mergeNative(); await IF().recStop(); await IF().recClear(); try { if (getSettings().keepAlive !== false) await IF().keepStart(); } catch {} } catch {} }
   if (unsubPos) unsubPos(), (unsubPos = null);
   if (watcherId != null) {
     try {

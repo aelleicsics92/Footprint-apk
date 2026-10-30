@@ -248,6 +248,8 @@ public class MateService extends Service {
                 m.put("lon", j.getDouble("lon"));
                 m.put("alt", j.opt("alt"));
                 m.put("t", j.optLong("t", System.currentTimeMillis()));
+                m.put("bat", j.optInt("bat", -1));
+                m.put("acc", j.optDouble("acc", -1));
                 m.put("rx", System.currentTimeMillis());
                 SharedPreferences sp = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                 JSONObject all = new JSONObject(sp.getString("mates", "{}"));
@@ -271,6 +273,8 @@ public class MateService extends Service {
                 ev.put("lat", m.getDouble("lat"));
                 ev.put("lon", m.getDouble("lon"));
                 ev.put("t", m.getLong("t"));
+                ev.put("bat", m.optInt("bat", -1));
+                ev.put("acc", m.optDouble("acc", -1));
                 IntentFilesPlugin.mateEvent("mate", ev);
             } catch (Exception ignore) {}
         }
@@ -292,6 +296,8 @@ public class MateService extends Service {
                     j.put("lon", l.getLongitude());
                     if (l.hasAltitude()) j.put("alt", l.getAltitude());
                     j.put("t", l.getTime() > 0 ? l.getTime() : System.currentTimeMillis());
+                    try { android.os.BatteryManager bm = (android.os.BatteryManager) getSystemService(Context.BATTERY_SERVICE); j.put("bat", bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)); } catch (Exception ignore) {}
+                    if (l.hasAccuracy()) j.put("acc", Math.round(l.getAccuracy()));
                     if (pingGroup != null && pingGroup.equals(g.key)) { j.put("ping", true); j.put("msg", pingMsg); }
                     cc.sendPayload(id, Payload.fromBytes(j.toString().getBytes(StandardCharsets.UTF_8)));
                 }

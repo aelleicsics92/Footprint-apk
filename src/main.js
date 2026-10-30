@@ -144,6 +144,7 @@ async function boot() {
     initMates();
     startCompass();
     setWakeLock(getSettings().keepAwake);
+    try { if (Capacitor.isNativePlatform() && getSettings().keepAlive !== false && getRec().status === 'idle') ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).keepStart(); } catch {}
   }, 3500);
 }
 

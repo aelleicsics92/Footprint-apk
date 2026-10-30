@@ -188,6 +188,17 @@ public class IntentFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void keepStart(PluginCall call) {
+        try { KeepService.start(getContext()); call.resolve(); } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+
+    @PluginMethod
+    public void keepStop(PluginCall call) {
+        try { KeepService.stop(getContext()); } catch (Exception ignore) {}
+        call.resolve();
+    }
+
+    @PluginMethod
     public void recStop(PluginCall call) {
         RecService.stop(getContext());
         call.resolve();

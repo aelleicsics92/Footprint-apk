@@ -60,6 +60,7 @@
         </activity>
 
         <service android:name=".MateService" android:exported="false" android:foregroundServiceType="connectedDevice|location" />
+        <service android:name=".KeepService" android:exported="false" android:foregroundServiceType="location" />
         <service android:name=".RecService" android:exported="false" android:foregroundServiceType="location" />
         <service android:name=".WpTileService" android:exported="true" android:label="Salva waypoint" android:icon="@drawable/ic_tile_pin" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>

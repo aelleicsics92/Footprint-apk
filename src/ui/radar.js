@@ -5,7 +5,7 @@ import { lastPos } from '../lib/geo.js';
 import { getHeading } from '../lib/compass.js';
 import { lsGet, lsSet } from '../lib/store.js';
 import { ico } from '../lib/icons.js';
-import { getGroups, createGroup, joinGroup, updateGroup, removeGroup, syncService, search, sendPing, initMates, syncFromNative } from '../lib/mates.js';
+import { getGroups, createGroup, joinGroup, updateGroup, removeGroup, syncService, search, sendPing, isMateHidden, toggleMateHidden, initMates, syncFromNative } from '../lib/mates.js';
 
 const FRESH = 15 * 60000;
 const parseCoords = (t) => {
@@ -42,8 +42,8 @@ export function openRadar() {
       const row = (m, idx) => {
         const d = me ? haversine(me, m) : null, b = me ? bearing(me, m) : null, min = Math.round((Date.now() - m.ts) / 60000);
         return `<div class="rc-m" ${m.lat != null ? `data-mk="${esc(m.gkey || 'all')}"` : ''} style="cursor:pointer"><div class="rc-ar"><svg viewBox="0 0 24 24" width="30" height="30" style="transform:rotate(${b == null ? 0 : b - h}deg);color:var(--moss)" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V4M5 11l7-7 7 7"/></svg></div>
-          <div style="flex:1;min-width:0"><b>${esc(m.name)}</b>${m.ping && Date.now() - m.ping < 3600e3 ? ' <span style="background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.75rem">CHIAMA</span>' : ''}<div class="muted" style="font-size:.85rem">${d == null ? 'attendo il GPS' : `${fmtDist(d)} a ${cardinal(b)}`} · ${min < 1 ? 'ora' : min + ' min fa'}</div></div>
-          ${m.gkey ? '' : `<button class="rc-ib" data-rm="${idx}" aria-label="Rimuovi">${ico('trash', 18)}</button>`}</div>`;
+          <div style="flex:1;min-width:0"><b>${esc(m.name)}</b>${m.ping && Date.now() - m.ping < 3600e3 ? ' <span style="background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.75rem">CHIAMA</span>' : ''}<div class="muted" style="font-size:.85rem">${d == null ? 'attendo il GPS' : `${fmtDist(d)} a ${cardinal(b)}`} · ${min < 1 ? 'ora' : min + ' min fa'}${m.bat != null ? ` · <span style="color:${m.bat <= 20 ? '#c0392b' : 'inherit'}">🔋 ${m.bat}%</span>` : ''}${m.acc ? ` · ±${m.acc} m` : ''}</div></div>
+          ${m.gkey ? `<button class="rc-ib" data-eye="${idx}" aria-label="Mostra o nascondi sulla mappa" style="opacity:${isMateHidden(m) ? .4 : 1}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>${isMateHidden(m) ? '<path d="M3 3l18 18"/>' : ''}</svg></button>` : `<button class="rc-ib" data-rm="${idx}" aria-label="Rimuovi">${ico('trash', 18)}</button>`}</div>`;
       };
       const cards = gs.map((g) => {
         const ms = mates.map((m, i) => ({ m, i })).filter((x) => x.m.gkey === g.key).sort((a, b) => b.m.ts - a.m.ts);
@@ -73,7 +73,8 @@ export function openRadar() {
     const wire = () => {
       wrap.querySelector('[data-a=new]').onclick = openNew;
       wrap.querySelector('[data-a=manual]').onclick = openManual;
-      wrap.querySelectorAll('[data-mk]').forEach((r) => (r.onclick = (e) => { if (e.target.closest('[data-rm]')) return; leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('mates:show', r.dataset.mk), 150); }));
+      wrap.querySelectorAll('[data-mk]').forEach((r) => (r.onclick = (e) => { if (e.target.closest('[data-rm],[data-eye]')) return; leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('mates:show', r.dataset.mk), 150); }));
+      wrap.querySelectorAll('[data-eye]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const m = lsGet('fp.mates', [])[Number(b.dataset.eye)]; if (m) toggleMateHidden(m); }));
       wrap.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { const l = lsGet('fp.mates', []); l.splice(Number(b.dataset.rm), 1); lsSet('fp.mates', l); render(); }));
       wrap.querySelectorAll('.rc[data-k]').forEach((c) => {
         const key = c.dataset.k, g = getGroups().find((x) => x.key === key);

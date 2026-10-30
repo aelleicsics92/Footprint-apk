@@ -34,8 +34,9 @@ let root;
 
 export const getMap = () => map;
 function mateList(key) {
+  const hid = lsGet('fp.matehide', []);
   const on = new Set(lsGet('fp.mategroups', []).filter((g) => g.on).map((g) => g.key));
-  return lsGet('fp.mates', []).filter((m) => m.lat != null && (m.gkey ? on.has(m.gkey) && (!key || m.gkey === key || key === 'all') : !key || key === 'all'));
+  return lsGet('fp.mates', []).filter((m) => !hid.includes((m.gkey || '') + '|' + m.name)).filter((m) => m.lat != null && (m.gkey ? on.has(m.gkey) && (!key || m.gkey === key || key === 'all') : !key || key === 'all'));
 }
 function renderMates() {
   if (!mateGroup) return;
@@ -46,7 +47,7 @@ function renderMates() {
     const col = call ? '#c0392b' : old ? '#8a8f87' : '#1f6fd1';
     const mk = L.marker([m.lat, m.lon], { icon: L.divIcon({ className: '', iconSize: [120, 36], iconAnchor: [60, 36], html: `<div style="width:120px;display:flex;flex-direction:column;align-items:center"><span style="display:block;max-width:120px;overflow:hidden;text-overflow:ellipsis;background:${col};color:#fff;border-radius:12px;padding:3px 10px;font-weight:700;font-size:.8rem;line-height:1.3;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.35)">${call ? '🆘 ' : ''}${esc(m.name)}</span><span style="display:block;width:0;height:0;border:7px solid transparent;border-top-color:${col};border-bottom:0"></span></div>` }), zIndexOffset: 800 });
     const d = p ? fmtDist(haversine(p, m)) + ' · ' : '';
-    mk.bindTooltip(`${d}${min < 1 ? 'ora' : min + ' min fa'}`, { direction: 'bottom', offset: [0, 4] });
+    mk.bindTooltip(`${d}${min < 1 ? 'ora' : min + ' min fa'}${m.bat != null ? ' · 🔋' + m.bat + '%' : ''}`, { direction: 'bottom', offset: [0, 4] });
     mk.addTo(mateGroup);
   }
 }
