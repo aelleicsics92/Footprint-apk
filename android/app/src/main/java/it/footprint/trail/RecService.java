@@ -89,9 +89,6 @@ public class RecService extends Service implements LocationListener {
         int fl = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, fl);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH) : new Notification.Builder(this);
-        Intent sv = new Intent(this, RecService.class).setAction("it.footprint.trail.SAVEWP");
-        PendingIntent ps = PendingIntent.getService(this, 1, sv, fl);
-        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_menu_add, "Segna punto", ps).build());
         b.setContentTitle("Footprint: registrazione traccia").setContentText("La traccia GPS è in registrazione, continua anche a schermo spento")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation).setOngoing(true).setContentIntent(pi);
         Notification n = b.build();
