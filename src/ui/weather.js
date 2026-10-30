@@ -132,13 +132,30 @@ export function openHistory(pt) {
       const rain = d.precipitation_sum, rd = rain.filter((v) => v >= 1).length, mx = Math.max(...rain, 1);
       const tmx = Math.max(...d.temperature_2m_max), tmn = Math.min(...d.temperature_2m_min);
       const avg = (sum(d.temperature_2m_max) + sum(d.temperature_2m_min)) / (2 * n);
-      const bars = rain.map((v) => `<i style="flex:1;min-width:1px;height:${Math.max(2, (v / mx) * 70)}px;background:#3d8f6a;border-radius:2px 2px 0 0" title="${v} mm"></i>`).join('');
+      // aggregazione: fino a 31 giorni barre giornaliere, fino a ~4 mesi blocchi di 10 giorni, oltre mesi
+      const mode = n <= 31 ? 'd' : n <= 125 ? 't' : 'm';
+      const bk = [];
+      d.time.forEach((t, i) => {
+        const key = mode === 'd' ? t : mode === 't' ? Math.floor(i / 10) : t.slice(0, 7);
+        let g = bk[bk.length - 1];
+        if (!g || g.key !== key) bk.push((g = { key, v: 0, t0: t, t1: t }));
+        g.v += rain[i] || 0; g.t1 = t;
+      });
+      const fd = (t, o) => new Date(t + 'T12:00').toLocaleDateString('it-IT', o);
+      const lab = (g) => (mode === 'm' ? fd(g.t0, { month: 'short' }).slice(0, 3) : mode === 't' ? fd(g.t0, { day: 'numeric', month: 'numeric' }) : fd(g.t0, { day: 'numeric' }));
+      const top = Math.max(...bk.map((g) => g.v), 1), nice = top <= 10 ? Math.ceil(top / 2) * 2 : top <= 50 ? Math.ceil(top / 10) * 10 : Math.ceil(top / 50) * 50;
+      const H = 110, step = mode === 'd' ? Math.ceil(bk.length / 8) : bk.length > 12 ? 2 : 1;
+      const bars = bk.map((g, i) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:${H}px"><small style="font-size:.62rem;color:#4b5f55;line-height:1">${mode !== 'd' && g.v >= 1 ? Math.round(g.v) : ''}</small><i style="display:block;width:${mode === 'd' ? '80%' : '70%'};height:${Math.max(2, (g.v / nice) * (H - 14))}px;background:#3d8f6a;border-radius:3px 3px 0 0"></i></div>`).join('');
+      const xl = bk.map((g, i) => `<span style="flex:1;min-width:0;text-align:center;font-size:.64rem;color:#4b5f55;white-space:nowrap;overflow:visible">${i % step === 0 ? lab(g) : ''}</span>`).join('');
+      const chart = `<div style="display:flex;gap:4px"><div style="display:flex;flex-direction:column;justify-content:space-between;height:${H}px;text-align:right;font-size:.66rem;color:#4b5f55;width:42px;flex:none;white-space:nowrap"><span>${nice} mm</span><span>${Math.round(nice / 2)}</span><span>0</span></div>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:${mode === 'd' ? 1 : 3}px;align-items:flex-end;height:${H}px;border-left:1px solid #cfc6ad;border-bottom:1px solid #cfc6ad;background:repeating-linear-gradient(to top,transparent 0,transparent calc(50% - 1px),#eee6d2 calc(50% - 1px),#eee6d2 50%)">${bars}</div>
+        <div style="display:flex;gap:${mode === 'd' ? 1 : 3}px;margin-top:3px">${xl}</div></div></div>
+        <div class="muted" style="font-size:.75rem;margin-top:6px">Dal ${fd(a, { day: 'numeric', month: 'short', year: 'numeric' })} al ${fd(b, { day: 'numeric', month: 'short', year: 'numeric' })} · ${mode === 'd' ? 'mm al giorno' : mode === 't' ? 'mm ogni 10 giorni' : 'mm al mese'}</div>`;
       q('#mh-o').innerHTML = `<div class="stats" style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
         <div><span>Pioggia totale</span><b>${sum(rain).toFixed(0)} mm</b></div><div><span>Giorni di pioggia</span><b>${rd} su ${n}</b></div>
         <div><span>Temp. media</span><b>${avg.toFixed(1)} °C</b></div><div><span>Max / Min</span><b>${tmx.toFixed(0)}° / ${tmn.toFixed(0)}°</b></div>
         <div><span>Giorno più piovoso</span><b>${mx.toFixed(0)} mm, ${new Date(d.time[rain.indexOf(Math.max(...rain))] + 'T12:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}</b></div><div><span>Vento max</span><b>${Math.max(...d.wind_speed_10m_max).toFixed(0)} km/h</b></div></div>
-        <div style="margin:14px 0 4px;font-weight:700">Pioggia giorno per giorno</div><div style="display:flex;align-items:flex-end;gap:1px;height:76px">${bars}</div>
-        <div class="muted" style="display:flex;justify-content:space-between;font-size:.75rem"><span>${a}</span><span>${b}</span></div>
+        <div style="margin:14px 0 6px;font-weight:700">Pioggia ${mode === 'd' ? 'giorno per giorno' : mode === 't' ? 'a blocchi di 10 giorni' : 'mese per mese'}</div>${chart}
         <p class="muted" style="font-size:.75rem">Dati storici Open-Meteo, gli ultimi 2 giorni possono mancare.</p>`;
     } catch { q('#mh-o').textContent = 'Dati non disponibili. Serve una connessione internet.'; }
   };
