@@ -228,12 +228,13 @@ function openWaypointList() {
         shown = list;
         const bar = pg.body.querySelector('#wl-bar');
         bar.style.display = selMode ? 'flex' : 'none';
-        bar.querySelector('#sb-n').textContent = sel.size + ' selezionati';
+        bar.querySelector('#sb-n').textContent = sel.size + (sel.size === 1 ? ' selezionato' : ' selezionati');
+        pg.body.querySelector('#wl').style.paddingBottom = selMode ? 'calc(var(--sab,0px) + 96px)' : '';
         const sb = document.querySelector('#wl-sel'); if (sb) sb.classList.toggle('sel', selMode);
         pg.body.querySelector('#wl-imp').classList.toggle('sel', imp);
         pg.body.querySelector('#wl').innerHTML = list.length
           ? list.slice(0, limit)
-              .map((w) => `<button class="item" data-id="${w.id}"><span class="lead">${selMode ? `<span style="width:22px;height:22px;border-radius:6px;border:2px solid #2e7a4d;display:inline-flex;align-items:center;justify-content:center;background:${sel.has(w.id) ? '#2e7a4d' : 'transparent'};color:#fff">${sel.has(w.id) ? ico('check', 16) : ''}</span>` : ''}<span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${dm.has(w.id) ? ' · ' + fmtDist(dm.get(w.id)) : ''}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
+              .map((w) => `<button class="item" data-id="${w.id}">${selMode ? `<span style="flex:none;width:24px;height:24px;margin:0 12px 0 2px;border-radius:7px;border:2px solid #2e7a4d;display:inline-flex;align-items:center;justify-content:center;background:${sel.has(w.id) ? '#2e7a4d' : 'transparent'};color:#fff">${sel.has(w.id) ? ico('check', 16) : ''}</span>` : ''}<span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${dm.has(w.id) ? ' · ' + fmtDist(dm.get(w.id)) : ''}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
               .join('') + (list.length > limit ? `<button class="chip" id="wl-more" style="margin:12px auto;display:block">Mostra altri (${list.length - limit})</button>` : '')
           : `<div class="empty">${ico('pinplus', 40)}<p>Nessun waypoint.<br>Usa il pulsante sulla mappa per salvarne uno.</p></div>`;
         const mo = pg.body.querySelector('#wl-more');
@@ -253,7 +254,7 @@ function openWaypointList() {
       };
       pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
         <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}<button class="chip" id="wl-imp">Importati</button></div><div class="list" id="wl"></div>
-        <div id="wl-bar" style="display:none;position:sticky;bottom:0;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--bg,#fff);border-top:1px solid #0002"><b id="sb-n" style="flex-basis:100%"></b><button class="chip" id="sb-all">Tutti i filtrati</button><button class="chip" id="sb-none">Nessuno</button><button class="chip" id="sb-type">Cambia tipo</button><button class="chip" id="sb-tag">Aggiungi tag</button><button class="chip" id="sb-del" style="color:#c0392b">Elimina</button></div>`;
+        <div id="wl-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 12px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)"><b id="sb-n" style="flex:1;font-size:.95rem;white-space:nowrap"></b>${[['sb-all', 'check', 'Tutti'], ['sb-none', 'close', 'Nessuno'], ['sb-type', 'edit', 'Tipo'], ['sb-tag', 'list', 'Tag'], ['sb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" aria-label="${l}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;padding:4px 2px;font-size:.62rem;color:${id === 'sb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}</div>`;
       const bar = pg.body.querySelector('#wl-bar');
       pg.body.querySelector('#wl-imp').onclick = () => { imp = !imp; limit = 300; draw(); };
       bar.querySelector('#sb-all').onclick = () => { shown.forEach((w) => sel.add(w.id)); draw(); };
