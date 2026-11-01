@@ -1,5 +1,8 @@
 name: Prova Supabase
-on: workflow_dispatch
+on:
+  push:
+    paths: ['.github/workflows/test-supabase.yml']
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
