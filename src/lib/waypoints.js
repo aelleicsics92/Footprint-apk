@@ -48,8 +48,10 @@ export let lastDup = 0;
 export async function mergeWaypoints(arr) {
   let n = 0;
   lastDup = 0;
+  const batch = Date.now();
   for (const w of arr) {
     if (list.some((x) => Math.abs(x.lat - w.lat) < 2e-6 && Math.abs(x.lon - w.lon) < 2e-6)) { lastDup++; continue; }
+    w.imp = batch;
     list.push(w);
     n++;
   }
