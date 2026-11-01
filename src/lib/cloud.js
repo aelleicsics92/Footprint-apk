@@ -65,6 +65,9 @@ export async function loginEmail(email, password) {
     return { ok: true };
   } catch (e) { return { error: String(e.message || e) }; }
 }
+export function logoutCloud() {
+  lsSet('fp.cloud.auth', null); lsSet('fp.cloud.email', ''); lsSet('fp.cloud.sent', {}); lsSet('fp.cloud.last', 0);
+}
 // cancellazione di tutti i dati online di questo account
 export async function deleteCloudData() {
   try {

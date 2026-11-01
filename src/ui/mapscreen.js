@@ -51,7 +51,7 @@ function setupSearch() {
   let tm, off = null;
   const clearMk = () => { if (searchMk) { searchMk.remove(); searchMk = null; } };
   const close = () => { box.classList.remove('on'); inp.blur(); res.innerHTML = ''; inp.value = ''; clearMk(); if (off) { off(); off = null; } };
-  const open = () => { box.classList.add('on'); setTimeout(() => inp.focus(), 120); if (!off) off = pushBack(close); };
+  const open = () => { inp.value = ''; res.innerHTML = ''; clearMk(); box.classList.add('on'); setTimeout(() => inp.focus(), 120); if (!off) off = pushBack(close); };
   btn.onclick = () => (box.classList.contains('on') ? close() : open());
   root.querySelector('#ms-x').onclick = close;
   inp.oninput = () => {
