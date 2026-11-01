@@ -168,6 +168,7 @@ export function mountMap(el) {
   applyForecast();
   applyStorm();
   wpGroup = L.layerGroup().addTo(map);
+  map.on('moveend zoomend', scheduleWaypoints);
   shownGroup = L.layerGroup().addTo(map);
   mateGroup = L.layerGroup().addTo(map);
   othersGroup = L.layerGroup().addTo(map);
@@ -437,33 +438,47 @@ function applyAlt() {
   if (s.altOn) { altLayer = makeAltLayer(Number(s.altMin) || 0, Number(s.altMax) || 9000); altLayer.addTo(map); }
 }
 
+let wpT = 0;
+const wpIconCache = new Map();
+function wpDivIcon(w, ic, target) {
+  const key = ic.color + '|' + w.icon + '|' + (w.stato || '') + '|' + (target ? 1 : 0);
+  let i = wpIconCache.get(key);
+  if (!i) {
+    i = L.divIcon({ className: 'wp-marker' + (target ? ' target' : ''), html: `<div class="pin" style="--c:${ic.color}"><div class="bd">${ic.svg}</div>${w.stato ? `<i class="st-dot st-${w.stato}"></i>` : ''}</div>`, iconSize: [42, 50], iconAnchor: [21, 48] });
+    wpIconCache.set(key, i);
+  }
+  return i;
+}
+// disegna solo i waypoint nella zona visibile; se sono tanti usa pallini leggeri (canvas)
 function renderWaypoints() {
   if (!wpGroup) return;
   wpGroup.clearLayers();
-  if (!getSettings().showWaypoints) return;
+  if (!getSettings().showWaypoints || !map) return;
   const tid = getTarget();
-  const fy = getSettings().wpYear, fm = Number(getSettings().wpMonth) || 0;
+  const fy = getSettings().wpYear, fm = Number(getSettings().wpMonth) || 0, tag = getSettings().wpTag;
+  const bnd = map.getBounds().pad(0.25);
+  const vis = [];
   for (const w of getWaypoints()) {
+    if (w.lat == null || !bnd.contains([w.lat, w.lon])) continue;
     if (fy || fm) {
       const d = new Date(w.ts);
       if (fy && String(d.getFullYear()) !== String(fy)) continue;
       if (fm && d.getMonth() + 1 !== fm) continue;
     }
-    if (getSettings().wpTag && !(w.tags || []).includes(getSettings().wpTag)) continue;
+    if (tag && !(w.tags || []).includes(tag)) continue;
+    vis.push(w);
+  }
+  const light = vis.length > 150;
+  for (const w of vis) {
     const ic = wpIcon(w.icon);
-    const m = L.marker([w.lat, w.lon], {
-      icon: L.divIcon({
-        className: 'wp-marker' + (w.id === tid ? ' target' : ''),
-        html: `<div class="pin" style="--c:${ic.color}"><div class="bd">${ic.svg}</div>${w.stato ? `<i class="st-dot st-${w.stato}"></i>` : ''}</div>`,
-        iconSize: [42, 50],
-        iconAnchor: [21, 48],
-      }),
-      zIndexOffset: 500,
-    });
+    const m = light && w.id !== tid
+      ? L.circleMarker([w.lat, w.lon], { radius: 6, color: '#fff', weight: 1.5, fillColor: ic.color, fillOpacity: 0.95 })
+      : L.marker([w.lat, w.lon], { icon: wpDivIcon(w, ic, w.id === tid), zIndexOffset: 500 });
     m.on('click', () => openWaypoint(w));
     m.addTo(wpGroup);
   }
 }
+function scheduleWaypoints() { clearTimeout(wpT); wpT = setTimeout(renderWaypoints, 180); }
 
 // ---------- registrazione ----------
 function renderRec() {

@@ -8,7 +8,7 @@ import { lastPos } from '../lib/geo.js';
 import { openPage, openSheet, toast, confirmBox, leavePages } from '../lib/ui.js';
 import { getSettings, setSetting, apiKey, kvGet, kvSet } from '../lib/store.js';
 import { openWeather } from './weather.js';
-import { getWaypoints, openWaypoint, mergeWaypoints } from '../lib/waypoints.js';
+import { getWaypoints, openWaypoint, mergeWaypoints, bulkUpdate, bulkRemove } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
 import { toGPX, shareFile, safeName, parseGpsText, segments } from '../lib/gpsio.js';
 import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/offline.js';
@@ -210,7 +210,8 @@ function openWaypointList() {
   openPage(
     'I miei waypoint',
     (pg) => {
-      let q = '', cat = 'all', sortD = false, near = false;
+      let q = '', cat = 'all', sortD = false, near = false, selMode = false, shown = [], limit = 300;
+      const sel = new Set();
       const CATS = { porcini: ['porcino', 'regius', 'pinaiolo', 'pinarolo'], tartufi: ['scorzone', 'uncinato', 'bianco', 'bianchetto', 'nero'], utility: ['parcheggio', 'acqua', 'pericolo', 'panorama', 'orma'] };
       const inCat = (w) => cat === 'all' || (cat === 'altri' ? ![...CATS.porcini, ...CATS.tartufi, ...CATS.utility].includes(w.icon) : CATS[cat].includes(w.icon));
       const draw = () => {
@@ -223,15 +224,46 @@ function openWaypointList() {
         if (near && me) { for (let i = list.length - 1; i >= 0; i--) if (dm.get(list[i].id) > 2000) list.splice(i, 1); }
         list.sort(sortD && me ? (a, b) => dm.get(a.id) - dm.get(b.id) : (a, b) => b.ts - a.ts);
         pg.body.querySelectorAll('[data-sort]').forEach((c) => c.classList.toggle('sel', (c.dataset.sort === 'near' ? near : c.dataset.sort === 'dist' ? sortD : !sortD && !near)));
+        shown = list;
+        const bar = pg.body.querySelector('#wl-bar');
+        bar.style.display = selMode ? 'flex' : 'none';
+        bar.querySelector('#sb-n').textContent = sel.size + ' selezionati';
+        pg.body.querySelector('#wl-sel').classList.toggle('sel', selMode);
         pg.body.querySelector('#wl').innerHTML = list.length
-          ? list
-              .map((w) => `<button class="item" data-id="${w.id}"><span class="lead"><span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${dm.has(w.id) ? ' · ' + fmtDist(dm.get(w.id)) : ''}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
-              .join('')
+          ? list.slice(0, limit)
+              .map((w) => `<button class="item" data-id="${w.id}"><span class="lead">${selMode ? `<span style="width:22px;height:22px;border-radius:6px;border:2px solid #2e7a4d;display:inline-flex;align-items:center;justify-content:center;background:${sel.has(w.id) ? '#2e7a4d' : 'transparent'};color:#fff">${sel.has(w.id) ? ico('check', 16) : ''}</span>` : ''}<span class="ic">${wpIcon(w.icon).svg}</span></span><div class="ti"><b>${esc(w.title)}</b><small>${fmtDate(w.ts)}${dm.has(w.id) ? ' · ' + fmtDist(dm.get(w.id)) : ''}${w.desc ? ' · ' + esc(w.desc) : ''}</small></div></button>`)
+              .join('') + (list.length > limit ? `<button class="chip" id="wl-more" style="margin:12px auto;display:block">Mostra altri (${list.length - limit})</button>` : '')
           : `<div class="empty">${ico('pinplus', 40)}<p>Nessun waypoint.<br>Usa il pulsante sulla mappa per salvarne uno.</p></div>`;
-        pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => openWaypoint(getWaypoints().find((w) => w.id === b.dataset.id))));
+        const mo = pg.body.querySelector('#wl-more');
+        if (mo) mo.onclick = () => { limit += 300; draw(); };
+        pg.body.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => {
+          if (selMode) { sel.has(b.dataset.id) ? sel.delete(b.dataset.id) : sel.add(b.dataset.id); draw(); return; }
+          openWaypoint(getWaypoints().find((w) => w.id === b.dataset.id));
+        }));
       };
       pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
-        <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}</div><div class="list" id="wl"></div>`;
+        <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}</div><div class="list" id="wl"></div>
+        <div id="wl-bar" style="display:none;position:sticky;bottom:0;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--bg,#fff);border-top:1px solid #0002"><b id="sb-n" style="flex-basis:100%"></b><button class="chip" id="sb-all">Tutti i filtrati</button><button class="chip" id="sb-none">Nessuno</button><button class="chip" id="sb-type">Cambia tipo</button><button class="chip" id="sb-tag">Aggiungi tag</button><button class="chip" id="sb-del" style="color:#c0392b">Elimina</button></div>`;
+      const bar = pg.body.querySelector('#wl-bar');
+      pg.body.querySelector('#wl-sel').onclick = () => { selMode = !selMode; if (!selMode) sel.clear(); draw(); };
+      bar.querySelector('#sb-all').onclick = () => { shown.forEach((w) => sel.add(w.id)); draw(); };
+      bar.querySelector('#sb-none').onclick = () => { sel.clear(); draw(); };
+      bar.querySelector('#sb-del').onclick = async () => {
+        if (!sel.size) return toast('Nessun waypoint selezionato');
+        if (await confirmBox(`Eliminare <b>${sel.size}</b> waypoint? Non si può annullare.`, { ok: 'Elimina', danger: true })) { const n = sel.size; await bulkRemove([...sel]); sel.clear(); selMode = false; toast(n + ' eliminati'); draw(); }
+      };
+      bar.querySelector('#sb-type').onclick = () => {
+        if (!sel.size) return toast('Nessun waypoint selezionato');
+        const sh = openSheet({ title: `Cambia tipo a ${sel.size} waypoint`, body: `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${orderedIcons(getSettings().wpOrder).map((i) => `<button class="chip" data-ic="${i.id}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px"><span style="width:34px;height:34px">${i.svg}</span><small>${esc(i.label)}</small></button>`).join('')}</div>` });
+        sh.body.querySelectorAll('[data-ic]').forEach((b) => (b.onclick = async () => { const id = b.dataset.ic; await bulkUpdate([...sel], (w) => { w.icon = id; }); sh.close(); toast('Tipo aggiornato'); draw(); }));
+      };
+      bar.querySelector('#sb-tag').onclick = () => {
+        if (!sel.size) return toast('Nessun waypoint selezionato');
+        const sh = openSheet({ title: `Tag per ${sel.size} waypoint`, body: `<input id="bt" type="text" placeholder="es. Bosco Sud" onfocus="this.select()" style="width:100%;margin-bottom:12px"><button class="btn primary" id="bt-ok" style="width:100%">Aggiungi</button>` });
+        const go = async () => { const t = sh.body.querySelector('#bt').value.trim(); if (!t) return; await bulkUpdate([...sel], (w) => { w.tags = [...new Set([...(w.tags || []), t])]; }); sh.close(); toast('Tag aggiunto'); draw(); };
+        sh.body.querySelector('#bt-ok').onclick = go;
+        sh.body.querySelector('#bt').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+      };
       pg.body.querySelectorAll('[data-sort]').forEach((c) => (c.onclick = () => {
         if (c.dataset.sort === 'near') { near = !near; if (near) sortD = true; }
         else if (c.dataset.sort === 'dist') { sortD = true; }
@@ -246,7 +278,7 @@ function openWaypointList() {
       pg.onClose = off;
     },
     {
-      actions: `<button class="icon-btn" id="wl-map" aria-label="Vedi sulla mappa">${ico('map', 22)}</button><button class="icon-btn" id="wl-share" aria-label="Esporta waypoint">${ico('share', 22)}</button>`,
+      actions: `<button class="chip" id="wl-sel">Seleziona</button><button class="icon-btn" id="wl-map" aria-label="Vedi sulla mappa">${ico('map', 22)}</button><button class="icon-btn" id="wl-share" aria-label="Esporta waypoint">${ico('share', 22)}</button>`,
     }
   );
   setTimeout(() => {

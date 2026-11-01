@@ -33,6 +33,17 @@ export async function removeWaypoint(id) {
   await persist();
   bus.emit('wp:removed', id);
 }
+export async function bulkUpdate(ids, fn) {
+  const set = new Set(ids);
+  for (const w of list) if (set.has(w.id)) fn(w);
+  await persist();
+}
+export async function bulkRemove(ids) {
+  const set = new Set(ids);
+  list = list.filter((w) => !set.has(w.id));
+  await persist();
+  for (const id of ids) { kvDel('photo:' + id); kvDel('memo:' + id); }
+}
 export let lastDup = 0;
 export async function mergeWaypoints(arr) {
   let n = 0;
