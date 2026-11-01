@@ -229,7 +229,7 @@ function openWaypointList() {
         const bar = pg.body.querySelector('#wl-bar');
         bar.style.display = selMode ? 'flex' : 'none';
         bar.querySelector('#sb-n').textContent = sel.size + (sel.size === 1 ? ' selezionato' : ' selezionati');
-        pg.body.querySelector('#wl').style.paddingBottom = selMode ? 'calc(var(--sab,0px) + 96px)' : '';
+        pg.body.querySelector('#wl').style.paddingBottom = selMode ? 'calc(var(--sab,0px) + 140px)' : '';
         bus.emit('wl:draw');
         bus.selActive = selMode;
         const sb = document.querySelector('#wl-sel'); if (sb) sb.classList.toggle('sel', selMode);
@@ -256,7 +256,7 @@ function openWaypointList() {
       };
       pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
         <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}<button class="chip" id="wl-imp">Importati</button></div><div class="list" id="wl"></div>
-        <div id="wl-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 12px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)"><b id="sb-n" style="flex:1;font-size:.95rem;white-space:nowrap"></b>${[['sb-all', 'check', 'Tutti'], ['sb-none', 'close', 'Nessuno'], ['sb-type', 'edit', 'Tipo'], ['sb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" aria-label="${l}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;padding:4px 2px;font-size:.62rem;color:${id === 'sb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}</div>`;
+        <div id="wl-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 28px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)"><b id="sb-n" style="flex:1;font-size:.95rem;white-space:nowrap"></b>${[['sb-all', 'check', 'Tutti'], ['sb-none', 'close', 'Nessuno'], ['sb-type', 'edit', 'Tipo'], ['sb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" aria-label="${l}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;padding:4px 2px;font-size:.62rem;color:${id === 'sb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}</div>`;
       const bar = pg.body.querySelector('#wl-bar');
       pg.body.querySelector('#wl-imp').onclick = () => { imp = !imp; limit = 300; draw(); };
       bar.querySelector('#sb-all').onclick = () => { shown.forEach((w) => sel.add(w.id)); draw(); };
