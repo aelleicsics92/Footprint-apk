@@ -64,6 +64,21 @@ export function setSetting(key, value) {
     localStorage.setItem('fp.settings', JSON.stringify(settings));
   } catch {}
 }
+// profili dei cani: [{id,name,chip,vax,par,vet}]; migra i vecchi campi singoli
+export function getDogs() {
+  if (!Array.isArray(settings.dogs)) {
+    const names = String(settings.dogName || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const list = names.map((n, i) => ({ id: 'd' + i, name: n, chip: i ? '' : settings.dogChip || '', vax: i ? '' : settings.dogVaccine || '', par: i ? '' : settings.dogParasite || '', vet: i ? '' : settings.dogVet || '' }));
+    if (!list.length && (settings.dogChip || settings.dogVaccine || settings.dogParasite || settings.dogVet)) list.push({ id: 'd0', name: '', chip: settings.dogChip || '', vax: settings.dogVaccine || '', par: settings.dogParasite || '', vet: settings.dogVet || '' });
+    settings.dogs = list;
+  }
+  return settings.dogs.map((d) => ({ ...d }));
+}
+export function setDogs(list) {
+  setSetting('dogs', list);
+  setSetting('dogName', list.map((d) => d.name).filter(Boolean).join(', '));
+  try { window.dispatchEvent(new CustomEvent('fp:dogs')); } catch {}
+}
 export function apiKey(name) {
   const own = settings[name + 'Key'];
   if (own && own.trim()) return own.trim();

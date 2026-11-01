@@ -6,7 +6,7 @@ import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid, haversine } from '../lib/util.js';
 import { lastPos } from '../lib/geo.js';
 import { openPage, openSheet, toast, confirmBox, leavePages, pushBack, closeTopSheet } from '../lib/ui.js';
-import { getSettings, setSetting, apiKey, kvGet, kvSet } from '../lib/store.js';
+import { getSettings, setSetting, apiKey, kvGet, kvSet, getDogs, setDogs } from '../lib/store.js';
 import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints, bulkUpdate, bulkRemove } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
@@ -22,14 +22,30 @@ import { importTexts } from '../lib/importer.js';
 
 function openDog() {
   openPage('Profilo cane', (pg) => {
-    const s = getSettings();
-    const f = (k, l, type = 'text', ph = '') => `<div class="set-row"><div class="ti"><b>${l}</b></div><input type="${type}" data-k="${k}" value="${esc(s[k] || '')}" placeholder="${ph}" onfocus="this.select&&this.select()"></div>`;
-    pg.body.innerHTML = `<div class="list" style="margin-top:12px">${f('dogName', 'Nome (più cani: separati da virgola)')}${f('dogChip', 'Numero microchip')}${f('dogVaccine', 'Scadenza vaccini', 'date')}${f('dogParasite', 'Scadenza antiparassitario', 'date')}${f('dogVet', 'Veterinario di fiducia (telefono)', 'tel')}</div>
-      <p class="muted" style="margin:10px 18px;font-size:.82rem">Ti avviso 30 giorni prima delle scadenze. Dati salvati solo sul telefono.</p>
-      ${s.dogVet ? `<div style="padding:0 16px"><a class="btn primary big" href="tel:${esc(s.dogVet)}">Chiama il veterinario</a></div>` : ''}`;
-    pg.body.querySelectorAll('[data-k]').forEach((i) => i.addEventListener('change', () => { setSetting(i.dataset.k, i.value.trim()); bus.emit('settings:changed', i.dataset.k); toast('Salvato', 1200); }));
+    let sel = 0;
+    const draw = () => {
+      const dogs = getDogs();
+      if (sel >= dogs.length) sel = Math.max(0, dogs.length - 1);
+      const d = dogs[sel];
+      const f = (k, l, type = 'text') => `<div class="set-row"><div class="ti"><b>${l}</b></div><input type="${type}" data-k="${k}" value="${esc(d[k] || '')}" onfocus="this.select&&this.select()"></div>`;
+      pg.body.innerHTML = `<div style="display:flex;gap:8px;overflow-x:auto;padding:12px 14px 4px;white-space:nowrap">${dogs.map((x, i) => `<button class="chip ${i === sel ? 'sel' : ''}" data-i="${i}">${esc(x.name || 'Senza nome')}</button>`).join('')}<button class="chip" id="dg-add">+ Aggiungi cane</button></div>
+        ${d ? `<div class="list" style="margin-top:10px">${f('name', 'Nome')}${f('chip', 'Numero microchip')}${f('vax', 'Scadenza vaccini', 'date')}${f('par', 'Scadenza antiparassitario', 'date')}${f('vet', 'Veterinario di fiducia (telefono)', 'tel')}</div>
+        <p class="muted" style="margin:10px 18px;font-size:.82rem">Ti avviso 30 giorni prima delle scadenze. Dati salvati solo sul telefono.</p>
+        <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">${d.vet ? `<a class="btn primary big" href="tel:${esc(d.vet)}">Chiama il veterinario</a>` : ''}<button class="btn ghost big" id="dg-del" style="color:#c0392b">Elimina ${esc(d.name || 'questo cane')}</button></div>` : `<div class="empty">${ico('paw', 40)}<p>Nessun cane registrato.<br>Tocca "+ Aggiungi cane".</p></div>`}`;
+      pg.body.querySelectorAll('[data-i]').forEach((b) => (b.onclick = () => { sel = Number(b.dataset.i); draw(); }));
+      pg.body.querySelector('#dg-add').onclick = () => { const l = getDogs(); l.push({ id: uid(), name: '', chip: '', vax: '', par: '', vet: '' }); setDogs(l); sel = l.length - 1; draw(); setTimeout(() => { const i = pg.body.querySelector('[data-k="name"]'); if (i) i.focus(); }, 60); };
+      const del = pg.body.querySelector('#dg-del');
+      if (del) del.onclick = async () => { if (await confirmBox(`Eliminare il profilo di <b>${esc(d.name || 'questo cane')}</b>?`, { ok: 'Elimina', danger: true })) { const l = getDogs(); l.splice(sel, 1); setDogs(l); draw(); } };
+      const inputs = [...pg.body.querySelectorAll('[data-k]')];
+      inputs.forEach((i, n) => {
+        i.addEventListener('change', () => { const l = getDogs(); l[sel][i.dataset.k] = i.value.trim(); setDogs(l); toast('Salvato', 1200); if (i.dataset.k === 'name') { const t = pg.body.querySelector(`[data-i="${sel}"]`); if (t) t.textContent = i.value.trim() || 'Senza nome'; } });
+        i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); i.dispatchEvent(new Event('change')); const nx = inputs[n + 1]; nx ? nx.focus() : i.blur(); } });
+      });
+    };
+    draw();
   });
 }
+
 
 export function mountMore(el) {
   const gpsHub = () =>
@@ -74,9 +90,10 @@ export function mountMore(el) {
         .join('')}</div>`)
       .join('')}`;
   el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => items[Number(b.dataset.n)][3]()));
+  window.addEventListener('fp:dogs', () => bus.emit('settings:changed', 'dogs'));
   const refreshBadge = () => {
     const s = getSettings(), now = Date.now();
-    const due = [s.dogVaccine, s.dogParasite].some((d) => d && new Date(d + 'T23:59:59').getTime() - now < 30 * 86400000);
+    const due = getDogs().some((g) => [g.vax, g.par].some((d) => d && new Date(d + 'T23:59:59').getTime() - now < 30 * 86400000));
     const idx = items.findIndex((i) => i[1] === 'Profilo cane');
     const b = el.querySelector(`[data-n="${idx}"] .lead`);
     if (b) { b.querySelector('.dot-b')?.remove(); if (due) b.insertAdjacentHTML('beforeend', '<i class="dot-b"></i>'); }
@@ -88,31 +105,63 @@ export function mountMore(el) {
 
 // ---------- tracce ----------
 function openTracks() {
+  let tSel = false; const tIds = new Set(); let popB = null;
   openPage('Le mie tracce', (pg) => {
+    const setSel = (on) => {
+      tSel = on; if (!on) tIds.clear();
+      if (on && !popB) popB = pushBack(() => { popB = null; tSel = false; tIds.clear(); draw(); });
+      if (!on && popB) { popB(); popB = null; }
+    };
     const draw = () => {
       const t = getTracks();
+      for (const id of [...tIds]) if (!t.find((x) => x.id === id)) tIds.delete(id);
       pg.body.innerHTML = t.length
         ? `<div class="list">${t
             .map(
               (x) =>
-                `<button class="item" data-id="${x.id}"><span class="lead trk-th" data-th="${x.id}" style="width:54px;height:54px;border-radius:12px;background:#f6f2e6;display:flex;align-items:center;justify-content:center;overflow:hidden">${ico('route', 22)}</span><div class="ti"><b>${esc(x.name)}</b><small>${fmtDate(x.start)} · ${fmtDist(x.dist)} · ${fmtDur(x.dur)} · +${Math.round(x.up)} m</small></div></button>`
+                `<button class="item" data-id="${x.id}">${tSel ? `<span style="flex:none;width:24px;height:24px;margin:0 12px 0 2px;border-radius:7px;border:2px solid #2e7a4d;display:inline-flex;align-items:center;justify-content:center;background:${tIds.has(x.id) ? '#2e7a4d' : 'transparent'};color:#fff">${tIds.has(x.id) ? ico('check', 16) : ''}</span>` : ''}<span class="lead trk-th" data-th="${x.id}" style="width:54px;height:54px;border-radius:12px;background:#f6f2e6;display:flex;align-items:center;justify-content:center;overflow:hidden">${ico('route', 22)}</span><div class="ti"><b>${esc(x.name)}</b><small>${fmtDate(x.start)} · ${fmtDist(x.dist)} · ${fmtDur(x.dur)} · +${Math.round(x.up)} m</small></div></button>`
             )
             .join('')}</div>`
         : `<div class="empty">${ico('route', 40)}<p>Nessuna traccia salvata.<br>Attiva la registrazione in Impostazioni oppure importa un file GPX.</p></div>`;
       pg.body.querySelectorAll('[data-id]').forEach((b) => {
         let lp = null, fired = false;
         const id = b.dataset.id;
-        b.onclick = () => { if (fired) { fired = false; return; } trackSheet(t.find((x) => x.id === id), pg); };
-        b.addEventListener('touchstart', () => { fired = false; lp = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(20); } catch {} renameSheet(t.find((x) => x.id === id)); }, 550); }, { passive: true });
+        b.onclick = () => {
+          if (fired) { fired = false; return; }
+          if (tSel) { tIds.has(id) ? tIds.delete(id) : tIds.add(id); draw(); return; }
+          trackSheet(t.find((x) => x.id === id), pg);
+        };
+        b.addEventListener('touchstart', () => { fired = false; lp = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(30); } catch {} if (!tSel) setSel(true); tIds.add(id); draw(); }, 500); }, { passive: true });
         ['touchend', 'touchmove', 'touchcancel'].forEach((ev) => b.addEventListener(ev, () => clearTimeout(lp), { passive: true }));
         b.oncontextmenu = (e) => { e.preventDefault(); };
       });
+      if (tSel) {
+        pg.body.insertAdjacentHTML('beforeend', '<div style="height:calc(var(--sab,0px) + 150px)"></div>');
+        const bar = document.createElement('div');
+        bar.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 28px);z-index:30;display:flex;align-items:center;gap:8px;padding:12px 18px 12px 22px;background:#12372a;color:#fff;border-radius:22px;box-shadow:0 6px 22px rgba(0,0,0,.35)';
+        bar.innerHTML = `<b style="flex:1;font-size:.95rem;white-space:nowrap">${tIds.size} ${tIds.size === 1 ? 'selezionata' : 'selezionate'}</b>${[['tb-all', 'check', 'Tutte'], ['tb-none', 'close', 'Nessuna'], ['tb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:4px 6px;font-size:.66rem;color:${id === 'tb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}`;
+        pg.body.appendChild(bar);
+        bar.querySelector('#tb-all').onclick = () => { t.forEach((x) => tIds.add(x.id)); draw(); };
+        bar.querySelector('#tb-none').onclick = () => { setSel(false); draw(); };
+        bar.querySelector('#tb-del').onclick = async () => {
+          if (!tIds.size) return toast('Nessuna traccia selezionata');
+          if (await confirmBox(`Eliminare <b>${tIds.size}</b> tracce? Non si può annullare.`, { ok: 'Elimina', danger: true })) { const ids = [...tIds]; setSel(false); for (const id of ids) await deleteTrack(id); toast('Eliminate'); }
+        };
+      }
       thumbs(pg, t);
     };
     draw();
     const off = bus.on('tracks:changed', draw);
-    pg.onClose = off;
-  });
+    pg.onClose = () => { off(); if (popB) popB(); };
+    setTimeout(() => {
+      const eb = document.querySelector('#tr-all-del');
+      if (eb) eb.onclick = async () => {
+        const all = getTracks();
+        if (!all.length) return toast('Nessuna traccia da eliminare');
+        if (await confirmBox(`Eliminare <b>tutte le ${all.length}</b> tracce? Non si può annullare.`, { ok: 'Elimina tutto', danger: true })) { setSel(false); for (const x of all.slice()) await deleteTrack(x.id); toast('Tracce eliminate'); }
+      };
+    }, 50);
+  }, { actions: `<button class="chip" id="tr-all-del" style="color:#ff8a7a">Elimina tutto</button>` });
 }
 
 // miniature: tracciato semplificato in verde scuro su crema, calcolate una volta e salvate
@@ -593,8 +642,8 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Uomo a terra</b><small>Durante la registrazione, se resti fermo 15 minuti parte un conto alla rovescia e poi un allarme sonoro. Funziona con l'app aperta e lo schermo acceso.</small></div><label class="switch"><input type="checkbox" data-k="manDown" ${s.manDown ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Scadenza tesserino / permesso</b><small>Ti avviso 30 giorni prima</small></div><input type="date" data-k="permitExpiry" value="${esc(s.permitExpiry)}" onfocus="this.select&&this.select()"></div>
       <div class="set-row"><div class="ti"><b>Avviso tramonto</b><small>Notifica 45 minuti prima del buio, con distanza dall'auto</small></div><label class="switch"><input type="checkbox" data-k="sunsetAlert" ${s.sunsetAlert ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div>
-      <div class="set-row col"><div class="ti"><b>Nomi dei cani</b><small>Separati da virgola. Nel waypoint scegli quale cane ha trovato (statistiche nel Diario)</small></div><input type="text" data-k="dogName" value="${esc(s.dogName)}" maxlength="30" onfocus="this.select()"></div></div>
+      <div class="set-row"><div class="ti"><b>Notifica fissa di stato</b><small>Coordinate, quota, distanza dall'auto e tempo di registrazione, visibili anche a schermo bloccato</small></div><label class="switch"><input type="checkbox" data-k="statusNotif" ${s.statusNotif ? 'checked' : ''}><i></i></label></div></div>
+
       <div class="list"><button class="item" id="bat-ex"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Registrazione in background</b><small>La traccia si avvia solo dal Computer di viaggio.</small><small id="bat-s">Controllo…</small></div></button></div>
       <div class="list"><button class="item" id="wp-order"><span class="lead">${ico('sliders', 22)}</span><div class="ti"><b>Icone waypoint</b><small>Ordine (trascina) e icone da nascondere</small></div></button></div>
       <div class="sec-title" style="font-size:1.1rem">Scheda sanitaria (SOS)</div>

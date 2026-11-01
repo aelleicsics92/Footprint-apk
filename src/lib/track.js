@@ -188,6 +188,7 @@ export async function stopRecording({ save = true } = {}) {
   await stopWatching();
   const pts = rec.points.slice();
   const name = rec.name;
+  const rec0 = { start: rec.start };
   const dur = Math.max(0, (end - rec.start - rec.paused) / 1000);
   Object.assign(rec, { status: 'idle', id: null, points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
   await kvDel('rec:current');
@@ -195,6 +196,12 @@ export async function stopRecording({ save = true } = {}) {
   if (!save || pts.length < 2) return null;
   const t = buildTrack(name, pts);
   t.dur = dur;
+  if (!name || /^Traccia \d+ · /.test(name)) {
+    try {
+      const [{ defaultTrackName }, { getWaypoints }] = await Promise.all([import('./trackname.js'), import('./waypoints.js')]);
+      t.name = await defaultTrackName(pts, rec0.start, end, getWaypoints());
+    } catch {}
+  }
   await saveTrack(t);
   return t;
 }

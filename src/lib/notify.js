@@ -1,6 +1,6 @@
 // Notifiche locali: avviso nei giorni buoni per funghi/tartufi (calcolato dall'indice previsionale)
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { getSettings } from './store.js';
+import { getSettings, getDogs } from './store.js';
 import { bus } from './util.js';
 import { lastPos } from './geo.js';
 import { PROFILES, levelOf, outlook, getPointSeries, nearestZone } from './fungi.js';
@@ -53,8 +53,8 @@ export async function scheduleFungiAlerts(lat, lon) {
 export async function scheduleReminders() {
   try {
     const s = getSettings();
-    await LocalNotifications.cancel({ notifications: [{ id: 7300 }, { id: 7301 }, { id: 7302 }] });
-    const items = [[7300, s.permitExpiry, 'Tesserino / permesso di raccolta'], [7301, s.dogVaccine, 'Vaccini del cane'], [7302, s.dogParasite, 'Antiparassitario del cane']];
+    await LocalNotifications.cancel({ notifications: [{ id: 7300 }, { id: 7301 }, { id: 7302 }, ...Array.from({ length: 40 }, (_, i) => ({ id: 7310 + i }))] });
+    const items = [[7300, s.permitExpiry, 'Tesserino / permesso di raccolta'], ...getDogs().slice(0, 20).flatMap((g, i) => { const n = g.name ? ' di ' + g.name : ' del cane'; return [[7310 + i * 2, g.vax, 'Vaccini' + n], [7311 + i * 2, g.par, 'Antiparassitario' + n]]; })];
     const due = [];
     const notes = [];
     for (const [id, d, label] of items) {
@@ -88,7 +88,7 @@ export function initNotifications() {
   });
   bus.on('settings:changed', (k) => {
     if (k === 'notifFungi' || k === 'fungiProfile') run();
-    if (['permitExpiry', 'dogVaccine', 'dogParasite'].includes(k)) scheduleReminders();
+    if (['permitExpiry', 'dogVaccine', 'dogParasite', 'dogs'].includes(k)) scheduleReminders();
   });
 }
 
