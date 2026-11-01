@@ -25,7 +25,7 @@ import { createStorm } from '../lib/storm.js';
 import { HabLayer, forecastInputs } from './hablayer.js';
 import { PROFILES, LEVELS } from '../lib/fungi.js';
 
-let mateGroup;
+let mateGroup, othersGroup;
 let map, baseLayers = {}, trailsLayer, userMarker, accCircle, wpGroup, targetLine, recLine, shownGroup;
 let follow = true, firstFix = false, shownTrackName = null;
 let followPts = null, offTrack = null, lastAlert = 0;
@@ -95,6 +95,29 @@ function renderMates() {
   }
 }
 
+const uCol = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360},70%,42%)`; };
+async function renderOthers() {
+  if (!othersGroup) return;
+  othersGroup.clearLayers();
+  const cl = await import('../lib/cloud.js');
+  if (!cl.showOthers()) return;
+  const { rows } = await cl.cachedOthers();
+  const who = {}; let k = 0;
+  for (const r of rows) {
+    const col = uCol(r.user_id); who[r.user_id] ||= 'Utente ' + (++k);
+    if (r.kind === 'waypoint' && r.data && r.data.lat != null) {
+      const m = L.circleMarker([r.data.lat, r.data.lon], { radius: 7, color: '#fff', weight: 2, fillColor: col, fillOpacity: 0.95 });
+      m.bindTooltip(`${esc(r.data.name || 'Waypoint')} · ${who[r.user_id]}`, { direction: 'top' });
+      m.addTo(othersGroup);
+    } else if (r.kind === 'track' && r.data && r.data.points && r.data.points.length > 1) {
+      const pts = r.data.points.map((p) => (Array.isArray(p) ? [p[0], p[1]] : [p.lat, p.lon])).filter((p) => p[0] != null);
+      const l = L.polyline(pts, { color: col, weight: 3, opacity: 0.75 });
+      l.bindTooltip(`${esc((r.data.meta && r.data.meta.name) || 'Traccia')} · ${who[r.user_id]}`, { sticky: true });
+      l.addTo(othersGroup);
+    }
+  }
+}
+
 export function hasShownTrack() { return !!shownTrackName; }
 export function mountMap(el) {
   root = el;
@@ -147,6 +170,10 @@ export function mountMap(el) {
   wpGroup = L.layerGroup().addTo(map);
   shownGroup = L.layerGroup().addTo(map);
   mateGroup = L.layerGroup().addTo(map);
+  othersGroup = L.layerGroup().addTo(map);
+  renderOthers();
+  bus.on('others:update', renderOthers);
+  bus.on('others:toggle', renderOthers);
   renderMates();
   bus.on('mates:changed', renderMates);
   bus.on('mates:show', (key) => { renderMates(); const l = mateList(key); const p = lastPos(); if (!map || !l.length) return; setFollow(false); const pts = l.map((m) => [m.lat, m.lon]); if (p) pts.push([p.lat, p.lon]); pts.length === 1 ? map.setView(pts[0], 17) : map.fitBounds(pts, { padding: [70, 70], maxZoom: 17 }); });

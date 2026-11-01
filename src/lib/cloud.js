@@ -4,6 +4,10 @@ import { getWaypoints, addWaypoint } from './waypoints.js';
 import { getTracks, loadTrackPoints, saveTrack } from './track.js';
 import { kvGet, kvSet, lsGet, lsSet } from './store.js';
 import { bus } from './util.js';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const IF = () => (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
+const native = () => Capacitor.isNativePlatform && Capacitor.isNativePlatform();
 
 const URL_ = ((import.meta.env && import.meta.env.VITE_SUPABASE_URL) || '').replace(/\/$/, '');
 const KEY = (import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) || '';
@@ -154,12 +158,81 @@ export async function restoreNow() {
   } catch (e) { return { error: String(e.message || e) }; }
 }
 
+// ultimo passaggio delle 02:00 (oggi se già passate, altrimenti ieri)
+function lastBoundary() { const d = new Date(); d.setHours(2, 0, 0, 0); if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1); return d.getTime(); }
+
+// Coda per il backup notturno nativo (app chiusa): solo ciò che è cambiato
+let outboxT = 0;
+export async function prepareOutbox() {
+  if (!native() || !cloudConfigured() || consent() !== 'yes') return;
+  const a = lsGet('fp.cloud.auth', null);
+  if (!a) return;
+  const sent = lsGet('fp.cloud.sent', {});
+  const rows = [], photos = [];
+  for (const w of getWaypoints()) {
+    const sig = hash(JSON.stringify(w));
+    if (sent['w:' + w.id] === sig) continue;
+    if (w.photo) { const ph = await kvGet('photo:' + w.id); if (ph && sent['p:' + w.id] !== String(ph.length)) photos.push({ k: 'p:' + w.id, s: String(ph.length), name: `photo-${w.id}.txt`, text: ph }); }
+    rows.push({ k: 'w:' + w.id, s: sig, kind: 'waypoint', item_id: w.id, data: w });
+  }
+  for (const t of getTracks()) {
+    const sig = hash(JSON.stringify(t));
+    if (sent['t:' + t.id] === sig) continue;
+    rows.push({ k: 't:' + t.id, s: sig, kind: 'track', item_id: t.id, data: { meta: t, points: await loadTrackPoints(t.id) } });
+  }
+  try { await IF().outboxWrite({ json: JSON.stringify({ url: URL_, key: KEY, auth: a, rows, photos }) }); } catch {}
+}
+export function queueOutbox() { clearTimeout(outboxT); outboxT = setTimeout(() => { prepareOutbox(); }, 4000); }
+
+// applica il risultato del backup notturno fatto dal sistema
+async function applyNightly() {
+  if (!native()) return;
+  try {
+    const r = await IF().outboxResult();
+    if (!r || !r.has) return;
+    const j = JSON.parse(r.json);
+    const sent = lsGet('fp.cloud.sent', {});
+    for (const x of j.ok || []) sent[x.k] = x.s;
+    lsSet('fp.cloud.sent', sent);
+    if (j.auth && j.auth.access_token) lsSet('fp.cloud.auth', { ...lsGet('fp.cloud.auth', {}), ...j.auth });
+    if ((j.ok || []).length) lsSet('fp.cloud.last', j.t || Date.now());
+  } catch {}
+}
+
+// Dati degli altri utenti (visibili solo se il database lo consente, cioè al gestore)
+export const showOthers = () => lsGet('fp.cloud.others', false);
+export const setShowOthers = (v) => { lsSet('fp.cloud.others', !!v); bus.emit('others:toggle', !!v); };
+export async function cachedOthers() { return (await kvGet('others:cache')) || { t: 0, rows: [] }; }
+export async function fetchOthers() {
+  if (!cloudConfigured() || !navigator.onLine) return { error: 'offline' };
+  try {
+    const a = await auth();
+    const since = new Date(Date.now() - 90 * 864e5).toISOString();
+    const q = `select=user_id,kind,item_id,data&user_id=neq.${a.uid}&kind=in.(waypoint,track)&updated_at=gte.${since}&order=updated_at.desc&limit=300`;
+    const r = await fetch(`${URL_}/rest/v1/backups?${q}`, { headers: H(a) });
+    if (!r.ok) throw new Error('lettura ' + r.status);
+    const rows = await r.json();
+    await kvSet('others:cache', { t: Date.now(), rows });
+    bus.emit('others:update', rows);
+    return { n: rows.length };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+
 export function initCloud() {
   if (!cloudConfigured()) return;
-  const tick = () => { if (consent() === 'yes' && Date.now() - lastBackup() > 6 * 3600e3) backupNow(); };
-  setTimeout(tick, 20000);
+  const tick = async () => {
+    await applyNightly();
+    if (consent() !== 'yes') { if (native()) IF().nightlySchedule({ enabled: false }).catch(() => {}); return; }
+    if (native()) IF().nightlySchedule({ enabled: true }).catch(() => {});
+    if (lastBackup() < lastBoundary()) await backupNow();
+    prepareOutbox();
+    if (showOthers() && Date.now() - (await cachedOthers()).t > 3600e3) fetchOthers();
+  };
+  setTimeout(tick, 15000);
   setInterval(tick, 30 * 60e3);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 5000); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 3000); else queueOutbox(); });
+  bus.on && bus.on('cloud:done', queueOutbox);
+  setInterval(queueOutbox, 10 * 60e3);
 }
 
 // consenso al primo avvio: dice chiaramente cosa viene salvato

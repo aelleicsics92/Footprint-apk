@@ -469,7 +469,8 @@ function openSettings() {
       <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa che tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
-      <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni 6 ore con l'app aperta</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni notte alle 02:00, o alla riapertura</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Mostra dati degli altri utenti</b><small id="cl-ost">Sulla mappa, solo se il tuo account è autorizzato</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
       <div class="set-row" id="cl-acc" style="display:block"></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button></div></div></div>
@@ -552,6 +553,12 @@ function openSettings() {
       show();
       sw.onchange = () => { cl.setConsent(sw.checked ? 'yes' : 'no'); show(); if (sw.checked) cl.backupNow().then(show); };
       pg.body.querySelector('#cl-now').onclick = async () => { if (cl.consent() !== 'yes') return toast('Attiva prima il backup'); toast('Backup in corso…'); const r = await cl.backupNow(); show(); toast(r.error ? 'Backup non riuscito: ' + r.error : r.skipped ? 'Serve internet' : `Backup fatto (${r.n} elementi nuovi)`); };
+      const osw = pg.body.querySelector('#cl-osw'), ost = pg.body.querySelector('#cl-ost');
+      osw.checked = cl.showOthers();
+      osw.onchange = async () => {
+        cl.setShowOthers(osw.checked);
+        if (osw.checked) { ost.textContent = 'Aggiorno…'; const r = await cl.fetchOthers(); ost.textContent = r.error ? 'Errore: ' + r.error : r.n ? r.n + ' elementi di altri utenti' : 'Nessun dato (account non autorizzato o nessun altro utente)'; }
+      };
       const emShow = () => {
         const acc = pg.body.querySelector('#cl-acc'), em = cl.cloudEmail();
         acc.innerHTML = em

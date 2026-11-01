@@ -89,6 +89,37 @@ public class IntentFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void outboxWrite(PluginCall call) {
+        try {
+            File f = new File(getContext().getFilesDir(), "outbox.json");
+            try (java.io.FileOutputStream fo = new java.io.FileOutputStream(f)) { fo.write(call.getString("json", "{}").getBytes("UTF-8")); }
+            call.resolve();
+        } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+
+    @PluginMethod
+    public void outboxResult(PluginCall call) {
+        JSObject r = new JSObject();
+        try {
+            File f = new File(getContext().getFilesDir(), "outbox-result.json");
+            if (f.exists()) {
+                r.put("has", true);
+                r.put("json", BackupWorker.readAll(f));
+                f.delete();
+            } else r.put("has", false);
+        } catch (Exception e) { r.put("has", false); }
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void nightlySchedule(PluginCall call) {
+        try {
+            if (call.getBoolean("enabled", true)) BackupWorker.schedule(getContext()); else BackupWorker.cancel(getContext());
+            call.resolve();
+        } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+
+    @PluginMethod
     public void mateRead(PluginCall call) {
         JSObject r = new JSObject();
         android.content.SharedPreferences sp = getContext().getSharedPreferences(MateService.PREFS, Context.MODE_PRIVATE);
