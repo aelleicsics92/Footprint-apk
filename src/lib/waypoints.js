@@ -1,4 +1,4 @@
-import { kvGet, kvSet, getSettings, setSetting } from './store.js';
+import { kvGet, kvSet, kvDel, getSettings, setSetting } from './store.js';
 import { getTerrain, terrainText } from './terrain.js';
 import { bus, esc, pad, uid, fmtCoord, fmtDate, fmtDist, haversine, bearing, cardinal } from './util.js';
 import { openSheet, toast, confirmBox, closeTopPage, leavePages } from './ui.js';
@@ -148,6 +148,8 @@ function formHTML({ wp, pos, title, icon }) {
     <div class="row gap"><label class="field grow"><span>Quantità (pz)</span><input id="wp-qty" type="number" min="0" inputmode="numeric" value="${wp && wp.qty ? wp.qty : ''}" onfocus="this.select()"></label><label class="field grow"><span>Peso (kg)</span><input id="wp-kg" type="number" min="0" step="0.1" inputmode="decimal" value="${wp && wp.kg ? wp.kg : ''}" onfocus="this.select()"></label></div>
     <label class="field" id="wp-dog-row" ${TRUFFLE_ICONS.includes(icon) ? '' : 'hidden'}><span>Cane (chi ha trovato)</span><input id="wp-dog" type="text" list="wp-dogs" value="${esc(wp ? wp.dog || '' : dogs()[0] || '')}" maxlength="30" autocomplete="off" placeholder="Nome del cane" onfocus="this.select()"><datalist id="wp-dogs">${dogs().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
     <button type="button" class="btn" id="wp-voice" style="width:100%;border:2px solid #12372a;background:#fff;color:#12372a;font-weight:800;gap:12px;padding:12px 14px;justify-content:flex-start"><span style="width:38px;height:38px;border-radius:50%;background:#12372a;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none">${ico('mic', 22)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><b>Memo vocale</b><small style="font-weight:500;opacity:.75">Parla e trascrivo io, ideale sul campo</small></span></button><div id="wp-voice-out" class="muted" style="font-size:.82rem;margin:4px 0"></div>
+    <button type="button" class="btn" id="wp-photo" style="width:100%;border:2px solid #12372a;background:#fff;color:#12372a;font-weight:800;gap:12px;padding:12px 14px;justify-content:flex-start;margin-top:8px"><span style="width:38px;height:38px;border-radius:50%;background:#12372a;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none">${ico('camera', 22)}</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2"><b>Foto</b><small style="font-weight:500;opacity:.75">Scatta o scegli dalla galleria</small></span></button>
+    <div id="wp-photo-out" style="margin:8px 0"></div>
     <div class="coords-box"><span class="lbl">Coordinate GPS</span><b>${pos ? fmtCoord(pos.lat, pos.lon) : 'in attesa del GPS…'}</b><small>${[alt, acc].filter(Boolean).join(' · ')}</small>${wp ? `<div class="row gap" style="margin-top:8px"><button type="button" class="btn ghost grow" id="wp-here">Posizione attuale</button><button type="button" class="btn ghost grow" id="wp-pick">Sposta sulla mappa</button></div>` : ''}<button type="button" class="btn ghost" id="wp-exif" style="margin-top:8px">Posizione da una foto (GPS)</button><input type="file" accept="image/*" id="wp-exif-f" hidden></div>
     <div class="save-bar"><button class="btn primary big" data-primary id="wp-save" ${pos ? '' : 'disabled'}>${ico('check', 20)} Salva waypoint</button></div>
   </div>`;
@@ -215,6 +217,19 @@ function wireForm(s, { wp, pos, onSave }) {
     }
   });
   let memo = null, rec = null;
+  let photo = null; // null = invariata, '' = rimossa, stringa = nuova (dataURL)
+  const pOut = s.body.querySelector('#wp-photo-out');
+  const showPhoto = (src) => { pOut.innerHTML = src ? `<div style="position:relative;display:inline-block"><img src="${src}" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;display:block"><button type="button" id="wp-photo-rm" aria-label="Rimuovi foto" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;border:0;border-radius:50%;width:34px;height:34px">${ico('close', 18)}</button></div>` : ''; const rm = pOut.querySelector('#wp-photo-rm'); if (rm) rm.onclick = () => { photo = ''; showPhoto(''); }; };
+  if (wp && wp.photo) kvGet('photo:' + wp.id).then((b) => { if (photo === null && b) showPhoto(b); });
+  s.body.querySelector('#wp-photo').addEventListener('click', async () => {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const r = await Camera.getPhoto({ quality: 70, width: 1280, resultType: CameraResultType.Base64, source: CameraSource.Prompt, promptLabelHeader: 'Foto waypoint', promptLabelPhoto: 'Scegli dalla galleria', promptLabelPicture: 'Scatta foto' });
+      if (!r.base64String) return;
+      photo = `data:image/${r.format || 'jpeg'};base64,${r.base64String}`;
+      showPhoto(photo);
+    } catch (e) { if (!String(e).includes('cancel')) toast('Foto non disponibile'); }
+  });
   const vb = s.body.querySelector('#wp-voice'), vo = s.body.querySelector('#wp-voice-out');
   vb.addEventListener('click', async () => {
     if (rec) return rec.stop();
@@ -267,7 +282,7 @@ function wireForm(s, { wp, pos, onSave }) {
     const qty = Number(s.body.querySelector('#wp-qty').value) || 0;
     const kg = Number(s.body.querySelector('#wp-kg').value) || 0;
     const dog = TRUFFLE_ICONS.includes(icon) ? s.body.querySelector('#wp-dog').value.trim() : '';
-    await onSave({ title, desc, icon, qty, kg, memo, dog, np, stato, tags: [...tags] });
+    await onSave({ title, desc, icon, qty, kg, memo, photo, dog, np, stato, tags: [...tags] });
     s.close();
   });
 }
@@ -290,11 +305,12 @@ export async function openNewWaypoint() {
   s.onClose = off;
   wireForm(s, {
     pos,
-    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np, stato, tags }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo, photo, dog, np, stato, tags }) => {
       const at = np || fix;
       if (!at) return;
-      const w = { id: uid(), title, desc, icon, qty, kg, dog, stato, tags, memo: !!memo, lat: at.lat, lon: at.lon, alt: at.alt, acc: at.acc, ts: Date.now() };
+      const w = { id: uid(), title, desc, icon, qty, kg, dog, stato, tags, memo: !!memo, photo: !!photo, lat: at.lat, lon: at.lon, alt: at.alt, acc: at.acc, ts: Date.now() };
       if (memo) await kvSet('memo:' + w.id, memo);
+      if (photo) await kvSet('photo:' + w.id, photo);
       await addWaypoint(w);
       import('./snap.js').then((m) => m.ensureSnap(w)).catch(() => {});
       toast(`Salvato: ${title}`);
@@ -312,10 +328,13 @@ export function openEditWaypoint(w, draft) {
   wireForm(s, {
     wp: v,
     pos: v,
-    onSave: async ({ title, desc, icon, qty, kg, memo, dog, np, stato, tags }) => {
+    onSave: async ({ title, desc, icon, qty, kg, memo, photo, dog, np, stato, tags }) => {
       if (memo) await kvSet('memo:' + w.id, memo);
+      let photoPatch = {};
+      if (photo === '') { await kvDel('photo:' + w.id); photoPatch = { photo: false }; }
+      else if (photo) { await kvSet('photo:' + w.id, photo); photoPatch = { photo: true }; }
       const moved = np || (draft && draft.lat !== w.lat ? { lat: draft.lat, lon: draft.lon, alt: draft.alt, acc: draft.acc } : null);
-      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, stato, tags, ...(moved || {}), ...(memo ? { memo: true } : {}) });
+      await updateWaypoint(w.id, { title, desc, icon, qty, kg, dog, stato, tags, ...(moved || {}), ...(memo ? { memo: true } : {}), ...photoPatch });
       toast('Modificato');
     },
   });
@@ -354,6 +373,7 @@ export function openWaypoint(w) {
       ${w.desc ? `<p class="wp-desc">${esc(w.desc)}</p>` : ''}
       ${w.qty || w.kg || w.dog ? `<p class="muted" style="margin:4px 0">${[w.qty ? w.qty + ' pz' : '', w.kg ? w.kg + ' kg' : '', w.dog ? '🐕 ' + esc(w.dog) : ''].filter(Boolean).join(' · ')}</p>` : ''}
       ${w.stato || (w.tags || []).length ? `<p class="muted" style="margin:4px 0">${[w.stato ? STATI.find((x) => x[0] === w.stato)[1] : '', ...(w.tags || [])].filter(Boolean).join(' · ')}</p>` : ''}
+      ${w.photo ? '<div id="wp-photo-view" style="margin:8px 0"></div>' : ''}
       <p class="muted" id="wp-terr" style="margin:4px 0"></p>
       <p class="muted" id="wp-snap" style="margin:4px 0"></p>
       ${w.memo ? '<div id="wp-memo"></div>' : ''}
@@ -379,6 +399,10 @@ export function openWaypoint(w) {
     if (!navigator.onLine) return;
     try { const t = await m.todayFeats(w); el.innerHTML = esc(m.snapText(sn, tr)) + `<br><b>Oggi è ${m.compare(sn, t, tr)}</b> (${tr ? t.R30 + ' mm in 30 gg' : t.R14 + ' mm in 14 gg'}${t.lag != null ? ', pioggia utile ' + t.lag + ' gg fa' : ''}, ${t.t ?? '-'} °C)`; } catch {}
   }).catch(() => {});
+  if (w.photo) kvGet('photo:' + w.id).then((b) => {
+    const el = s.body.querySelector('#wp-photo-view');
+    if (b && el) el.innerHTML = `<img src="${b}" style="width:100%;max-height:260px;object-fit:cover;border-radius:16px;display:block">`;
+  });
   if (w.memo) kvGet('memo:' + w.id).then((b) => {
     const el = s.body.querySelector('#wp-memo');
     if (b && el) el.innerHTML = `<audio controls style="width:100%" src="${URL.createObjectURL(b)}"></audio>`;

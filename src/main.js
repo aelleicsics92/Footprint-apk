@@ -14,9 +14,9 @@ import { getSettings } from './lib/store.js';
 import { startWatch } from './lib/geo.js';
 import { startCompass } from './lib/compass.js';
 import { loadWaypoints, quickWaypoint, importQuick } from './lib/waypoints.js';
-import { loadTracks, startRecording, stopRecording, pendingRecovery, nativeActive, recoverSave, discardRecovery, getRec } from './lib/track.js';
+import { loadTracks, startRecording, pendingRecovery, nativeActive, recoverSave, discardRecovery, getRec } from './lib/track.js';
 import { setWakeLock } from './lib/wake.js';
-import { mountMap, invalidate } from './ui/mapscreen.js';
+import { mountMap, invalidate, stopRecAndSheet } from './ui/mapscreen.js';
 import { mountCompass } from './ui/compassscreen.js';
 import { mountAI } from './ui/aiscreen.js';
 import { mountFungi } from './ui/fungiscreen.js';
@@ -172,7 +172,7 @@ async function runAction(a) {
     else await saveParking();
   } else if (a === 'rec') {
     if (getRec().status === 'idle') { await startRecording(); toast('Registrazione avviata'); }
-    else { const t = await stopRecording(); toast(t ? 'Traccia salvata' : 'Traccia troppo corta: non salvata'); }
+    else { showTab('map'); bus.emit('nav:tab', 'map'); await stopRecAndSheet(); }
   } else if (a === 'sos') { showTab('map'); bus.emit('nav:tab', 'map'); openSOS(); }
   else if (a === 'fungi') { showTab('fungi'); bus.emit('nav:tab', 'fungi'); }
 }

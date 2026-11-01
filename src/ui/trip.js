@@ -1,6 +1,7 @@
 // Computer di viaggio: km, dislivello, quota, velocità e passo in tempo reale
 import { bus, fmtDist, fmtDur, haversine, bearing, cardinal } from '../lib/util.js';
-import { getRec, elapsed, startRecording, stopRecording, pauseRecording, resumeRecording } from '../lib/track.js';
+import { getRec, elapsed, startRecording, pauseRecording, resumeRecording } from '../lib/track.js';
+import { stopRecAndSheet } from './mapscreen.js';
 import { lastPos } from '../lib/geo.js';
 import { getWaypoints } from '../lib/waypoints.js';
 
@@ -103,7 +104,7 @@ export function mountTrip(root) {
     if (pb) pb.onclick = () => { s.paused ? resumeRecording() : pauseRecording(); draw(); };
     el.querySelector('#trip-toggle').onclick = async () => {
       navigator.vibrate && navigator.vibrate(s.rec ? [120, 60, 120] : 150);
-      if (s.rec) await stopRecording();
+      if (s.rec) await stopRecAndSheet();
       else await startRecording();
       draw();
     };

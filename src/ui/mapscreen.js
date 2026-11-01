@@ -236,6 +236,12 @@ export function mountMap(el) {
   updateHud();
 }
 
+export async function stopRecAndSheet() {
+  const t = await stopRecording();
+  if (!t) { toast('Traccia troppo corta: non salvata'); return null; }
+  afterSave(t);
+  return t;
+}
 export function invalidate() {
   map && map.invalidateSize();
 }
@@ -408,9 +414,7 @@ function renderRec() {
     else if (a === 'pause') pauseRecording();
     else if (a === 'resume') resumeRecording();
     else if (a === 'stop') {
-      const t = await stopRecording();
-      if (!t) return toast('Traccia troppo corta: non salvata');
-      afterSave(t);
+      await stopRecAndSheet();
     }
   };
 }
