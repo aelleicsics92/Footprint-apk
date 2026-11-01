@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Footprint - Nuova password</title>
+<style>body{font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1c2a22}h1{color:#12372a}input,button{width:100%;box-sizing:border-box;font-size:1.05rem;padding:12px;border-radius:12px;border:1px solid #cfc6ad;margin:6px 0}button{background:#12372a;color:#fff;border:0;font-weight:700}#m{margin-top:12px}</style></head><body>
+<h1>Nuova password</h1>
+<p>Scegli la nuova password per il tuo account Footprint.</p>
+<input id="p" type="password" placeholder="Nuova password (minimo 8 caratteri)" autocomplete="new-password">
+<button id="go">Salva la password</button>
+<div id="m"></div>
+<script>
+(function () {
+  var h = new URLSearchParams(location.hash.slice(1)), q = new URLSearchParams(location.search);
+  var tok = h.get('access_token'), key = q.get('k'), m = document.getElementById('m');
+  var url = '';
+  try { url = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).iss.replace(/\/auth\/v1$/, ''); } catch (e) {}
+  if (!tok || !key || !url) { m.textContent = 'Link non valido o scaduto. Richiedi un nuovo link dall\'app.'; document.getElementById('go').disabled = true; return; }
+  document.getElementById('go').onclick = function () {
+    var p = document.getElementById('p').value;
+    if (p.length < 8) { m.textContent = 'Minimo 8 caratteri.'; return; }
+    m.textContent = 'Un attimo…';
+    fetch(url + '/auth/v1/user', { method: 'PUT', headers: { apikey: key, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: p }) })
+      .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
+      .then(function (x) { m.textContent = x[0] ? 'Fatto. Ora torna nell\'app e accedi con la nuova password.' : (x[1].msg || x[1].message || 'Non riuscito, richiedi un nuovo link.'); })
+      .catch(function () { m.textContent = 'Errore di rete, riprova.'; });
+  };
+})();
+</script></body></html>

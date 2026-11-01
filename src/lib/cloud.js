@@ -65,6 +65,14 @@ export async function loginEmail(email, password) {
     return { ok: true };
   } catch (e) { return { error: String(e.message || e) }; }
 }
+export async function resetPassword(email) {
+  try {
+    const to = 'https://aelleicsics92.github.io/Footprint-apk/reset.html?k=' + encodeURIComponent(KEY);
+    const r = await fetch(`${URL_}/auth/v1/recover?redirect_to=${encodeURIComponent(to)}`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); return { error: j.msg || j.message || 'errore ' + r.status }; }
+    return { ok: true };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
 export function logoutCloud() {
   lsSet('fp.cloud.auth', null); lsSet('fp.cloud.email', ''); lsSet('fp.cloud.sent', {}); lsSet('fp.cloud.last', 0);
 }
