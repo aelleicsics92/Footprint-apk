@@ -1,0 +1,32 @@
+name: Prova Supabase
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifica configurazione Supabase (nessun valore viene stampato)
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          [ -n "$URL" ] && echo "SUPABASE_URL: presente" || { echo "SUPABASE_URL: MANCANTE"; exit 1; }
+          [ -n "$KEY" ] && echo "SUPABASE_ANON_KEY: presente" || { echo "SUPABASE_ANON_KEY: MANCANTE"; exit 1; }
+          case "$URL" in https://*.supabase.co) echo "URL: formato ok";; *) echo "URL: formato inatteso (deve essere https://xxxx.supabase.co, senza / finale o /rest)";; esac
+          case "$KEY" in sb_secret_*|*service_role*) echo "ATTENZIONE: sembra una chiave segreta, usa quella anon/publishable"; exit 1;; esac
+          URL="${URL%/}"
+          r=$(curl -s -o /tmp/a.json -w '%{http_code}' -X POST "$URL/auth/v1/signup" -H "apikey: $KEY" -H "Content-Type: application/json" -d '{}')
+          echo "Accesso anonimo: HTTP $r"
+          if [ "$r" != "200" ]; then echo "Accesso anonimo NON attivo o chiave errata"; head -c 300 /tmp/a.json; exit 1; fi
+          TOK=$(python3 -c "import json;print(json.load(open('/tmp/a.json'))['access_token'])")
+          H=(-H "apikey: $KEY" -H "Authorization: Bearer $TOK" -H "Content-Type: application/json")
+          r=$(curl -s -o /tmp/b.json -w '%{http_code}' -X POST "$URL/rest/v1/backups" "${H[@]}" -H "Prefer: return=minimal" -d '{"kind":"settings","item_id":"test","data":{"ok":true}}')
+          echo "Scrittura tabella backups: HTTP $r (atteso 201)"; [ "$r" = "201" ] || head -c 300 /tmp/b.json
+          r=$(curl -s -o /tmp/c.json -w '%{http_code}' "$URL/rest/v1/backups?select=item_id" "${H[@]}")
+          echo "Lettura: HTTP $r, righe: $(python3 -c "import json;print(len(json.load(open('/tmp/c.json'))))")"
+          r=$(curl -s -o /dev/null -w '%{http_code}' "$URL/rest/v1/backups?select=item_id" -H "apikey: $KEY")
+          echo "Senza login (deve essere vuoto o negato): HTTP $r"
+          curl -s "$URL/rest/v1/backups?select=item_id" -H "apikey: $KEY"; echo
+          r=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$URL/storage/v1/object/media/$(python3 -c "import json;print(json.load(open('/tmp/a.json'))['user']['id'])")/test.txt" "${H[@]/application\/json/text\/plain}" -d 'ok')
+          echo "Scrittura storage media: HTTP $r (atteso 200)"
+          curl -s -X DELETE "$URL/rest/v1/backups?item_id=eq.test" "${H[@]}" -o /dev/null
+          echo "Fatto."
