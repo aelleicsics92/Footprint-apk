@@ -41,6 +41,44 @@ async function putMedia(a, name, body, type) {
   if (!r.ok) throw new Error('media ' + r.status);
 }
 
+export const cloudEmail = () => lsGet('fp.cloud.email', '');
+// collega email e password all'account anonimo attuale (i dati restano gli stessi)
+export async function linkEmail(email, password) {
+  try {
+    const a = await auth();
+    const r = await fetch(`${URL_}/auth/v1/user`, { method: 'PUT', headers: H(a, { 'Content-Type': 'application/json' }), body: JSON.stringify({ email, password }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: j.msg || j.message || j.error_description || 'errore ' + r.status };
+    lsSet('fp.cloud.email', email);
+    return { ok: true, confirm: !j.email_confirmed_at && !j.confirmed_at };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+// accesso con email (nuovo telefono): sostituisce l'identità anonima, poi si può ripristinare
+export async function loginEmail(email, password) {
+  try {
+    const r = await fetch(`${URL_}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: j.msg || j.error_description || j.message || 'credenziali non valide' };
+    lsSet('fp.cloud.auth', { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at, uid: j.user.id });
+    lsSet('fp.cloud.email', email);
+    lsSet('fp.cloud.sent', {});
+    return { ok: true };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+// cancellazione di tutti i dati online di questo account
+export async function deleteCloudData() {
+  try {
+    const a = await auth();
+    let r = await fetch(`${URL_}/rest/v1/backups?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
+    if (!r.ok) throw new Error('cancellazione ' + r.status);
+    r = await fetch(`${URL_}/storage/v1/object/list/media`, { method: 'POST', headers: H(a, { 'Content-Type': 'application/json' }), body: JSON.stringify({ prefix: a.uid, limit: 1000 }) });
+    const files = r.ok ? await r.json() : [];
+    if (files.length) await fetch(`${URL_}/storage/v1/object/media`, { method: 'DELETE', headers: H(a, { 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: files.map((f) => `${a.uid}/${f.name}`) }) });
+    lsSet('fp.cloud.sent', {}); lsSet('fp.cloud.last', 0);
+    return { ok: true };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+
 let busy = false;
 export async function backupNow() {
   if (busy || !cloudConfigured() || consent() !== 'yes' || !navigator.onLine) return { skipped: true };
@@ -120,7 +158,7 @@ export function askConsent(openSheet) {
     title: 'Backup online dei tuoi dati',
     body: `<p style="margin:0 0 10px">Footprint può salvare online una copia di sicurezza di:</p>
       <ul style="margin:0 0 10px;padding-left:20px;line-height:1.5"><li><b>posizioni dei tuoi waypoint</b></li><li><b>tracce GPS</b> registrate</li><li><b>foto e memo vocali</b> dei waypoint</li></ul>
-      <p style="margin:0 0 10px;font-size:.9rem" class="muted">Non servono nome né email: i dati sono legati a un codice anonimo creato sul tuo telefono e gli altri utenti non possono vederli. Il gestore dell'app può consultarli. Puoi disattivare il backup in ogni momento da Altro, Impostazioni.</p>
+      <p style="margin:0 0 10px;font-size:.9rem" class="muted">Non servono nome né email: i dati sono legati a un codice anonimo creato sul tuo telefono e gli altri utenti non possono vederli. Il gestore dell'app può consultarli. Puoi disattivare il backup in ogni momento da Altro, Impostazioni. <a href="https://aelleicsics92.github.io/Footprint-apk/privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>
       <div class="row gap"><button class="btn ghost grow" id="cl-no">No grazie</button><button class="btn primary grow" id="cl-yes">Accetto</button></div>`,
   });
   s.body.querySelector('#cl-yes').onclick = () => { setConsent('yes'); s.close(); backupNow(); };

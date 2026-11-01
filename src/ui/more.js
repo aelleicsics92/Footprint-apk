@@ -470,7 +470,9 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa che tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni 6 ore con l'app aperta</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
-      <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div></div>
+      <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
+      <div class="set-row"><div class="ti"><b id="cl-em">Accesso con email</b><small>Per ritrovare i dati se cambi telefono o reinstalli</small><div style="margin-top:6px"><button class="chip" id="cl-link">Collega email</button> <button class="chip" id="cl-login">Accedi con email</button></div></div></div>
+      <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button> <button class="chip" id="cl-del" style="color:#c0392b">Elimina i miei dati dal cloud</button></div></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
@@ -549,6 +551,24 @@ function openSettings() {
       show();
       sw.onchange = () => { cl.setConsent(sw.checked ? 'yes' : 'no'); show(); if (sw.checked) cl.backupNow().then(show); };
       pg.body.querySelector('#cl-now').onclick = async () => { if (cl.consent() !== 'yes') return toast('Attiva prima il backup'); toast('Backup in corso…'); const r = await cl.backupNow(); show(); toast(r.error ? 'Backup non riuscito: ' + r.error : r.skipped ? 'Serve internet' : `Backup fatto (${r.n} elementi nuovi)`); };
+      const emShow = () => { pg.body.querySelector('#cl-em').textContent = cl.cloudEmail() ? 'Accesso: ' + cl.cloudEmail() : 'Accesso con email'; };
+      emShow();
+      const mailSheet = (title, login) => {
+        const sh = openSheet({ title, body: `<div data-enter-scope><label class="field"><span>Email</span><input id="ml-e" type="email" autocomplete="email" value="${esc(cl.cloudEmail())}" onfocus="this.select()"></label><label class="field"><span>Password (almeno 8 caratteri)</span><input id="ml-p" type="password" autocomplete="${login ? 'current-password' : 'new-password'}" onfocus="this.select()"></label><button class="btn primary big" data-primary id="ml-go">${login ? 'Accedi' : 'Collega'}</button></div>` });
+        sh.body.querySelector('#ml-go').onclick = async () => {
+          const e = sh.body.querySelector('#ml-e').value.trim(), pw = sh.body.querySelector('#ml-p').value;
+          if (!e.includes('@') || pw.length < 8) return toast('Email o password non validi (minimo 8 caratteri)');
+          toast('Un attimo…');
+          const r = login ? await cl.loginEmail(e, pw) : await cl.linkEmail(e, pw);
+          if (r.error) return toast(r.error, 4000);
+          sh.close(); emShow(); show();
+          toast(login ? 'Accesso fatto. Ora puoi toccare Ripristina dal cloud' : r.confirm ? 'Collegata. Conferma l\'email dal messaggio che ti arriva' : 'Email collegata', 4500);
+        };
+      };
+      pg.body.querySelector('#cl-link').onclick = () => mailSheet('Collega email', false);
+      pg.body.querySelector('#cl-login').onclick = () => mailSheet('Accedi con email', true);
+      pg.body.querySelector('#cl-priv').onclick = () => window.open('https://aelleicsics92.github.io/Footprint-apk/privacy.html', '_blank');
+      pg.body.querySelector('#cl-del').onclick = async () => { if (!(await confirmBox('Eliminare tutti i tuoi dati salvati online? I dati sul telefono restano.', { ok: 'Elimina', danger: true }))) return; const r = await cl.deleteCloudData(); toast(r.error ? 'Non riuscito: ' + r.error : 'Dati online eliminati', 3500); show(); };
       pg.body.querySelector('#cl-res').onclick = async () => { toast('Ripristino in corso…'); const r = await cl.restoreNow(); toast(r.error ? 'Ripristino non riuscito: ' + r.error : `Ripristinati ${r.nw} waypoint e ${r.nt} tracce`, 3500); };
     })();
     pg.body.querySelectorAll('[data-k]').forEach((inp) => {
