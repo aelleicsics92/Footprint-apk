@@ -5,7 +5,7 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid, haversine } from '../lib/util.js';
 import { lastPos } from '../lib/geo.js';
-import { openPage, openSheet, toast, confirmBox, leavePages } from '../lib/ui.js';
+import { openPage, openSheet, toast, confirmBox, leavePages, pushBack, closeTopSheet } from '../lib/ui.js';
 import { getSettings, setSetting, apiKey, kvGet, kvSet } from '../lib/store.js';
 import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints, bulkUpdate, bulkRemove } from '../lib/waypoints.js';
@@ -230,6 +230,8 @@ function openWaypointList() {
         bar.style.display = selMode ? 'flex' : 'none';
         bar.querySelector('#sb-n').textContent = sel.size + (sel.size === 1 ? ' selezionato' : ' selezionati');
         pg.body.querySelector('#wl').style.paddingBottom = selMode ? 'calc(var(--sab,0px) + 96px)' : '';
+        bus.emit('wl:draw');
+        bus.selActive = selMode;
         const sb = document.querySelector('#wl-sel'); if (sb) sb.classList.toggle('sel', selMode);
         pg.body.querySelector('#wl-imp').classList.toggle('sel', imp);
         pg.body.querySelector('#wl').innerHTML = list.length
@@ -254,7 +256,7 @@ function openWaypointList() {
       };
       pg.body.innerHTML = `<div style="margin:12px 14px 0"><input id="wq" type="search" placeholder="Cerca per nome, specie (es. Porcino) o habitat…"></div>
         <div class="chips" style="padding:10px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['all', 'Tutti'], ['porcini', 'Porcini'], ['tartufi', 'Tartufi'], ['utility', 'Utility/Auto'], ['altri', 'Altri funghi']].map(([k, l]) => `<button class="chip ${k === 'all' ? 'sel' : ''}" data-cat="${k}">${l}</button>`).join('')}</div><div class="chips" style="padding:8px 14px 0;overflow-x:auto;flex-wrap:nowrap;white-space:nowrap">${[['date', 'Recenti'], ['dist', 'Più vicini'], ['near', 'Entro 2 km']].map(([k, l]) => `<button class="chip ${k === 'date' ? 'sel' : ''}" data-sort="${k}">${l}</button>`).join('')}<button class="chip" id="wl-imp">Importati</button></div><div class="list" id="wl"></div>
-        <div id="wl-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 12px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)"><b id="sb-n" style="flex:1;font-size:.95rem;white-space:nowrap"></b>${[['sb-all', 'check', 'Tutti'], ['sb-none', 'close', 'Nessuno'], ['sb-type', 'edit', 'Tipo'], ['sb-tag', 'list', 'Tag'], ['sb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" aria-label="${l}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;padding:4px 2px;font-size:.62rem;color:${id === 'sb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}</div>`;
+        <div id="wl-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 12px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)"><b id="sb-n" style="flex:1;font-size:.95rem;white-space:nowrap"></b>${[['sb-all', 'check', 'Tutti'], ['sb-none', 'close', 'Nessuno'], ['sb-type', 'edit', 'Tipo'], ['sb-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" aria-label="${l}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;padding:4px 2px;font-size:.62rem;color:${id === 'sb-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}</div>`;
       const bar = pg.body.querySelector('#wl-bar');
       pg.body.querySelector('#wl-imp').onclick = () => { imp = !imp; limit = 300; draw(); };
       bar.querySelector('#sb-all').onclick = () => { shown.forEach((w) => sel.add(w.id)); draw(); };
@@ -266,14 +268,7 @@ function openWaypointList() {
       bar.querySelector('#sb-type').onclick = () => {
         if (!sel.size) return toast('Nessun waypoint selezionato');
         const sh = openSheet({ title: `Cambia tipo a ${sel.size} waypoint`, body: `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${orderedIcons(getSettings().wpOrder).map((i) => `<button class="chip" data-ic="${i.id}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px"><span style="width:34px;height:34px">${i.svg}</span><small>${esc(i.label)}</small></button>`).join('')}</div>` });
-        sh.body.querySelectorAll('[data-ic]').forEach((b) => (b.onclick = async () => { const id = b.dataset.ic; await bulkUpdate([...sel], (w) => { w.icon = id; }); sh.close(); toast('Tipo aggiornato'); draw(); }));
-      };
-      bar.querySelector('#sb-tag').onclick = () => {
-        if (!sel.size) return toast('Nessun waypoint selezionato');
-        const sh = openSheet({ title: `Tag per ${sel.size} waypoint`, body: `<input id="bt" type="text" placeholder="es. Bosco Sud" onfocus="this.select()" style="width:100%;margin-bottom:12px"><button class="btn primary" id="bt-ok" style="width:100%">Aggiungi</button>` });
-        const go = async () => { const t = sh.body.querySelector('#bt').value.trim(); if (!t) return; await bulkUpdate([...sel], (w) => { w.tags = [...new Set([...(w.tags || []), t])]; }); sh.close(); toast('Tag aggiunto'); draw(); };
-        sh.body.querySelector('#bt-ok').onclick = go;
-        sh.body.querySelector('#bt').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+        sh.body.querySelectorAll('[data-ic]').forEach((b) => (b.onclick = async () => { const id = b.dataset.ic; await bulkUpdate([...sel], (w) => { w.icon = id; }); sh.close(); sel.clear(); selMode = false; toast('Tipo aggiornato'); draw(); }));
       };
       pg.body.querySelectorAll('[data-sort]').forEach((c) => (c.onclick = () => {
         if (c.dataset.sort === 'near') { near = !near; if (near) sortD = true; }
@@ -285,9 +280,15 @@ function openWaypointList() {
       pg.body.querySelectorAll('[data-cat]').forEach((c) => (c.onclick = () => { cat = c.dataset.cat; draw(); }));
       pg.body.querySelector('#wq').oninput = (e) => ((q = e.target.value), draw());
       draw();
+      let popBack = null;
+      const exitSel = () => { selMode = false; sel.clear(); draw(); };
+      const selBack = () => { popBack = null; if (!selMode) return; if (closeTopSheet()) { popBack = pushBack(selBack); return; } exitSel(); };
+      const syncBack = () => { if (selMode && !popBack) popBack = pushBack(selBack); else if (!selMode && popBack) { popBack(); popBack = null; } };
+      const off0 = bus.on('wl:draw', syncBack);
       const off = bus.on('wp:changed', draw);
+      const off3 = bus.on('wl:exit', exitSel);
       const off2 = bus.on('wl:sel', () => { selMode = !selMode; if (!selMode) sel.clear(); draw(); });
-      pg.onClose = () => { off(); off2(); };
+      pg.onClose = () => { off(); off2(); off0(); off3(); bus.selActive = false; if (popBack) popBack(); };
     },
     {
       actions: `<button class="chip" id="wl-sel">Seleziona</button><button class="icon-btn" id="wl-map" aria-label="Vedi sulla mappa">${ico('map', 22)}</button><button class="icon-btn" id="wl-share" aria-label="Esporta waypoint">${ico('share', 22)}</button>`,
@@ -295,6 +296,8 @@ function openWaypointList() {
   );
   setTimeout(() => {
     const sbtn = document.querySelector('#wl-sel');
+    const hb = sbtn && sbtn.closest('.page-head') && sbtn.closest('.page-head').querySelector('[data-back]');
+    if (hb) hb.addEventListener('click', (e) => { if (bus.selActive) { e.stopImmediatePropagation(); bus.emit('wl:exit'); } }, true);
     if (sbtn) sbtn.onclick = () => { bus.emit('wl:sel'); };
     const mb = document.querySelector('#wl-map');
     if (mb) mb.onclick = () => {
