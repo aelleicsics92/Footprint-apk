@@ -33,6 +33,49 @@ let covGroup, backtrack = false, btLast = null, btAt = 0, sunDay = '', heatGroup
 let root;
 
 export const getMap = () => map;
+let searchMk = null;
+async function geocodePlaces(q) {
+  const loc = CITIES.filter((c) => c[0].toLowerCase().startsWith(q.toLowerCase())).slice(0, 4).map((c) => ({ name: c[0], lat: c[1], lon: c[2], sub: 'Italia' }));
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=it&format=json`, { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    const net = (j.results || []).map((x) => ({ name: x.name, lat: x.latitude, lon: x.longitude, sub: [x.admin2 || x.admin1, x.country].filter(Boolean).join(', ') }));
+    return net.length ? net : loc;
+  } catch { return loc; }
+}
+function setupSearch() {
+  const box = root.querySelector('#msearch'), inp = root.querySelector('#ms-q'), res = root.querySelector('#ms-res'), btn = root.querySelector('#btn-search');
+  let tm, off = null;
+  const clearMk = () => { if (searchMk) { searchMk.remove(); searchMk = null; } };
+  const close = () => { box.classList.remove('on'); inp.blur(); res.innerHTML = ''; inp.value = ''; clearMk(); if (off) { off(); off = null; } };
+  const open = () => { box.classList.add('on'); setTimeout(() => inp.focus(), 120); if (!off) off = pushBack(close); };
+  btn.onclick = () => (box.classList.contains('on') ? close() : open());
+  root.querySelector('#ms-x').onclick = close;
+  inp.oninput = () => {
+    clearTimeout(tm);
+    const q = inp.value.trim();
+    if (q.length < 2) { res.innerHTML = ''; return; }
+    tm = setTimeout(async () => {
+      const list = await geocodePlaces(q);
+      res.innerHTML = list.length ? list.map((c, i) => `<button data-i="${i}"><b>${esc(c.name)}</b><small>${esc(c.sub || '')}</small></button>`).join('') : '<div class="muted" style="padding:12px 16px">Nessun risultato (serve internet)</div>';
+      res.querySelectorAll('[data-i]').forEach((b) => (b.onclick = () => {
+        const c = list[Number(b.dataset.i)];
+        clearMk();
+        setFollow(false);
+        map.setView([c.lat, c.lon], 13);
+        searchMk = L.marker([c.lat, c.lon], { icon: L.divIcon({ className: '', iconSize: [120, 40], iconAnchor: [60, 40], html: `<div style="width:120px;display:flex;flex-direction:column;align-items:center"><span style="display:block;max-width:120px;overflow:hidden;text-overflow:ellipsis;background:#12372a;color:#fff;border-radius:12px;padding:3px 10px;font-weight:700;font-size:.8rem;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.35)">${esc(c.name)}</span><span style="display:block;width:0;height:0;border:7px solid transparent;border-top-color:#12372a;border-bottom:0"></span></div>` }), zIndexOffset: 900 }).addTo(map);
+        res.innerHTML = '';
+        box.classList.remove('on');
+        inp.blur();
+        if (off) { off(); off = null; }
+      }));
+    }, 350);
+  };
+  inp.onkeydown = (e) => { if (e.key === 'Enter') { const b = res.querySelector('[data-i]'); if (b) b.click(); } };
+}
 function mateList(key) {
   const hid = lsGet('fp.matehide', []);
   const on = new Set(lsGet('fp.mategroups', []).filter((g) => g.on).map((g) => g.key));
@@ -61,6 +104,7 @@ export function mountMap(el) {
       <button class="sos-btn" id="btn-sos" aria-label="Emergenza">SOS</button>
       <div class="hud" id="hud"><div class="row2"><span>In attesa del GPS…</span></div></div>
     </div>
+    <div class="msearch" id="msearch"><div class="msearch-bar"><span class="msearch-ic">${ico('search', 20)}</span><input id="ms-q" type="text" placeholder="Cerca paese o località…" autocomplete="off" enterkeyhint="search" onfocus="this.select()"><button id="ms-x" aria-label="Chiudi ricerca">${ico('close', 20)}</button></div><div class="msearch-res" id="ms-res"></div></div>
     <button class="wx-chip" id="wx-chip" aria-label="Meteo" hidden></button>
     <button class="north-btn" id="btn-north" aria-label="Nord">
       <svg viewBox="0 0 48 48" width="44" height="44" id="north-needle"><circle cx="24" cy="24" r="22" fill="rgba(255,253,246,.94)" stroke="#12372a" stroke-width="2"/><path d="M24 7l6 17H18z" fill="#c0392b"/><path d="M24 41l-6-17h12z" fill="#33403a"/><circle cx="24" cy="24" r="2.5" fill="#fff"/><text x="24" y="6.5" text-anchor="middle" font-size="7" font-weight="700" fill="#12372a" dy="5" style="display:none">N</text></svg>
@@ -69,6 +113,7 @@ export function mountMap(el) {
       <button class="round" id="btn-layers" aria-label="Livelli mappa">${ico('layers', 22)}</button>
       <button class="round on" id="btn-locate" aria-label="La mia posizione">${ico('locate', 22)}</button>
       <button class="round" id="btn-car" aria-label="Trova la mia auto">${ico('car', 22)}<em class="car-b" id="car-b" hidden></em></button>
+      <button class="round" id="btn-search" aria-label="Cerca località">${ico('search', 22)}</button>
       <button class="round" id="btn-3d" hidden>3D</button><button class="round" id="btn-dl" hidden></button>
     </div>
     <div class="fc-chip hidden" id="fc-chip"></div>
@@ -119,6 +164,7 @@ export function mountMap(el) {
   root.querySelector('#btn-dl').onclick = openDownload;
   setupSosHold(root.querySelector('#btn-sos'));
   setupCar(root.querySelector('#btn-car'));
+  setupSearch();
   root.querySelector('#btn-3d').onclick = () => { const c = map.getCenter(); import('./map3d.js').then((m) => m.openMap3D([c.lng, c.lat])); };
   setupWeatherChip(root.querySelector('#wx-chip'));
   root.querySelector('#btn-locate').onclick = () => {
