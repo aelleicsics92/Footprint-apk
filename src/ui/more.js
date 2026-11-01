@@ -470,7 +470,7 @@ function openSettings() {
       <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa che tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni notte alle 02:00, o alla riapertura</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Mostra dati degli altri utenti</b><small id="cl-ost">Sulla mappa, solo se il tuo account è autorizzato</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Mostra sulla mappa i dati degli altri</b><small id="cl-ost">Sempre usati anche dalla previsione; qui li mostri sulla mappa</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
       <div class="set-row" id="cl-acc" style="display:block"></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button></div></div></div>

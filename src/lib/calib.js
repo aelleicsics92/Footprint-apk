@@ -6,6 +6,7 @@ import { getWaypoints } from './waypoints.js';
 import { getSettings, setSetting, kvGet, kvSet } from './store.js';
 import { analyze, explain, soilAt, dayOfYear, applyHab } from './habitat.js';
 import { bus } from './util.js';
+import { othersWaypoints } from './cloud.js';
 
 const MAP = { porcino: 'autunnali', regius: 'autunnali', pinaiolo: 'autunnali', leccino: 'autunnali', galletto: 'estivi', ovulo: 'estivi', scorzone: 'scorzone', uncinato: 'uncinato', bianco: 'bianco', bianchetto: 'bianchetto', nero: 'nero' };
 const DAILY = 'precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration,wind_speed_10m_max,wind_direction_10m_dominant';
@@ -50,7 +51,7 @@ const mix = (prior, emp, n) => (emp == null ? prior : (prior * PRIOR_N + emp * n
 
 export function findings() {
   const seen = new Set(), out = [];
-  for (const w of getWaypoints()) {
+  for (const w of [...getWaypoints(), ...othersWaypoints()]) {
     const key = MAP[w.icon];
     if (!key || w.lat == null) continue;
     const id = `${key}|${iso(w.ts)}|${w.lat.toFixed(2)}|${w.lon.toFixed(2)}`;
@@ -58,7 +59,7 @@ export function findings() {
     seen.add(id);
     out.push({ key, ts: w.ts, lat: w.lat, lon: w.lon, alt: w.alt, icon: w.icon, title: w.title });
   }
-  return out.sort((a, b) => b.ts - a.ts).slice(0, 80);
+  return out.sort((a, b) => b.ts - a.ts).slice(0, 200);
 }
 
 // ritrovamenti della specie in una stagione simile (±20 giorni dell'anno), per la conferma dal diario
@@ -214,4 +215,5 @@ export function initAutoLearn() {
   };
   kick(120000);
   bus.on('wp:changed', () => kick(60000));
+  bus.on('others:data', () => kick(30000));
 }

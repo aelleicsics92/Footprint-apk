@@ -202,19 +202,35 @@ async function applyNightly() {
 // Dati degli altri utenti (visibili solo se il database lo consente, cioè al gestore)
 export const showOthers = () => lsGet('fp.cloud.others', false);
 export const setShowOthers = (v) => { lsSet('fp.cloud.others', !!v); bus.emit('others:toggle', !!v); };
-export async function cachedOthers() { return (await kvGet('others:cache')) || { t: 0, rows: [] }; }
+let othersMem = [];
+export const othersWaypoints = () => othersMem.filter((r) => r.kind === 'waypoint' && r.data && r.data.lat != null).map((r) => r.data);
+export async function cachedOthers() { const c = (await kvGet('others:cache')) || { t: 0, rows: [] }; othersMem = c.rows; return c; }
+// scarica TUTTO ciò che gli altri hanno salvato (incrementale: dopo la prima volta solo il nuovo)
 export async function fetchOthers() {
   if (!cloudConfigured() || !navigator.onLine) return { error: 'offline' };
   try {
     const a = await auth();
-    const since = new Date(Date.now() - 90 * 864e5).toISOString();
-    const q = `select=user_id,kind,item_id,data&user_id=neq.${a.uid}&kind=in.(waypoint,track)&updated_at=gte.${since}&order=updated_at.desc&limit=300`;
-    const r = await fetch(`${URL_}/rest/v1/backups?${q}`, { headers: H(a) });
-    if (!r.ok) throw new Error('lettura ' + r.status);
-    const rows = await r.json();
-    await kvSet('others:cache', { t: Date.now(), rows });
-    bus.emit('others:update', rows);
-    return { n: rows.length };
+    const c = await cachedOthers();
+    const map = new Map(c.rows.map((r) => [r.user_id + '|' + r.kind + '|' + r.item_id, r]));
+    let since = c.rows.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), '');
+    let added = 0;
+    for (const kind of ['waypoint', 'track']) {
+      const step = kind === 'track' ? 10 : 500;
+      for (let off = 0; ; off += step) {
+        const q = `select=user_id,kind,item_id,data,updated_at&user_id=neq.${a.uid}&kind=eq.${kind}${since ? '&updated_at=gt.' + encodeURIComponent(since) : ''}&order=updated_at.asc&limit=${step}&offset=${off}`;
+        const r = await fetch(`${URL_}/rest/v1/backups?${q}`, { headers: H(a) });
+        if (!r.ok) throw new Error('lettura ' + r.status);
+        const rows = await r.json();
+        for (const x of rows) { map.set(x.user_id + '|' + x.kind + '|' + x.item_id, x); added++; }
+        if (rows.length < step) break;
+      }
+    }
+    const all = [...map.values()];
+    othersMem = all;
+    await kvSet('others:cache', { t: Date.now(), rows: all });
+    bus.emit('others:update', all);
+    if (added) bus.emit('others:data', all);
+    return { n: all.length };
   } catch (e) { return { error: String(e.message || e) }; }
 }
 
@@ -226,8 +242,9 @@ export function initCloud() {
     if (native()) IF().nightlySchedule({ enabled: true }).catch(() => {});
     if (lastBackup() < lastBoundary()) await backupNow();
     prepareOutbox();
-    if (showOthers() && Date.now() - (await cachedOthers()).t > 3600e3) fetchOthers();
+    if (Date.now() - (await cachedOthers()).t > 3600e3) fetchOthers();
   };
+  cachedOthers();
   setTimeout(tick, 15000);
   setInterval(tick, 30 * 60e3);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 3000); else queueOutbox(); });
