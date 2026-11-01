@@ -323,10 +323,12 @@ function openWaypointList() {
 }
 
 // ---------- mappe offline ----------
-let covMap = null, covRects = {}, covHl = null;
-function covHighlight(id) {
-  for (const [k, r] of Object.entries(covRects)) r.setStyle(k === id ? { color: '#ff6a00', weight: 3.5, fillColor: '#ffb703', fillOpacity: 0.85 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: id ? 0.4 : 0.7 });
-  if (id && covRects[id]) { covRects[id].bringToFront(); try { covMap.fitBounds(covRects[id].getBounds(), { padding: [50, 50], maxZoom: 11 }); } catch {} }
+let covMap = null, covRects = {}, covHl = null, covView = null; const covSel = new Set();
+function covHighlight(ids, fit = true) {
+  const set = ids instanceof Set ? ids : new Set(ids ? [ids] : []);
+  for (const [k, r] of Object.entries(covRects)) r.setStyle(set.has(k) ? { color: '#0b4d2a', weight: 3, fillColor: '#1f8a4c', fillOpacity: 0.6 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: set.size ? 0.3 : 0.7 });
+  for (const k of set) if (covRects[k]) covRects[k].bringToFront();
+  if (fit && set.size === 1) { const r = covRects[[...set][0]]; if (r) try { covMap.fitBounds(r.getBounds(), { padding: [50, 50], maxZoom: 11 }); } catch {} }
 }
 function drawCoverage(el, areas) {
   if (!el) return;
@@ -334,7 +336,7 @@ function drawCoverage(el, areas) {
   covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: false });
   const ll = ITALY.flatMap((poly) => poly.map((ring) => { const o = []; for (let i = 0; i < ring.length; i += 2) o.push([ring[i + 1], ring[i]]); return o; }));
   const it = L.polygon(ll, { color: '#a89f86', weight: 1.2, fillColor: '#f6f2e6', fillOpacity: 1, interactive: false }).addTo(covMap);
-  covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
+  if (covView) covMap.setView(covView.c, covView.z, { animate: false }); else covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
   const rivLbl = [];
   for (const [nm, pts] of [...RIVERS, ...RIVERS2]) {
     L.polyline(pts, { color: '#7fb0d6', weight: 1.6, opacity: 0.9, interactive: false }).addTo(covMap);
@@ -373,10 +375,10 @@ function drawCoverage(el, areas) {
     if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
     covRects[a.id] = L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
   }
-  setTimeout(() => { if (covMap) { covMap.invalidateSize(); if (covHl && covRects[covHl]) covHighlight(covHl); else covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); upd(); } }, 320);
+  setTimeout(() => { if (covMap) { covMap.invalidateSize(); if (covView) covMap.setView(covView.c, covView.z, { animate: false }); else if (covHl && covRects[covHl]) covHighlight(covHl); else covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); if (covSel.size) covHighlight(covSel, false); upd(); } }, 320);
 }
 function openOffline() {
-  let oSel = false; const oIds = new Set(); let popB = null;
+  let oSel = false; const oIds = covSel; let popB = null;
   openPage('Mappe offline', async (pg) => {
     const draw = async () => {
       const areas = await listAreas();
@@ -388,7 +390,7 @@ function openOffline() {
       } catch {}
       const qq = getQueue();
       const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
-      if (covMap) { try { covMap.remove(); } catch {} covMap = null; }
+      if (covMap) { try { covView = { c: covMap.getCenter(), z: covMap.getZoom() }; covMap.remove(); } catch {} covMap = null; }
       pg.body.innerHTML = `<div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
@@ -403,12 +405,13 @@ function openOffline() {
       pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Scarica nuova zona dalla mappa</button></div>`);
       pg.body.querySelector('#off-new').onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('map:download'), 250); };
       drawCoverage(pg.body.querySelector('#cov-it'), areas);
+      if (oSel) covHighlight(oIds, false);
       const bar = document.createElement('div');
       bar.id = 'of-bar';
-      bar.style.cssText = 'display:' + (oSel ? 'flex' : 'none') + ';position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 28px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)';
-      bar.innerHTML = `<b style="flex:1;font-size:.95rem;white-space:nowrap">${oIds.size} ${oIds.size === 1 ? 'selezionata' : 'selezionate'}</b>${[['of-all', 'check', 'Tutte'], ['of-none', 'close', 'Nessuna'], ['of-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px;padding:4px 2px;font-size:.62rem;color:${id === 'of-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}`;
+      bar.style.cssText = 'display:' + (oSel ? 'flex' : 'none') + ';position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 28px);z-index:30;align-items:center;gap:2px;padding:12px 18px 12px 22px;gap:8px;background:#12372a;color:#fff;border-radius:22px;box-shadow:0 6px 22px rgba(0,0,0,.35)';
+      bar.innerHTML = `<b style="flex:1;font-size:.95rem;white-space:nowrap">${oIds.size} ${oIds.size === 1 ? 'selezionata' : 'selezionate'}</b>${[['of-all', 'check', 'Tutte'], ['of-none', 'close', 'Nessuna'], ['of-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:4px 6px;font-size:.66rem;color:${id === 'of-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}`;
       pg.body.appendChild(bar);
-      pg.body.style.paddingBottom = oSel ? 'calc(var(--sab,0px) + 130px)' : '';
+      if (oSel) pg.body.insertAdjacentHTML('beforeend', '<div style="height:calc(var(--sab,0px) + 150px)"></div>');
       const setSel = (on) => { oSel = on; if (!on) oIds.clear(); if (on && !popB) popB = pushBack(() => { popB = null; oSel = false; oIds.clear(); draw(); }); if (!on && popB) { popB(); popB = null; } };
       bar.querySelector('#of-all').onclick = () => { areas.forEach((a) => oIds.add(a.id)); draw(); };
       bar.querySelector('#of-none').onclick = () => { setSel(false); draw(); };
@@ -461,7 +464,7 @@ function openOffline() {
     draw();
     const o1 = bus.on('dl:update', () => draw());
     const o2 = bus.on('dl:done', () => draw());
-    pg.onClose = () => { covHl = null; if (popB) popB(); o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
+    pg.onClose = () => { covHl = null; covView = null; covSel.clear(); if (popB) popB(); o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
   }, { actions: `<button class="chip" id="of-all-del" style="color:#ff8a7a">Elimina tutto</button>` });
 }
 
