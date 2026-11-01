@@ -111,7 +111,10 @@ export async function startRecording(resume = null) {
   await ensurePermission();
   Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
   rec.status = 'rec';
-  if (!rec.name) rec.name = `Traccia ${fmtDate(rec.start).replace(',', '')}`;
+  if (!rec.name) {
+    const mx = tracks.reduce((m, t) => Math.max(m, Number((/^Traccia (\d+)/.exec(t.name || '') || [])[1]) || 0), 0);
+    rec.name = `Traccia ${Math.max(mx, tracks.length) + 1} · ${fmtDate(rec.start).replace(',', '')}`;
+  }
   const p = lastPos();
   if (p) accept(p);
   if (isNative()) {

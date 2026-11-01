@@ -11,7 +11,7 @@ import { openSheet, toast, confirmBox, pushBack } from '../lib/ui.js';
 import { lastPos, gpsStatus, ensurePermission, restartWatch } from '../lib/geo.js';
 import { getHeading, compassAlive } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
-import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks } from '../lib/track.js';
+import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks, deleteTrack } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
 import { CITIES } from '../data/cities.js';
 import { toGPX, shareFile, safeName, segments } from '../lib/gpsio.js';
@@ -238,7 +238,7 @@ export function mountMap(el) {
 
 export async function stopRecAndSheet() {
   const t = await stopRecording();
-  if (!t) { toast('Traccia troppo corta: non salvata'); return null; }
+  if (!t) { openSheet({ title: 'Traccia troppo corta', body: '<p class="muted" style="margin:0 0 12px">Servono almeno 2 punti GPS per salvare un percorso. Non è stata salvata.</p><button class="btn primary big" data-close>OK</button>' }); return null; }
   afterSave(t);
   return t;
 }
@@ -425,16 +425,23 @@ function updateRecChip() {
 }
 function afterSave(t) {
   const s = openSheet({
-    title: 'Traccia salvata',
+    title: 'Fine registrazione',
     body: `<div data-enter-scope>
       <div class="stat-row"><div><b>${fmtDist(t.dist)}</b><span>Distanza</span></div><div><b>${fmtDur(t.dur)}</b><span>Durata</span></div><div><b>${Math.round(t.up)} m</b><span>Salita</span></div></div>
       <label class="field"><span>Nome</span><input id="tn" type="text" value="${esc(t.name)}" maxlength="80"></label>
-      <div class="row gap"><button class="btn ghost grow" id="tn-share">${ico('share', 18)} Condividi</button><button class="btn primary grow" data-primary id="tn-ok">${ico('check', 18)} Salva</button></div></div>`,
+      <button class="btn ghost" id="tn-share" style="width:100%;margin-bottom:8px">${ico('share', 18)} Condividi</button>
+      <div class="row gap"><button class="btn ghost grow danger-t" id="tn-del">${ico('trash', 18)} Non salvare</button><button class="btn primary grow" data-primary id="tn-ok">${ico('check', 18)} Salva</button></div></div>`,
   });
   const nm = () => s.body.querySelector('#tn').value.trim() || t.name;
   s.body.querySelector('#tn-ok').onclick = async () => {
     await renameTrack(t.id, nm());
     s.close();
+  };
+  s.body.querySelector('#tn-del').onclick = async () => {
+    if (!(await confirmBox('Eliminare questa traccia? Non verrà salvata.', { ok: 'Elimina', danger: true }))) return;
+    await deleteTrack(t.id);
+    s.close();
+    toast('Traccia eliminata');
   };
   s.body.querySelector('#tn-share').onclick = async () => {
     const name = nm();
