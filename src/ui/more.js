@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import { ITALY } from '../data/italy.js';
-import { CITIES, LAKES, RIVERS } from '../data/italyfeat.js';
+import { CITIES, LAKES, RIVERS, TOWNS, RIVERS2 } from '../data/italyfeat.js';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid, haversine } from '../lib/util.js';
@@ -323,14 +323,30 @@ function openWaypointList() {
 }
 
 // ---------- mappe offline ----------
-let covMap = null;
+let covMap = null, covRects = {}, covHl = null;
+function covHighlight(id) {
+  for (const [k, r] of Object.entries(covRects)) r.setStyle(k === id ? { color: '#ff6a00', weight: 3.5, fillColor: '#ffb703', fillOpacity: 0.85 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: id ? 0.4 : 0.7 });
+  if (id && covRects[id]) { covRects[id].bringToFront(); try { covMap.fitBounds(covRects[id].getBounds(), { padding: [50, 50], maxZoom: 11 }); } catch {} }
+}
 function drawCoverage(el, areas) {
   if (!el) return;
+  covRects = {};
   covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: false });
   const ll = ITALY.flatMap((poly) => poly.map((ring) => { const o = []; for (let i = 0; i < ring.length; i += 2) o.push([ring[i + 1], ring[i]]); return o; }));
   const it = L.polygon(ll, { color: '#a89f86', weight: 1.2, fillColor: '#f6f2e6', fillOpacity: 1, interactive: false }).addTo(covMap);
   covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
-  for (const [, pts] of RIVERS) L.polyline(pts, { color: '#7fb0d6', weight: 1.6, opacity: 0.9, interactive: false }).addTo(covMap);
+  const rivLbl = [];
+  for (const [nm, pts] of [...RIVERS, ...RIVERS2]) {
+    L.polyline(pts, { color: '#7fb0d6', weight: 1.6, opacity: 0.9, interactive: false }).addTo(covMap);
+    const mid = pts[Math.floor(pts.length / 2)];
+    const mk = L.circleMarker(mid, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }).addTo(covMap);
+    rivLbl.push([mk, () => mk.bindTooltip(nm, { permanent: true, direction: 'top', offset: [0, -2], className: 'it-lbl it-riv' })]);
+  }
+  const towns = [];
+  for (const [nm, la, lo] of TOWNS) {
+    const mk = L.circleMarker([la, lo], { radius: 1.8, color: '#fff', weight: 0.8, fillColor: '#6b6a64', fillOpacity: 1, interactive: false }).addTo(covMap);
+    towns.push([mk, () => mk.bindTooltip(nm, { permanent: true, direction: 'right', offset: [2, 0], className: 'it-lbl it-town' })]);
+  }
   for (const [nm, la, lo, a, b, rot] of LAKES) {
     const r = (rot * Math.PI) / 180, pts = [];
     for (let k = 0; k < 24; k++) { const t = (k / 24) * 2 * Math.PI, y = a * Math.cos(t), x = b * Math.sin(t); pts.push([la + y * Math.cos(r) - x * Math.sin(r), lo + y * Math.sin(r) + x * Math.cos(r)]); }
@@ -343,21 +359,28 @@ function drawCoverage(el, areas) {
     const lab = () => mk.bindTooltip(nm, { permanent: true, direction: 'right', offset: [3, 0], className: 'it-lbl' });
     if (MAJOR.includes(nm)) lab(); else minors.push([mk, lab]);
   }
-  const upd = () => { const on = covMap.getZoom() >= 6.5; for (const [mk, lab] of minors) { if (on) { if (!mk.getTooltip()) lab(); } else mk.unbindTooltip(); } };
+  const upd = () => {
+    const z = covMap.getZoom();
+    const sw = (arr, on) => { for (const [mk, lab] of arr) { if (on) { if (!mk.getTooltip()) lab(); } else mk.unbindTooltip(); } };
+    sw(minors, z >= 6.5); sw(towns, z >= 7.5); sw(rivLbl, z >= 7);
+    for (const [mk] of towns) mk.setStyle({ opacity: z >= 7.5 ? 1 : 0, fillOpacity: z >= 7.5 ? 1 : 0 });
+  };
   covMap.on('zoomend', upd);
   for (const a of areas) {
     const b = a.bounds, mn = 0.12;
     let n = b.north, s = b.south, e = b.east, w = b.west;
     if (n - s < mn) { const c = (n + s) / 2; n = c + mn / 2; s = c - mn / 2; }
     if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
-    L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
+    covRects[a.id] = L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
   }
-  setTimeout(() => { if (covMap) { covMap.invalidateSize(); covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); upd(); } }, 320);
+  setTimeout(() => { if (covMap) { covMap.invalidateSize(); if (covHl && covRects[covHl]) covHighlight(covHl); else covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); upd(); } }, 320);
 }
 function openOffline() {
+  let oSel = false; const oIds = new Set(); let popB = null;
   openPage('Mappe offline', async (pg) => {
     const draw = async () => {
       const areas = await listAreas();
+      for (const id of [...oIds]) if (!areas.find((a) => a.id === id)) oIds.delete(id);
       let usage = '';
       try {
         const e = await navigator.storage.estimate();
@@ -372,7 +395,7 @@ function openOffline() {
             ? `<div class="list">${areas
                 .map(
                   (a) =>
-                    `<div class="item" style="cursor:default"><span class="lead">${ico('map', 22)}</span><div class="ti"><b>${esc(a.name)}</b><small>${fmtMB(a.bytes)} · zoom ${a.zmin}-${a.zmax} · ${a.sources.map((s) => ({ sat: 'Satellite', topo: 'Topo', trails: 'Sentieri' }[s])).join(', ')}</small></div><div style="display:flex;gap:26px;align-items:center;margin-left:8px"><button class="icon-btn" data-go="${a.id}" aria-label="Vai">${ico('nav', 20)}</button><button class="icon-btn" data-del="${a.id}" aria-label="Elimina" style="color:var(--danger)">${ico('trash', 20)}</button></div></div>`
+                    `<div class="item" data-row="${a.id}" style="cursor:pointer;${covHl === a.id ? 'background:#fff1cf;' : ''}">${oSel ? `<span style="flex:none;width:24px;height:24px;margin:0 12px 0 2px;border-radius:7px;border:2px solid #2e7a4d;display:inline-flex;align-items:center;justify-content:center;background:${oIds.has(a.id) ? '#2e7a4d' : 'transparent'};color:#fff">${oIds.has(a.id) ? ico('check', 16) : ''}</span>` : ''}<span class="lead">${ico('map', 22)}</span><div class="ti"><b>${esc(a.name)}</b><small>${fmtMB(a.bytes)} · zoom ${a.zmin}-${a.zmax} · ${a.sources.map((s) => ({ sat: 'Satellite', topo: 'Topo', trails: 'Sentieri' }[s])).join(', ')}</small></div><div style="display:flex;gap:26px;align-items:center;margin-left:8px"><button class="icon-btn" data-go="${a.id}" aria-label="Vai">${ico('nav', 20)}</button><button class="icon-btn" data-del="${a.id}" aria-label="Elimina" style="color:var(--danger)">${ico('trash', 20)}</button></div></div>`
                 )
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
@@ -380,6 +403,36 @@ function openOffline() {
       pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Scarica nuova zona dalla mappa</button></div>`);
       pg.body.querySelector('#off-new').onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('map:download'), 250); };
       drawCoverage(pg.body.querySelector('#cov-it'), areas);
+      const bar = document.createElement('div');
+      bar.id = 'of-bar';
+      bar.style.cssText = 'display:' + (oSel ? 'flex' : 'none') + ';position:fixed;left:10px;right:10px;bottom:calc(var(--sab,0px) + 28px);z-index:30;align-items:center;gap:2px;padding:8px 8px 8px 16px;background:#12372a;color:#fff;border-radius:20px;box-shadow:0 6px 22px rgba(0,0,0,.35)';
+      bar.innerHTML = `<b style="flex:1;font-size:.95rem;white-space:nowrap">${oIds.size} ${oIds.size === 1 ? 'selezionata' : 'selezionate'}</b>${[['of-all', 'check', 'Tutte'], ['of-none', 'close', 'Nessuna'], ['of-del', 'trash', 'Elimina']].map(([id, ic, l]) => `<button id="${id}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px;padding:4px 2px;font-size:.62rem;color:${id === 'of-del' ? '#ff8a7a' : '#fff'}">${ico(ic, 22)}<span>${l}</span></button>`).join('')}`;
+      pg.body.appendChild(bar);
+      pg.body.style.paddingBottom = oSel ? 'calc(var(--sab,0px) + 130px)' : '';
+      const setSel = (on) => { oSel = on; if (!on) oIds.clear(); if (on && !popB) popB = pushBack(() => { popB = null; oSel = false; oIds.clear(); draw(); }); if (!on && popB) { popB(); popB = null; } };
+      bar.querySelector('#of-all').onclick = () => { areas.forEach((a) => oIds.add(a.id)); draw(); };
+      bar.querySelector('#of-none').onclick = () => { setSel(false); draw(); };
+      bar.querySelector('#of-del').onclick = async () => {
+        if (!oIds.size) return toast('Nessuna mappa selezionata');
+        if (await confirmBox(`Eliminare <b>${oIds.size}</b> mappe offline?`, { ok: 'Elimina', danger: true })) { for (const id of [...oIds]) await deleteArea(id); toast('Eliminate'); covHl = null; setSel(false); draw(); }
+      };
+      pg.body.querySelectorAll('[data-row]').forEach((row) => {
+        let t = 0, lp = false;
+        const clr = () => clearTimeout(t);
+        row.addEventListener('touchstart', () => { lp = false; t = setTimeout(() => { lp = true; if (!oSel) setSel(true); oIds.add(row.dataset.row); if (navigator.vibrate) navigator.vibrate(30); draw(); }, 500); }, { passive: true });
+        row.addEventListener('touchend', clr); row.addEventListener('touchmove', clr); row.addEventListener('touchcancel', clr);
+        row.addEventListener('contextmenu', (e) => e.preventDefault());
+        row.addEventListener('click', (e) => {
+          if (lp) { lp = false; return; }
+          if (e.target.closest('[data-go],[data-del]')) return;
+          const id = row.dataset.row;
+          if (oSel) { oIds.has(id) ? oIds.delete(id) : oIds.add(id); draw(); return; }
+          covHl = covHl === id ? null : id;
+          pg.body.querySelectorAll('[data-row]').forEach((r) => (r.style.background = r.dataset.row === covHl ? '#fff1cf' : ''));
+          covHighlight(covHl);
+          if (covHl) pg.body.scrollTo ? pg.body.scrollTo({ top: 0, behavior: 'smooth' }) : 0;
+        });
+      });
       pg.body.querySelectorAll('[data-cancel]').forEach((b) => (b.onclick = () => cancelDownload(b.dataset.cancel)));
       pg.body.querySelectorAll('[data-del]').forEach(
         (b) =>
@@ -390,6 +443,11 @@ function openOffline() {
             }
           })
       );
+      const eb = document.querySelector('#of-all-del');
+      if (eb) eb.onclick = async () => {
+        if (!areas.length) return toast('Nessuna mappa da eliminare');
+        if (await confirmBox(`Eliminare <b>tutte le ${areas.length}</b> mappe offline? Non si può annullare.`, { ok: 'Elimina tutto', danger: true })) { for (const a of areas) await deleteArea(a.id); covHl = null; setSel(false); toast('Mappe eliminate'); draw(); }
+      };
       pg.body.querySelectorAll('[data-go]').forEach(
         (b) =>
           (b.onclick = () => {
@@ -403,8 +461,8 @@ function openOffline() {
     draw();
     const o1 = bus.on('dl:update', () => draw());
     const o2 = bus.on('dl:done', () => draw());
-    pg.onClose = () => { o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
-  });
+    pg.onClose = () => { covHl = null; if (popB) popB(); o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
+  }, { actions: `<button class="chip" id="of-all-del" style="color:#ff8a7a">Elimina tutto</button>` });
 }
 
 // ---------- import / export ----------
