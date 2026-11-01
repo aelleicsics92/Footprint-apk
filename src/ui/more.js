@@ -468,6 +468,9 @@ function openSettings() {
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa che tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
+      <div class="sec-title" style="font-size:1.1rem">Backup online</div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni 6 ore con l'app aperta</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
+      <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Avviso fuori traccia (m)</b><small>Vibrazione quando segui una traccia e ti allontani oltre questa distanza</small></div><input type="number" data-k="offTrackM" value="${s.offTrackM || 80}"></div>
       <div class="set-row"><div class="ti"><b>Avvisi giorni buoni per funghi</b><small>Notifica al mattino quando l'indice previsto è alto nella tua zona</small></div><label class="switch"><input type="checkbox" data-k="notifFungi" ${s.notifFungi ? 'checked' : ''}><i></i></label></div></div>
       <div class="list"><div class="set-row"><div class="ti"><b>Modalità notte</b><small>Interfaccia scura (la mappa non cambia mai)</small></div><label class="switch"><input type="checkbox" data-k="nightMode" ${s.nightMode ? 'checked' : ''}><i></i></label></div>
@@ -538,6 +541,16 @@ function openSettings() {
       e.onclick = () => { const h = i.type === 'password'; i.type = h ? 'text' : 'password'; e.textContent = h ? 'Nascondi' : 'Mostra'; };
       w.appendChild(e);
     });
+    (async () => {
+      const cl = await import('../lib/cloud.js');
+      const sw = pg.body.querySelector('#cl-sw'), st = pg.body.querySelector('#cl-st');
+      if (!sw) return;
+      const show = () => { sw.checked = cl.consent() === 'yes'; st.textContent = !cl.cloudConfigured() ? 'Non configurato in questa versione' : cl.consent() === 'yes' ? (cl.lastBackup() ? 'Ultimo backup: ' + new Date(cl.lastBackup()).toLocaleString('it-IT') : 'Nessun backup ancora') : 'Disattivato'; };
+      show();
+      sw.onchange = () => { cl.setConsent(sw.checked ? 'yes' : 'no'); show(); if (sw.checked) cl.backupNow().then(show); };
+      pg.body.querySelector('#cl-now').onclick = async () => { if (cl.consent() !== 'yes') return toast('Attiva prima il backup'); toast('Backup in corso…'); const r = await cl.backupNow(); show(); toast(r.error ? 'Backup non riuscito: ' + r.error : r.skipped ? 'Serve internet' : `Backup fatto (${r.n} elementi nuovi)`); };
+      pg.body.querySelector('#cl-res').onclick = async () => { toast('Ripristino in corso…'); const r = await cl.restoreNow(); toast(r.error ? 'Ripristino non riuscito: ' + r.error : `Ripristinati ${r.nw} waypoint e ${r.nt} tracce`, 3500); };
+    })();
     pg.body.querySelectorAll('[data-k]').forEach((inp) => {
       inp.addEventListener('change', async () => {
         const k = inp.dataset.k;

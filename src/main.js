@@ -27,6 +27,7 @@ import { initCoverage } from './lib/coverage.js';
 import { initWalked } from './lib/walked.js';
 import { initIncomingFiles } from './lib/importer.js';
 import { initMates } from './lib/mates.js';
+import { initCloud, askConsent } from './lib/cloud.js';
 
 const TABS = [
   ['map', 'Mappa', 'map'],
@@ -142,6 +143,8 @@ async function boot() {
     initCoverage();
     initIncomingFiles();
     initMates();
+    initCloud();
+    setTimeout(() => askConsent(openSheet), 2500);
     startCompass();
     setWakeLock(getSettings().keepAwake);
     try { if (Capacitor.isNativePlatform() && getSettings().keepAlive !== false && getRec().status === 'idle') ((Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles')).keepStart(); } catch {}
