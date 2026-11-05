@@ -155,7 +155,7 @@ export function mountMap(el) {
   const needle = root.querySelector('#north-needle');
   const onRot = () => {
     const b = map.getBearing ? map.getBearing() : 0;
-    needle.style.transform = `rotate(${-b}deg)`;
+    needle.style.transform = `rotate(${b}deg)`;
     root.querySelector('#btn-north').classList.toggle('rot', Math.abs(b) > 0.5);
     onHeading(lastHeading);
   };
@@ -382,7 +382,7 @@ function onHeading(h) {
   const c = userMarker && userMarker.getElement() && userMarker.getElement().querySelector('.cone');
   const b = map && map.getBearing ? map.getBearing() : 0;
   if (c) {
-    const t = h - b;
+    const t = h + b;
     coneAng = coneAng == null ? t : coneAng + ((((t - coneAng) % 360) + 540) % 360) - 180;
     c.style.transform = `rotate(${coneAng}deg)`;
     const ac = compassAccuracy();

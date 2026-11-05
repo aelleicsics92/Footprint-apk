@@ -187,7 +187,7 @@ function initMap() {
   fmap.on('rotate', () => {
     const br = fmap.getBearing();
     nb.hidden = Math.abs(br) < 1 || Math.abs(br - 360) < 1;
-    nb.querySelector('i').style.transform = `rotate(${-br}deg)`;
+    nb.querySelector('i').style.transform = `rotate(${br}deg)`;
   });
   nb.onclick = () => fmap.setBearing(0);
   fmap.fitBounds([[36.4, 6.6], [47.2, 18.8]]);
