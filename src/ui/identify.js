@@ -80,7 +80,7 @@ function render() {
 
 async function takePhoto() {
   try {
-    const p = await Camera.getPhoto({ quality: 82, width: 1400, height: 1400, correctOrientation: true, resultType: CameraResultType.Base64, source: CameraSource.Prompt, promptLabelHeader: 'Foto', promptLabelPhoto: 'Galleria', promptLabelPicture: 'Scatta foto' });
+    const p = await Camera.getPhoto({ quality: 70, width: 900, height: 900, correctOrientation: true, resultType: CameraResultType.Base64, source: CameraSource.Prompt, promptLabelHeader: 'Foto', promptLabelPhoto: 'Galleria', promptLabelPicture: 'Scatta foto' });
     state.image = { mime: 'image/' + (p.format === 'jpg' ? 'jpeg' : p.format || 'jpeg'), data: p.base64String };
     render();
   } catch (e) {

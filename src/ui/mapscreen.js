@@ -9,7 +9,7 @@ import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clam
 import { ico, wpIcon } from '../lib/icons.js';
 import { openSheet, toast, confirmBox, pushBack } from '../lib/ui.js';
 import { lastPos, gpsStatus, ensurePermission, restartWatch } from '../lib/geo.js';
-import { getHeading, compassAlive } from '../lib/compass.js';
+import { getHeading, compassAlive, feedGps } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks, deleteTrack } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
@@ -366,6 +366,7 @@ function onPos(p) {
     if (!lsGet('fp.view') || lsGet('fp.view').zoom < 10) map.setView(ll, 16);
     else if (follow) map.setView(ll, Math.max(map.getZoom(), 15));
   } else if (follow) map.panTo(ll, { animate: true, duration: 0.4 });
+  if (p.heading != null) feedGps(p.heading, p.speed);
   if (!compassAlive() && p.heading != null && p.speed > 1) onHeading(p.heading);
   updateTargetLine();
   checkOffTrack(p);
@@ -374,13 +375,17 @@ function onPos(p) {
   updateHud();
 }
 
-let lastHeading = 0;
+let lastHeading = 0, coneAng = null;
 function onHeading(h) {
   if (h == null) return;
   lastHeading = h;
   const c = userMarker && userMarker.getElement() && userMarker.getElement().querySelector('.cone');
   const b = map && map.getBearing ? map.getBearing() : 0;
-  if (c) c.style.transform = `rotate(${h - b}deg)`;
+  if (c) {
+    const t = h - b;
+    coneAng = coneAng == null ? t : coneAng + ((((t - coneAng) % 360) + 540) % 360) - 180;
+    c.style.transform = `rotate(${coneAng}deg)`;
+  }
 }
 
 function updateCarBadge(p) {

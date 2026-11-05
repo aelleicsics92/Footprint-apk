@@ -71,23 +71,13 @@
 },
 {
 "id": "mesentericum",
-"nome": "Tartufo nero ordinario",
+"nome": "Tartufo mesenterico (tartufo nero ordinario)",
 "sci": "Tuber mesentericum",
 "stato": "commestibile",
 "periodo": "1 settembre - 31 gennaio",
 "habitat": "Boschi di latifoglie e conifere, terreni calcarei",
 "riconoscimento": "Superficie nero-bruna con verruche piramidali, gleba bruno-scura con venature chiare, odore intenso (catrame/bitume).",
 "attenzione": "Aroma particolare apprezzato da alcuni; raccolta con tesserino e cane."
-},
-{
-"id": "moschatum",
-"nome": "Tartufo moscato",
-"sci": "Tuber brumale var. moschatum",
-"stato": "commestibile",
-"periodo": "1 gennaio - 15 marzo",
-"habitat": "Boschi di latifoglie, terreni sciolti",
-"riconoscimento": "Simile al brumale ma con verruche più piccole e odore di muschio.",
-"attenzione": "Più comune e meno pregiato del nero pregiato."
 },
 {
 "id": "rufum",

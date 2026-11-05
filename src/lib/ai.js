@@ -33,13 +33,20 @@ async function callGemini(p, { system, user, images, audio, json }) {
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0.2, ...(json ? { responseMimeType: 'application/json' } : {}) },
+    generationConfig: { temperature: 0.2, maxOutputTokens: 2500, thinkingConfig: { thinkingLevel: 'minimal' }, ...(json ? { responseMimeType: 'application/json' } : {}) },
   };
   // Le chiavi nuove ("AQ.…") non vedono più i modelli 1.x/2.x (errore 404): servono i Gemini 3.x.
   const legacy = (m) => !m || /latest|gemini-(1|2)\./.test(m);
   const first = legacy(p.model) ? 'gemini-3.5-flash' : p.model;
   const models = [...new Set([first, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.7-flash'])];
-  const gen = (m) => post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { 'x-goog-api-key': p.key }, body);
+  const gen = async (m) => {
+    try { return await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { 'x-goog-api-key': p.key }, body); }
+    catch (e) {
+      // il modello non accetta il livello di ragionamento: riprova senza
+      if (e.status === 400 && body.generationConfig.thinkingConfig) { delete body.generationConfig.thinkingConfig; return post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, { 'x-goog-api-key': p.key }, body); }
+      throw e;
+    }
+  };
   const vtx = (m) => post(`https://aiplatform.googleapis.com/v1/publishers/google/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(p.key)}`, {}, body);
   let j, firstErr;
   for (const m of models) {

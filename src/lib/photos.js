@@ -73,6 +73,7 @@ export async function inatTaxonFor(x) {
   return null;
 }
 
+const imgOk = (src) => new Promise((res) => { const i = new Image(); const t = setTimeout(() => res(false), 8000); i.onload = () => { clearTimeout(t); res(true); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = src; });
 const blobOf = async (src) => {
   try {
     const r = await fetch(src);
@@ -94,15 +95,22 @@ export function getPhoto(x) {
       if (c && c.blob) return URL.createObjectURL(c.blob);
     } catch {}
     if (!navigator.onLine) return null;
-    let src = null;
     const t = await inatTaxonFor(x);
-    if (t && t.thumb) src = t.thumb;
-    if (!src) src = await wikiThumb(x);
-    if (!src) return null;
-    const blob = await blobOf(src);
-    if (!blob) return src;
-    try { await kvSet(key, { blob }); } catch {}
-    return URL.createObjectURL(blob);
+    const srcs = [
+      async () => (t && t.thumb ? [t.thumb] : []),
+      async () => { const w = await wikiThumb(x); return w ? [w] : []; },
+      async () => (t ? (await inatPhotos(t, 4)).map((i) => i.src) : []),
+    ];
+    for (const get of srcs) {
+      let list = [];
+      try { list = await get(); } catch {}
+      for (const src of list) {
+        const blob = await blobOf(src);
+        if (blob) { try { await kvSet(key, { blob }); } catch {} return URL.createObjectURL(blob); }
+        if (await imgOk(src)) return src;
+      }
+    }
+    return null;
   }).then((u) => {
     if (!u) mem.delete(k);
     return u;
@@ -204,6 +212,15 @@ export function getPhotos(x, n = 6) {
 
 // Collega i segnaposto [data-ph="kind|id"] presenti in un contenitore
 export function hydratePhotos(root, resolver) {
+  if (!root.__lb) {
+    root.__lb = 1;
+    root.addEventListener('click', (e) => {
+      const im = e.target.closest && e.target.closest('.sc-photo img');
+      if (!im) return;
+      const all = [...im.closest('.sc-photo').querySelectorAll('img')];
+      import('./lightbox.js').then((m) => m.openLightbox(all.map((x) => x.src), all.indexOf(im)));
+    });
+  }
   const els = [...root.querySelectorAll('[data-ph]')];
   const load = (el) => {
     if (el.dataset.done) return;

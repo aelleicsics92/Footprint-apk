@@ -4,6 +4,15 @@ import { getSettings } from './store.js';
 let heading = null; // gradi, nord vero
 let started = false;
 let lastEvt = 0;
+let rawS = null, bias = 0;
+const angDiff = (a, b) => ((a - b + 540) % 360) - 180;
+// Allinea la bussola alla direzione reale di cammino (GPS): corregge sensore non calibrato e offset fissi
+export function feedGps(course, speed) {
+  if (rawS == null || course == null || isNaN(course) || !(speed >= 1.3)) return;
+  const d = angDiff(course, rawS);
+  if (Math.abs(d) > 35 + Math.abs(bias)) return;
+  bias = Math.max(-25, Math.min(25, bias + (d - bias) * 0.08));
+}
 
 // Direzione (da nord) in cui punta la cima del telefono se è in piano, oppure il retro se è in verticale.
 // Usa la rotazione completa alpha/beta/gamma, quindi funziona in entrambe le posizioni.
@@ -28,7 +37,8 @@ function onOrient(e, isAbs) {
   }
   if (h == null || isNaN(h)) return;
   h = (h + (Number(getSettings().declination) || 0) + 360) % 360;
-  heading = heading == null ? h : lerpAngle(heading, h, 0.25);
+  rawS = rawS == null ? h : lerpAngle(rawS, h, 0.25);
+  heading = (rawS + bias + 360) % 360;
   const now = performance.now();
   if (now - lastEvt > 60) {
     lastEvt = now;
