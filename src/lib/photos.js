@@ -100,6 +100,7 @@ export function getPhoto(x) {
       async () => (t && t.thumb ? [t.thumb] : []),
       async () => { const w = await wikiThumb(x); return w ? [w] : []; },
       async () => (t ? (await inatPhotos(t, 4)).map((i) => i.src) : []),
+      async () => { const l = latinList(x)[0]; return l ? (await commons(l, false, 4)).map((i) => i.src) : []; },
     ];
     for (const get of srcs) {
       let list = [];

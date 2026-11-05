@@ -9,6 +9,10 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.provider.OpenableColumns;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import androidx.core.content.FileProvider;
 import java.io.File;
 import com.getcapacitor.JSArray;
@@ -29,6 +33,57 @@ public class IntentFilesPlugin extends Plugin {
 
     @Override
     public void load() { inst = this; }
+
+    // ---- bussola nativa: vettore di rotazione fuso (come Google Maps), direzione magnetica in gradi ----
+    private SensorManager cSm;
+    private Sensor cSensor;
+    private boolean cWant = false, cOn = false;
+    private long cLast = 0;
+    private int cAcc = 3;
+    private final float[] cR = new float[9];
+    private final SensorEventListener cL = new SensorEventListener() {
+        @Override public void onSensorChanged(SensorEvent e) {
+            long now = System.currentTimeMillis();
+            if (now - cLast < 50) return;
+            cLast = now;
+            SensorManager.getRotationMatrixFromVector(cR, e.values);
+            // cima del telefono e retro proiettati sul piano orizzontale ([est, nord])
+            double tx = cR[1], ty = cR[4], bx = -cR[2], by = -cR[5];
+            boolean top = Math.hypot(tx, ty) >= Math.hypot(bx, by);
+            double x = top ? tx : bx, y = top ? ty : by;
+            double h = Math.toDegrees(Math.atan2(x, y));
+            if (h < 0) h += 360;
+            JSObject o = new JSObject();
+            o.put("h", h);
+            o.put("acc", cAcc);
+            notifyListeners("compass", o);
+        }
+        @Override public void onAccuracyChanged(Sensor s, int a) { cAcc = a; }
+    };
+    private void cReg() {
+        if (cOn || cSm == null || cSensor == null) return;
+        cSm.registerListener(cL, cSensor, SensorManager.SENSOR_DELAY_GAME);
+        cOn = true;
+    }
+    private void cUnreg() {
+        if (cSm != null && cOn) cSm.unregisterListener(cL);
+        cOn = false;
+    }
+    @PluginMethod
+    public void compassStart(PluginCall call) {
+        try {
+            if (cSm == null) cSm = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
+            if (cSensor == null && cSm != null) cSensor = cSm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+            if (cSensor == null) { call.reject("nosensor"); return; }
+            cWant = true;
+            cReg();
+            call.resolve();
+        } catch (Exception e) { call.reject(String.valueOf(e)); }
+    }
+    @PluginMethod
+    public void compassStop(PluginCall call) { cWant = false; cUnreg(); call.resolve(); }
+    @Override protected void handleOnPause() { cUnreg(); }
+    @Override protected void handleOnResume() { if (cWant) cReg(); }
 
     static void mateEvent(String name, JSObject data) {
         try { IntentFilesPlugin p = inst; if (p != null) p.notifyListeners(name, data); } catch (Exception ignore) {}

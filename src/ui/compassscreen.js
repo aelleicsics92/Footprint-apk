@@ -1,6 +1,6 @@
 import { bus, fmtCoord, fmtDist, haversine, bearing, cardinal, esc } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
-import { getHeading, compassAlive } from '../lib/compass.js';
+import { getHeading, compassAlive, compassAccuracy } from '../lib/compass.js';
 import { lastPos, gpsStatus } from '../lib/geo.js';
 import { getTarget, setTarget } from '../lib/state.js';
 import { getWaypoint } from '../lib/waypoints.js';
@@ -70,6 +70,10 @@ export function mountCompass(el) {
   setTimeout(() => {
     if (!compassAlive()) el.querySelector('#c-note').textContent = 'Sensore bussola non disponibile: uso la direzione GPS quando ti muovi.';
   }, 4000);
+  setInterval(() => {
+    const a = compassAccuracy(), n = el.querySelector('#c-note');
+    if (n && a != null) n.textContent = a >= 2 ? '' : 'Bussola da calibrare: muovi il telefono a forma di 8 per qualche secondo.';
+  }, 2000);
   updateInfo();
 }
 

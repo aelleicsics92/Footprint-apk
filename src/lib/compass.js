@@ -1,5 +1,6 @@
 import { bus, lerpAngle, rad, deg } from './util.js';
 import { getSettings } from './store.js';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 let heading = null; // gradi, nord vero
 let started = false;
@@ -26,8 +27,18 @@ function tiltCompensated(alpha, beta, gamma) {
   return (deg(Math.atan2(v[0], v[1])) + 360) % 360;
 }
 
-let absSeen = false;
+let absSeen = false, nativeOn = false;
+let nativeAcc = 3;
+export const compassAccuracy = () => (nativeOn ? nativeAcc : null);
+function setHeading(h) {
+  h = (h + (Number(getSettings().declination) || 0) + 360) % 360;
+  rawS = rawS == null ? h : lerpAngle(rawS, h, 0.4);
+  heading = (rawS + bias + 360) % 360;
+  const now = performance.now();
+  if (now - lastEvt > 50) { lastEvt = now; bus.emit('heading', heading); }
+}
 function onOrient(e, isAbs) {
+  if (nativeOn) return;
   if (isAbs) absSeen = true;
   else if (absSeen) return; // preferisci l'evento assoluto
   let h = null;
@@ -49,6 +60,15 @@ function onOrient(e, isAbs) {
 export function startCompass() {
   if (started) return;
   started = true;
+  // sensore nativo Android (vettore di rotazione fuso): molto più affidabile degli eventi del WebView
+  try {
+    if (Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+      const IF = (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
+      IF.addListener('compass', (e) => { nativeOn = true; nativeAcc = e.acc; setHeading(e.h); });
+      IF.compassStart().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') IF.compassStart().catch(() => {}); });
+    }
+  } catch {}
   window.addEventListener('deviceorientationabsolute', (e) => onOrient(e, true), true);
   window.addEventListener('deviceorientation', (e) => onOrient(e, false), true);
 }
