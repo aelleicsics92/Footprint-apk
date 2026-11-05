@@ -9,7 +9,7 @@ import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clam
 import { ico, wpIcon } from '../lib/icons.js';
 import { openSheet, toast, confirmBox, pushBack } from '../lib/ui.js';
 import { lastPos, gpsStatus, ensurePermission, restartWatch } from '../lib/geo.js';
-import { getHeading, compassAlive, feedGps } from '../lib/compass.js';
+import { getHeading, compassAlive, feedGps, compassAccuracy } from '../lib/compass.js';
 import { getWaypoints, getWaypoint, openWaypoint, openNewWaypoint, quickWaypoint, saveParking } from '../lib/waypoints.js';
 import { getRec, elapsed, startRecording, pauseRecording, resumeRecording, stopRecording, renameTrack, loadTrackPoints, getTracks, deleteTrack } from '../lib/track.js';
 import { getTarget, setTarget } from '../lib/state.js';
@@ -385,6 +385,8 @@ function onHeading(h) {
     const t = h - b;
     coneAng = coneAng == null ? t : coneAng + ((((t - coneAng) % 360) + 540) % 360) - 180;
     c.style.transform = `rotate(${coneAng}deg)`;
+    const ac = compassAccuracy();
+    c.style.opacity = ac != null && ac < 2 ? '0.35' : '1';
   }
 }
 

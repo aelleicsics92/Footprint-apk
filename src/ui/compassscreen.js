@@ -72,7 +72,7 @@ export function mountCompass(el) {
   }, 4000);
   setInterval(() => {
     const a = compassAccuracy(), n = el.querySelector('#c-note');
-    if (n && a != null) n.textContent = a >= 2 ? '' : 'Bussola da calibrare: muovi il telefono a forma di 8 per qualche secondo.';
+    if (n && a != null) n.textContent = ['Precisione sensore: non affidabile. Muovi il telefono a forma di 8 e allontanati da metallo e muri armati.', 'Precisione sensore: bassa. Muovi il telefono a forma di 8.', 'Precisione sensore: media.', 'Precisione sensore: alta.'][Math.max(0, Math.min(3, a))];
   }, 2000);
   updateInfo();
 }
