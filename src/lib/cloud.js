@@ -243,7 +243,37 @@ export async function fetchOthers() {
   } catch (e) { return { error: String(e.message || e) }; }
 }
 
+// ---- posizione dell'auto per il bot Telegram (solo se attivato dall'utente) ----
+export const parkShare = () => lsGet('fp.cloud.park', false);
+export const setParkShare = (v) => { lsSet('fp.cloud.park', !!v); if (v) shareParking(true); else unshareParking(); };
+let pT = 0;
+export async function shareParking(force = false) {
+  if (!cloudConfigured() || !parkShare() || !navigator.onLine) return { skipped: true };
+  const car = getWaypoints().filter((w) => w.icon === 'parcheggio' && w.lat != null).sort((a, b) => b.ts - a.ts)[0];
+  if (!car) return { none: true };
+  const sig = car.id + '|' + car.lat + '|' + car.lon;
+  if (!force && lsGet('fp.cloud.parksig', '') === sig) return { same: true };
+  try {
+    const a = await auth();
+    const r = await fetch(`${URL_}/rest/v1/parking_share?on_conflict=user_id`, { method: 'POST', headers: H(a, { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ user_id: a.uid, lat: car.lat, lon: car.lon, name: car.title || 'Auto parcheggiata', ts: car.ts, updated_at: new Date().toISOString() }) });
+    if (!r.ok) throw new Error('parcheggio ' + r.status);
+    lsSet('fp.cloud.parksig', sig);
+    return { ok: true };
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+export async function unshareParking() {
+  try {
+    const a = await auth();
+    await fetch(`${URL_}/rest/v1/parking_share?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
+    lsSet('fp.cloud.parksig', '');
+  } catch {}
+}
+function initParking() {
+  bus.on('wp:changed', () => { clearTimeout(pT); if (parkShare()) pT = setTimeout(() => shareParking(), 3000); });
+}
+
 export function initCloud() {
+  initParking();
   if (!cloudConfigured()) return;
   const tick = async () => {
     await applyNightly();

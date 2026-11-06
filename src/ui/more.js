@@ -645,6 +645,7 @@ function openSettings() {
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni notte alle 02:00, o alla riapertura</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Mostra sulla mappa i dati degli altri</b><small id="cl-ost">Sempre usati anche dalla previsione; qui li mostri sulla mappa</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Posizione auto al bot Telegram</b><small id="cl-pst">Quando salvi il parcheggio, l'ultima posizione dell'auto viene inviata al tuo server: solo i contatti autorizzati possono chiedere dove si trova</small></div><label class="switch"><input type="checkbox" id="cl-psw"><i></i></label></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
       <div class="set-row" id="cl-acc" style="display:block"></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button></div></div></div>
@@ -727,6 +728,13 @@ function openSettings() {
       show();
       sw.onchange = () => { cl.setConsent(sw.checked ? 'yes' : 'no'); show(); if (sw.checked) cl.backupNow().then(show); };
       pg.body.querySelector('#cl-now').onclick = async () => { if (cl.consent() !== 'yes') return toast('Attiva prima il backup'); toast('Backup in corso…'); const r = await cl.backupNow(); show(); toast(r.error ? 'Backup non riuscito: ' + r.error : r.skipped ? 'Serve internet' : `Backup fatto (${r.n} elementi nuovi)`); };
+      const psw = pg.body.querySelector('#cl-psw');
+      psw.checked = cl.parkShare();
+      psw.onchange = async () => {
+        if (psw.checked && cl.consent() !== 'yes') { psw.checked = false; return toast('Attiva prima il backup online'); }
+        cl.setParkShare(psw.checked);
+        toast(psw.checked ? 'Posizione auto condivisa con il bot' : 'Condivisione disattivata e dati rimossi');
+      };
       const osw = pg.body.querySelector('#cl-osw'), ost = pg.body.querySelector('#cl-ost');
       osw.checked = cl.showOthers();
       osw.onchange = async () => {
