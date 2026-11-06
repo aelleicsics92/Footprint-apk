@@ -645,7 +645,12 @@ function openSettings() {
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni notte alle 02:00, o alla riapertura</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Mostra sulla mappa i dati degli altri</b><small id="cl-ost">Sempre usati anche dalla previsione; qui li mostri sulla mappa</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Posizione auto al bot Telegram</b><small id="cl-pst">Quando salvi il parcheggio, l'ultima posizione dell'auto viene inviata al tuo server: solo i contatti autorizzati possono chiedere dove si trova</small></div><label class="switch"><input type="checkbox" id="cl-psw"><i></i></label></div>
+      <div class="set-row"><div class="ti"><b>Condividi posizione dell'auto</b><small id="cl-pst">Quando salvi il parcheggio, la posizione dell'auto è visibile solo a chi inviti (link o Telegram)</small></div><label class="switch"><input type="checkbox" id="cl-psw"><i></i></label></div>
+      <div id="cl-pbox" style="display:none;padding:4px 0 8px">
+        <input id="cl-pname" class="inp" placeholder="Il tuo nome (es. Ale)" maxlength="30" onfocus="this.select()" style="width:100%;margin-bottom:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip" id="cl-pinv">Invita un contatto</button><button class="chip" id="cl-prev">Revoca accessi</button></div>
+        <small class="muted" id="cl-pcnt"></small>
+      </div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
       <div class="set-row" id="cl-acc" style="display:block"></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button></div></div></div>
@@ -728,12 +733,29 @@ function openSettings() {
       show();
       sw.onchange = () => { cl.setConsent(sw.checked ? 'yes' : 'no'); show(); if (sw.checked) cl.backupNow().then(show); };
       pg.body.querySelector('#cl-now').onclick = async () => { if (cl.consent() !== 'yes') return toast('Attiva prima il backup'); toast('Backup in corso…'); const r = await cl.backupNow(); show(); toast(r.error ? 'Backup non riuscito: ' + r.error : r.skipped ? 'Serve internet' : `Backup fatto (${r.n} elementi nuovi)`); };
-      const psw = pg.body.querySelector('#cl-psw');
-      psw.checked = cl.parkShare();
+      const psw = pg.body.querySelector('#cl-psw'), pbox = pg.body.querySelector('#cl-pbox'), pn = pg.body.querySelector('#cl-pname');
+      const pcnt = async () => { const n = await cl.contactsCount(); pg.body.querySelector('#cl-pcnt').textContent = n ? `Contatti Telegram collegati: ${n}` : ''; };
+      const pshow = () => { pbox.style.display = psw.checked ? '' : 'none'; if (psw.checked) pcnt(); };
+      psw.checked = cl.parkShare(); pn.value = cl.parkName(); pshow();
+      pn.onchange = () => cl.setParkName(pn.value);
+      pn.onkeydown = (e) => { if (e.key === 'Enter') { pn.blur(); } };
       psw.onchange = async () => {
         if (psw.checked && cl.consent() !== 'yes') { psw.checked = false; return toast('Attiva prima il backup online'); }
-        cl.setParkShare(psw.checked);
-        toast(psw.checked ? 'Posizione auto condivisa con il bot' : 'Condivisione disattivata e dati rimossi');
+        cl.setParkShare(psw.checked); pshow();
+        toast(psw.checked ? 'Condivisione auto attiva' : 'Condivisione disattivata e dati rimossi');
+      };
+      pg.body.querySelector('#cl-pinv').onclick = async () => {
+        if (!pn.value.trim()) { pn.focus(); return toast('Scrivi prima il tuo nome'); }
+        cl.setParkName(pn.value);
+        try {
+          const text = await cl.inviteText();
+          const { Share } = await import('@capacitor/share');
+          await Share.share({ title: 'Dove ho parcheggiato', text, dialogTitle: 'Invia a…' });
+        } catch (e) { if (!/cancel/i.test(String(e.message || e))) toast('Non riuscito: ' + (e.message || e)); }
+      };
+      pg.body.querySelector('#cl-prev').onclick = async () => {
+        if (!confirm('Revocare tutti gli accessi? Link e contatti Telegram smetteranno di funzionare.')) return;
+        try { await cl.revokeAccess(); toast('Accessi revocati'); pcnt(); } catch (e) { toast('Non riuscito'); }
       };
       const osw = pg.body.querySelector('#cl-osw'), ost = pg.body.querySelector('#cl-ost');
       osw.checked = cl.showOthers();

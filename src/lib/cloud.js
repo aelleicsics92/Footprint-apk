@@ -244,6 +244,37 @@ export async function fetchOthers() {
 }
 
 // ---- posizione dell'auto per il bot Telegram (solo se attivato dall'utente) ----
+const rnd = (n) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return Array.from(b, (x) => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join(''); };
+export const parkName = () => lsGet('fp.cloud.pname', '');
+export const setParkName = (v) => { lsSet('fp.cloud.pname', String(v || '').trim().slice(0, 30)); if (parkShare()) shareParking(true); };
+const parkToken = () => { let t = lsGet('fp.cloud.ptoken', ''); if (!t) { t = rnd(24); lsSet('fp.cloud.ptoken', t); } return t; };
+const PAGES = 'https://aelleicsics92.github.io/Footprint-apk/auto.html';
+const BOT = (import.meta.env && import.meta.env.VITE_TG_BOT) || '';
+export const parkLink = () => `${PAGES}?t=${parkToken()}&u=${encodeURIComponent(URL_)}&k=${encodeURIComponent(KEY)}`;
+// Crea un invito monouso (valido 7 giorni) e restituisce il testo da condividere
+export async function inviteText() {
+  const r = await shareParking(true);
+  if (r && r.error) throw new Error(r.error);
+  let tg = '';
+  if (BOT) {
+    const a = await auth();
+    const code = rnd(10);
+    const x = await fetch(`${URL_}/rest/v1/parking_invites`, { method: 'POST', headers: H(a, { 'Content-Type': 'application/json', Prefer: 'return=minimal' }), body: JSON.stringify({ code, user_id: a.uid }) });
+    if (!x.ok) throw new Error('invito ' + x.status);
+    tg = `\n\nSu Telegram: apri https://t.me/${BOT}?start=${code} e poi scrivi "dove è ${parkName() || 'me'}?" per sapere dove ho parcheggiato l'auto.`;
+  }
+  return `Dove ho parcheggiato l'auto (si aggiorna da solo):\n${parkLink()}${tg}`;
+}
+export async function contactsCount() {
+  try { const a = await auth(); const r = await fetch(`${URL_}/rest/v1/parking_contacts?select=chat_id`, { headers: H(a) }); return r.ok ? (await r.json()).length : 0; } catch { return 0; }
+}
+export async function revokeAccess() {
+  const a = await auth();
+  await fetch(`${URL_}/rest/v1/parking_contacts?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
+  await fetch(`${URL_}/rest/v1/parking_invites?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
+  lsSet('fp.cloud.ptoken', rnd(24)); lsSet('fp.cloud.parksig', '');
+  if (parkShare()) await shareParking(true);
+}
 export const parkShare = () => lsGet('fp.cloud.park', false);
 export const setParkShare = (v) => { lsSet('fp.cloud.park', !!v); if (v) shareParking(true); else unshareParking(); };
 let pT = 0;
@@ -251,11 +282,11 @@ export async function shareParking(force = false) {
   if (!cloudConfigured() || !parkShare() || !navigator.onLine) return { skipped: true };
   const car = getWaypoints().filter((w) => w.icon === 'parcheggio' && w.lat != null).sort((a, b) => b.ts - a.ts)[0];
   if (!car) return { none: true };
-  const sig = car.id + '|' + car.lat + '|' + car.lon;
+  const sig = car.id + '|' + car.lat + '|' + car.lon + '|' + parkName();
   if (!force && lsGet('fp.cloud.parksig', '') === sig) return { same: true };
   try {
     const a = await auth();
-    const r = await fetch(`${URL_}/rest/v1/parking_share?on_conflict=user_id`, { method: 'POST', headers: H(a, { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ user_id: a.uid, lat: car.lat, lon: car.lon, name: car.title || 'Auto parcheggiata', ts: car.ts, updated_at: new Date().toISOString() }) });
+    const r = await fetch(`${URL_}/rest/v1/parking_share?on_conflict=user_id`, { method: 'POST', headers: H(a, { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ user_id: a.uid, lat: car.lat, lon: car.lon, name: car.title || 'Auto parcheggiata', ts: car.ts, display_name: parkName(), token: parkToken(), updated_at: new Date().toISOString() }) });
     if (!r.ok) throw new Error('parcheggio ' + r.status);
     lsSet('fp.cloud.parksig', sig);
     return { ok: true };
@@ -265,6 +296,7 @@ export async function unshareParking() {
   try {
     const a = await auth();
     await fetch(`${URL_}/rest/v1/parking_share?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
+    await fetch(`${URL_}/rest/v1/parking_invites?user_id=eq.${a.uid}`, { method: 'DELETE', headers: H(a) });
     lsSet('fp.cloud.parksig', '');
   } catch {}
 }

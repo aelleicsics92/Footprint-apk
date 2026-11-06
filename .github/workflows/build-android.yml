@@ -38,6 +38,7 @@ jobs:
           VITE_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           VITE_GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_TG_BOT: ${{ secrets.TG_BOT_USERNAME }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npm run build
 
