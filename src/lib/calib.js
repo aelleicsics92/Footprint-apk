@@ -49,12 +49,13 @@ const q = (arr, f) => {
 const med = (a) => q(a, 0.5);
 const mix = (prior, emp, n) => (emp == null ? prior : (prior * PRIOR_N + emp * n) / (PRIOR_N + n));
 
-export function findings() {
+export function findings(raw = false) {
   const seen = new Set(), out = [];
   for (const w of [...getWaypoints(), ...othersWaypoints()]) {
     const key = MAP[w.icon];
     if (!key || w.lat == null) continue;
-    const id = `${key}|${iso(w.ts)}|${w.lat.toFixed(2)}|${w.lon.toFixed(2)}`;
+    // meteo: un ritrovamento al giorno per zona; habitat (raw): ogni waypoint conta
+    const id = raw ? `${key}|${w.id || w.ts}|${w.lat.toFixed(5)}|${w.lon.toFixed(5)}` : `${key}|${iso(w.ts)}|${w.lat.toFixed(2)}|${w.lon.toFixed(2)}`;
     if (seen.has(id)) continue;
     seen.add(id);
     out.push({ key, ts: w.ts, lat: w.lat, lon: w.lon, alt: w.alt, icon: w.icon, title: w.title });
@@ -185,8 +186,8 @@ async function learnHab(list) {
 let running = false, timer = 0;
 export async function autoLearn() {
   if (running) return;
-  const list = findings();
-  const sig = list.map((f) => f.ts + f.key).join('|');
+  const list = findings(), rawList = findings(true);
+  const sig = 'v2|' + rawList.map((f) => f.ts + f.key).join('|');
   if (!list.length || sig === getSettings().fungiLearnSig) return;
   running = true;
   try {
@@ -195,7 +196,7 @@ export async function autoLearn() {
     for (const [k, v] of Object.entries(res.out)) if (Object.keys(v.cal).length) cal[k] = v.cal;
     setSetting('fungiCal', cal);
     applyCal(cal);
-    const hab = await learnHab(list);
+    const hab = await learnHab(rawList);
     if (Object.keys(hab).length) {
       setSetting('fungiHab', hab);
       applyHab(hab);
