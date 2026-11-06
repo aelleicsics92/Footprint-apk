@@ -62,6 +62,13 @@ function showTab(id) {
 
 async function boot() {
   mark('boot: inizio');
+  try {
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      const r = await (Capacitor.Plugins.IntentFiles || registerPlugin('IntentFiles')).bootInfo();
+      mark(`nativo: processo avviato ${Math.round(r.sinceProc / 1000)} s fa, prima della pagina ${Math.max(0, Math.round(r.sinceProc - performance.now()))} ms`);
+    }
+  } catch {}
   installInputBehaviour();
   $('#nav').innerHTML = TABS.filter((t) => t[0] !== 'fungi').map(([k, l, i]) => `<button data-t="${k}">${ico(i, 24)}<span>${l}</span></button>`).join('');
   $('#nav').addEventListener('click', (e) => {

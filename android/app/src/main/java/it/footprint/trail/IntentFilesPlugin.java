@@ -7,6 +7,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
+import android.os.Process;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.provider.OpenableColumns;
 import android.hardware.Sensor;
@@ -33,6 +35,13 @@ public class IntentFilesPlugin extends Plugin {
 
     @Override
     public void load() { inst = this; }
+
+    @PluginMethod
+    public void bootInfo(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("sinceProc", SystemClock.uptimeMillis() - Process.getStartUptimeMillis());
+        call.resolve(o);
+    }
 
     // ---- bussola nativa: vettore di rotazione fuso (come Google Maps), direzione magnetica in gradi ----
     private SensorManager cSm;
