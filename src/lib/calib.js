@@ -215,5 +215,5 @@ export function initAutoLearn() {
   };
   kick(120000);
   bus.on('wp:changed', () => kick(60000));
-  bus.on('others:data', () => kick(30000));
+  bus.on('others:data', () => kick(240000));
 }

@@ -5,6 +5,7 @@ import { Fog } from '../lib/fog.js';
 import { makeAltLayer } from '../lib/altband.js';
 import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
+import { mark } from '../lib/perf.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
 import { ico, wpIcon } from '../lib/icons.js';
 import { openSheet, toast, confirmBox, pushBack } from '../lib/ui.js';
@@ -98,6 +99,7 @@ function renderMates() {
 const uCol = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360},70%,42%)`; };
 async function renderOthers() {
   if (!othersGroup) return;
+  mark('altri utenti: disegno');
   othersGroup.clearLayers();
   const cl = await import('../lib/cloud.js');
   if (!cl.showOthers()) return;
@@ -110,7 +112,8 @@ async function renderOthers() {
       m.bindTooltip(`${esc(r.data.name || 'Waypoint')} · ${who[r.user_id]}`, { direction: 'top' });
       m.addTo(othersGroup);
     } else if (r.kind === 'track' && r.data && r.data.points && r.data.points.length > 1) {
-      const pts = r.data.points.map((p) => (Array.isArray(p) ? [p[0], p[1]] : [p.lat, p.lon])).filter((p) => p[0] != null);
+      const all = r.data.points, st = Math.max(1, Math.ceil(all.length / 120));
+      const pts = all.filter((_, i) => i % st === 0).map((p) => (Array.isArray(p) ? [p[0], p[1]] : [p.lat, p.lon])).filter((p) => p[0] != null);
       const l = L.polyline(pts, { color: col, weight: 3, opacity: 0.75 });
       l.bindTooltip(`${esc((r.data.meta && r.data.meta.name) || 'Traccia')} · ${who[r.user_id]}`, { sticky: true });
       l.addTo(othersGroup);
@@ -172,7 +175,7 @@ export function mountMap(el) {
   shownGroup = L.layerGroup().addTo(map);
   mateGroup = L.layerGroup().addTo(map);
   othersGroup = L.layerGroup().addTo(map);
-  renderOthers();
+  setTimeout(renderOthers, 6000);
   bus.on('others:update', renderOthers);
   bus.on('others:toggle', renderOthers);
   renderMates();

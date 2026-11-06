@@ -4,6 +4,7 @@ import { getWaypoints, addWaypoint } from './waypoints.js';
 import { getTracks, loadTrackPoints, saveTrack } from './track.js';
 import { kvGet, kvSet, lsGet, lsSet } from './store.js';
 import { bus } from './util.js';
+import { mark } from './perf.js';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const IF = () => (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
@@ -168,19 +169,27 @@ export async function prepareOutbox() {
   const a = lsGet('fp.cloud.auth', null);
   if (!a) return;
   const sent = lsGet('fp.cloud.sent', {});
+  mark('cloud: coda notturna, inizio');
   const rows = [], photos = [];
+  let budget = 4 * 1024 * 1024, nt = 0;
   for (const w of getWaypoints()) {
+    if (budget <= 0) break;
     const sig = hash(JSON.stringify(w));
     if (sent['w:' + w.id] === sig) continue;
-    if (w.photo) { const ph = await kvGet('photo:' + w.id); if (ph && sent['p:' + w.id] !== String(ph.length)) photos.push({ k: 'p:' + w.id, s: String(ph.length), name: `photo-${w.id}.txt`, text: ph }); }
+    if (w.photo) { const ph = await kvGet('photo:' + w.id); if (ph && sent['p:' + w.id] !== String(ph.length)) { budget -= ph.length; photos.push({ k: 'p:' + w.id, s: String(ph.length), name: `photo-${w.id}.txt`, text: ph }); } }
     rows.push({ k: 'w:' + w.id, s: sig, kind: 'waypoint', item_id: w.id, data: w });
+    budget -= 600;
   }
   for (const t of getTracks()) {
     const sig = hash(JSON.stringify(t));
     if (sent['t:' + t.id] === sig) continue;
-    rows.push({ k: 't:' + t.id, s: sig, kind: 'track', item_id: t.id, data: { meta: t, points: await loadTrackPoints(t.id) } });
+    if (budget <= 0 || nt >= 6) break;
+    const pts = await loadTrackPoints(t.id);
+    budget -= pts.length * 40; nt++;
+    rows.push({ k: 't:' + t.id, s: sig, kind: 'track', item_id: t.id, data: { meta: t, points: pts } });
   }
   try { await IF().outboxWrite({ json: JSON.stringify({ url: URL_, key: KEY, auth: a, rows, photos }) }); } catch {}
+  mark(`cloud: coda notturna pronta (${rows.length} righe, ${photos.length} foto)`);
 }
 export function queueOutbox() { clearTimeout(outboxT); outboxT = setTimeout(() => { prepareOutbox(); }, 4000); }
 
@@ -240,14 +249,13 @@ export function initCloud() {
     await applyNightly();
     if (consent() !== 'yes') { if (native()) IF().nightlySchedule({ enabled: false }).catch(() => {}); return; }
     if (native()) IF().nightlySchedule({ enabled: true }).catch(() => {});
-    if (lastBackup() < lastBoundary()) await backupNow();
-    prepareOutbox();
+    if (lastBackup() < lastBoundary()) { mark('cloud: backup in corso'); await backupNow(); mark('cloud: backup finito'); }
     if (Date.now() - (await cachedOthers()).t > 3600e3) fetchOthers();
   };
-  cachedOthers();
-  setTimeout(tick, 15000);
+  setTimeout(() => cachedOthers(), 20000);
+  setTimeout(tick, 45000);
   setInterval(tick, 30 * 60e3);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 3000); else queueOutbox(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(tick, 30000); else queueOutbox(); });
   bus.on && bus.on('cloud:done', queueOutbox);
   setInterval(queueOutbox, 10 * 60e3);
 }

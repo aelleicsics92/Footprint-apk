@@ -1,4 +1,5 @@
 import './style.css';
+import { mark } from './lib/perf.js';
 import { initWidgetSync } from './lib/widgetsync.js';
 import { openSOS } from './ui/sos.js';
 import { saveParking, openNewWaypoint, getWaypoints } from './lib/waypoints.js';
@@ -60,6 +61,7 @@ function showTab(id) {
 }
 
 async function boot() {
+  mark('boot: inizio');
   installInputBehaviour();
   $('#nav').innerHTML = TABS.filter((t) => t[0] !== 'fungi').map(([k, l, i]) => `<button data-t="${k}">${ico(i, 24)}<span>${l}</span></button>`).join('');
   $('#nav').addEventListener('click', (e) => {
@@ -121,15 +123,20 @@ async function boot() {
   const mounted = {};
   ensureMounted = (id) => { if (mounted[id] || !mounts[id]) return; mounted[id] = true; try { mounts[id](); } catch (e) { console.error(e); } };
   try { document.documentElement.classList.toggle('night', !!getSettings().nightMode); document.documentElement.classList.toggle('hc', !!getSettings().hiContrast); } catch {}
-  const tracksP = loadTracks().then(() => bus.emit('tracks:changed')).catch(() => {});
-  const wpsP = loadWaypoints().catch(() => {});
+  const tracksP = loadTracks().then(() => { mark('tracce caricate'); bus.emit('tracks:changed'); }).catch(() => {});
+  const wpsP = loadWaypoints().then(() => mark('waypoint caricati')).catch(() => {});
+  mark('mappa: creazione');
   mountMap($('#screen-map'));
+  mark('mappa: creata');
   showTab('map');
   try { const bs = document.getElementById('bootsplash'); if (bs) bs.remove(); } catch {}
+  mark('schermata verde rimossa');
   startWatch();
   await Promise.race([tracksP, new Promise((r) => setTimeout(r, 3000))]);
+  mark('tracce pronte (o timeout 3s)');
   recover();
   initWalked();
+  mark('walked avviato');
   wpsP.then(() => bus.emit('wp:changed'));
   const idle = (fn, ms) => setTimeout(() => { try { fn(); } catch (e) { console.error(e); } }, ms);
   idle(() => ensureMounted('trip'), 600);
@@ -138,12 +145,14 @@ async function boot() {
   idle(() => ensureMounted('fungi'), 2400);
   idle(() => ensureMounted('ai'), 3000);
   setTimeout(() => {
+    mark('servizi differiti: inizio');
     initNotifications();
     initPinned();
     initCoverage();
     initIncomingFiles();
     initMates();
     initCloud();
+    mark('servizi differiti: avviati');
     setTimeout(() => askConsent(openSheet), 2500);
     startCompass();
     setWakeLock(getSettings().keepAwake);

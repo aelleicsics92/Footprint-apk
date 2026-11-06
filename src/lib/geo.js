@@ -1,3 +1,4 @@
+import { mark } from './perf.js';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { bus } from './util.js';
@@ -42,7 +43,9 @@ function setStatus(state, msg) {
 }
 let lastFixAt = 0, dog = null, poll = null, starting = false;
 
+let firstFixMarked = false;
 function onFix(pos) {
+  if (!firstFixMarked) { firstFixMarked = true; mark('GPS: primo fix'); }
   last = norm(pos);
   lastFixAt = Date.now();
   setStatus('ok', '');
@@ -104,7 +107,7 @@ export async function startWatch() {
     }, 20000);
     try {
       App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) restartWatch();
+        if (isActive) { firstFixMarked = false; mark('GPS: app attiva, riavvio watch'); restartWatch(); }
       });
     } catch {}
   }

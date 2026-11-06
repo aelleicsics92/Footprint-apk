@@ -18,7 +18,21 @@ import { openDiary } from './diary.js';
 const wrappedAvailable = () => [11, 0].includes(new Date().getMonth());
 import { openPrices } from './prices.js';
 import { openRadar } from './extras.js';
+import { perfBoots, clearPerf } from '../lib/perf.js';
 import { importTexts } from '../lib/importer.js';
+
+function openPerf() {
+  openPage('Diagnostica avvio', (pg) => {
+    const draw = () => {
+      const b = perfBoots().slice().reverse();
+      const txt = b.map((x) => `== ${new Date(x.at).toLocaleString('it-IT')} ==\n` + x.marks.map((m) => `${String(m[0]).padStart(6)} ms  ${m[1]}`).join('\n')).join('\n\n');
+      pg.body.innerHTML = `<div style="padding:12px 14px"><div class="row gap" style="margin-bottom:10px"><button class="btn primary grow" id="pf-copy">Copia</button><button class="btn ghost grow" id="pf-clr">Azzera</button></div><p class="muted" style="font-size:.8rem;margin:0 0 8px">Tempi in ms dall'avvio dell'app. Dopo una riapertura lenta apri qui e mandami uno screenshot (tocca "Copia" per il testo).</p><pre style="white-space:pre-wrap;font-size:.7rem;line-height:1.35;margin:0">${esc(txt || 'Nessun dato ancora')}</pre></div>`;
+      pg.body.querySelector('#pf-copy').onclick = async () => { try { await navigator.clipboard.writeText(txt); toast('Copiato'); } catch { toast('Copia non riuscita'); } };
+      pg.body.querySelector('#pf-clr').onclick = () => { clearPerf(); draw(); };
+    };
+    draw();
+  });
+}
 
 function openDog() {
   openPage('Profilo cane', (pg) => {
@@ -65,6 +79,7 @@ export function mountMore(el) {
       ['sparkle', 'Footprint Wrapped', wrappedAvailable() ? 'Il riepilogo della tua stagione è pronto' : 'Riepilogo della stagione a storie', () => import('./wrapped.js').then((m) => m.openWrapped(new Date().getFullYear()))],
       ['euro', 'Prezzi tartufo', 'Quotazioni aggiornate al cavatore', openPrices],
       ['paw', 'Profilo cane', 'Microchip, vaccini, antiparassitario', openDog],
+      ['gauge', 'Diagnostica avvio', 'Tempi di avvio e riapertura (temporanea)', openPerf],
     ]],
     ['I MIEI DATI E MAPPE', [
       ['pinplus', 'I miei waypoint', 'Punti e fungaie salvate', openWaypointList],
