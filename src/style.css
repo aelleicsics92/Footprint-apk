@@ -642,3 +642,6 @@ html.night .set-row.clk.sel{background:#243a2c}
 .msearch-res button b{display:block}.msearch-res button small{color:var(--muted)}
 .leaflet-tooltip.it-town{font-size:.56rem;font-weight:600;color:#55544e}
 .leaflet-tooltip.it-riv{font-size:.56rem;font-weight:600;font-style:italic;color:#3c7aa8}
+
+.fp-inp{display:block;width:100%;padding:12px 14px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;font:inherit;font-size:1rem;color:var(--ink);outline:none;-webkit-appearance:none}
+.fp-inp:focus{border-color:var(--forest)}

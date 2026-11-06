@@ -642,15 +642,18 @@ function openSettings() {
       <div class="sec-title" style="font-size:1.1rem">Traccia GPS</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Schermo sempre acceso</b><small>Utile per consultare la mappa (consuma batteria)</small></div><label class="switch"><input type="checkbox" data-k="keepAwake" ${s.keepAwake ? 'checked' : ''}><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Barra rapida e avvio istantaneo</b><small>Notifica fissa che tiene l'app viva per riaprirla subito. Nessun GPS acceso, consumo minimo</small></div><label class="switch"><input type="checkbox" data-k="keepAlive" ${s.keepAlive !== false ? 'checked' : ''}><i></i></label></div></div>
+      <div class="sec-title" style="font-size:1.1rem">Condivisione con i compagni</div>
+      <div class="list"><div class="set-row"><div class="ti"><b>Condividi posizione dell'auto</b><small id="cl-pst">Quando salvi il parcheggio, la posizione dell'auto è visibile solo a chi inviti (link o Telegram)</small></div><label class="switch"><input type="checkbox" id="cl-psw"><i></i></label></div>
+      <div id="cl-pbox" style="display:none;padding:14px;border-bottom:1px solid var(--paper2)">
+        <b style="display:block;font-weight:600">Nome visualizzato (Radar Compagni)</b>
+        <small class="muted" style="display:block;margin:2px 0 8px">Il nome con cui ti vedranno i tuoi compagni sulla mappa</small>
+        <input id="cl-pname" class="fp-inp" placeholder="Es. Ale" maxlength="30" onfocus="this.select()">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="chip" id="cl-pinv">Invita un contatto</button><button class="chip" id="cl-prev">Revoca accessi</button></div>
+        <small class="muted" id="cl-pcnt" style="display:block;margin-top:6px"></small>
+      </div></div>
       <div class="sec-title" style="font-size:1.1rem">Backup online</div>
       <div class="list"><div class="set-row"><div class="ti"><b>Salva una copia online</b><small id="cl-st">Waypoint, tracce, foto e memo, ogni notte alle 02:00, o alla riapertura</small></div><label class="switch"><input type="checkbox" id="cl-sw"><i></i></label></div>
       <div class="set-row"><div class="ti"><b>Mostra sulla mappa i dati degli altri</b><small id="cl-ost">Sempre usati anche dalla previsione; qui li mostri sulla mappa</small></div><label class="switch"><input type="checkbox" id="cl-osw"><i></i></label></div>
-      <div class="set-row"><div class="ti"><b>Condividi posizione dell'auto</b><small id="cl-pst">Quando salvi il parcheggio, la posizione dell'auto è visibile solo a chi inviti (link o Telegram)</small></div><label class="switch"><input type="checkbox" id="cl-psw"><i></i></label></div>
-      <div id="cl-pbox" style="display:none;padding:4px 0 8px">
-        <input id="cl-pname" class="inp" placeholder="Il tuo nome (es. Ale)" maxlength="30" onfocus="this.select()" style="width:100%;margin-bottom:8px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip" id="cl-pinv">Invita un contatto</button><button class="chip" id="cl-prev">Revoca accessi</button></div>
-        <small class="muted" id="cl-pcnt"></small>
-      </div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-now">Esegui backup ora</button> <button class="chip" id="cl-res">Ripristina dal cloud</button></div></div>
       <div class="set-row" id="cl-acc" style="display:block"></div>
       <div class="set-row"><div class="ti"><button class="chip" id="cl-priv">Informativa privacy</button></div></div></div>
