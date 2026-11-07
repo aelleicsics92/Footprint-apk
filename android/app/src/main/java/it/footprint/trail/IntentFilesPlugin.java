@@ -37,6 +37,18 @@ public class IntentFilesPlugin extends Plugin {
     public void load() { inst = this; }
 
     @PluginMethod
+    public void kickRender(PluginCall call) {
+        try {
+            final android.webkit.WebView w = getBridge().getWebView();
+            getActivity().runOnUiThread(() -> {
+                w.setVisibility(android.view.View.INVISIBLE);
+                w.post(() -> { w.setVisibility(android.view.View.VISIBLE); w.invalidate(); });
+            });
+        } catch (Exception ignore) {}
+        call.resolve();
+    }
+
+    @PluginMethod
     public void bootInfo(PluginCall call) {
         JSObject o = new JSObject();
         o.put("sinceProc", SystemClock.uptimeMillis() - Process.getStartUptimeMillis());

@@ -1,5 +1,6 @@
 import './style.css';
 import { mark } from './lib/perf.js';
+import { initRenderKick } from './lib/renderkick.js';
 import { initWidgetSync } from './lib/widgetsync.js';
 import { openSOS } from './ui/sos.js';
 import { saveParking, openNewWaypoint, getWaypoints } from './lib/waypoints.js';
@@ -62,6 +63,7 @@ function showTab(id) {
 
 async function boot() {
   mark('boot: inizio');
+  initRenderKick();
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (Capacitor.isNativePlatform()) {

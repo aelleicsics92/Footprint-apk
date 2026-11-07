@@ -21,6 +21,18 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    // dopo lunghi periodi in background alcuni telefoni non ridisegnano la WebView fino al primo tocco: forziamo il ridisegno
+    @Override
+    public void onResume() {
+        super.onResume();
+        try {
+            final android.webkit.WebView w = getBridge().getWebView();
+            w.onResume();
+            w.resumeTimers();
+            for (int d : new int[]{0, 250, 800, 2000}) w.postDelayed(() -> { w.invalidate(); w.requestLayout(); }, d);
+        } catch (Exception ignore) {}
+    }
+
     @Override
     public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
         if (IntentFilesPlugin.volumeKey && keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
