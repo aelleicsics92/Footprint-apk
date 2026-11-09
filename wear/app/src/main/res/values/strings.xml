@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Footprint</string>
+    <string name="notif_channel">Tracciamento</string>
+    <string name="notif_text">GPS attivo</string>
+</resources>
