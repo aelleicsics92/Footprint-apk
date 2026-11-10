@@ -428,6 +428,8 @@ public class IntentFilesPlugin extends Plugin {
     public void watchSend(final PluginCall call) {
         final String cfg = call.getString("config", "");
         final String wps = call.getString("wps", "");
+        final String cmd = call.getString("cmd", "");
+        final String tracks = call.getString("tracks", "");
         new Thread(() -> {
             try {
                 Context c = getContext();
@@ -446,9 +448,63 @@ public class IntentFilesPlugin extends Plugin {
                     r.getDataMap().putAsset("data", Asset.createFromBytes(bos.toByteArray()));
                     Tasks.await(dc.putDataItem(r.asPutDataRequest()));
                 }
+                if (!cmd.isEmpty()) {
+                    PutDataMapRequest r = PutDataMapRequest.create("/fp/cmd");
+                    r.getDataMap().putString("json", cmd);
+                    Tasks.await(dc.putDataItem(r.asPutDataRequest().setUrgent()));
+                }
+                if (!tracks.isEmpty()) {
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    GZIPOutputStream g = new GZIPOutputStream(bos);
+                    g.write(tracks.getBytes("UTF-8"));
+                    g.close();
+                    PutDataMapRequest r = PutDataMapRequest.create("/fp/tracks");
+                    r.getDataMap().putAsset("data", Asset.createFromBytes(bos.toByteArray()));
+                    r.getDataMap().putLong("ts", System.currentTimeMillis());
+                    Tasks.await(dc.putDataItem(r.asPutDataRequest()));
+                }
                 List<Node> nodes = Tasks.await(Wearable.getNodeClient(c).getConnectedNodes());
                 JSObject o = new JSObject();
                 o.put("nodes", nodes.size());
+                call.resolve(o);
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()));
+            }
+        }).start();
+    }
+
+    /** Posizione e traccia in tempo reale pubblicate dal watch (/fp/live). */
+    @PluginMethod
+    public void watchLive(final PluginCall call) {
+        new Thread(() -> {
+            try {
+                Context c = getContext();
+                DataClient dc = Wearable.getDataClient(c);
+                String json = "", csv = "";
+                Uri u = new Uri.Builder().scheme("wear").path("/fp/live").build();
+                DataItemBuffer buf = Tasks.await(dc.getDataItems(u));
+                try {
+                    for (DataItem it : buf) {
+                        com.google.android.gms.wearable.DataMap m = DataMapItem.fromDataItem(it).getDataMap();
+                        json = m.getString("json", "");
+                        Asset a = m.getAsset("track");
+                        if (a != null) {
+                            DataClient.GetFdForAssetResponse r = Tasks.await(dc.getFdForAsset(a));
+                            java.util.zip.GZIPInputStream g = new java.util.zip.GZIPInputStream(r.getInputStream());
+                            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                            byte[] b = new byte[8192];
+                            int n;
+                            while ((n = g.read(b)) > 0) bo.write(b, 0, n);
+                            csv = bo.toString("UTF-8");
+                            g.close();
+                        }
+                    }
+                } finally {
+                    buf.release();
+                }
+                JSObject o = new JSObject();
+                o.put("json", json);
+                o.put("csv", csv);
                 call.resolve(o);
             } catch (Exception e) {
                 call.reject(String.valueOf(e.getMessage()));

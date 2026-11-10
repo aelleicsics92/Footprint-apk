@@ -4,7 +4,7 @@ import { getSettings } from './store.js';
 import { bus } from './util.js';
 import { toast } from './ui.js';
 import { getWaypoints, getWaypoint, addWaypoint, removeWaypoint } from './waypoints.js';
-import { saveTrack } from './track.js';
+import { saveTrack, getTracks, loadTrackPoints } from './track.js';
 import { buildTrack } from './gpsio.js';
 
 export const WATCH_MAX_ICONS = 12;
@@ -38,6 +38,66 @@ export async function sendToWatch({ config = false, wps = true } = {}) {
   if (wps) payload.wps = JSON.stringify(wpList());
   const r = await IF().watchSend(payload);
   return r && typeof r.nodes === 'number' ? r.nodes : null;
+}
+
+// Comando per il watch (es. elimina una mappa)
+export async function sendCmd(cmd) {
+  if (!Capacitor.isNativePlatform()) return null;
+  const r = await IF().watchSend({ cmd: JSON.stringify({ ...cmd, ts: Date.now() }) });
+  return r && typeof r.nodes === 'number' ? r.nodes : null;
+}
+
+// Tracce salvate (le ultime 30, semplificate) da mostrare sulla mappa del watch
+export async function sendTracks() {
+  if (!Capacitor.isNativePlatform()) return null;
+  const out = [];
+  for (const t of getTracks().slice(0, 30)) {
+    const pts = (await loadTrackPoints(t.id)).filter((q) => q && isFinite(q[0]) && isFinite(q[1]));
+    if (pts.length < 2) continue;
+    const step = Math.ceil(pts.length / 250);
+    const p = [];
+    for (let i = 0; i < pts.length; i += step) p.push(+pts[i][0].toFixed(5), +pts[i][1].toFixed(5));
+    const l = pts[pts.length - 1];
+    if ((pts.length - 1) % step) p.push(+l[0].toFixed(5), +l[1].toFixed(5));
+    out.push({ p });
+  }
+  const r = await IF().watchSend({ tracks: JSON.stringify(out) });
+  return r && typeof r.nodes === 'number' ? r.nodes : null;
+}
+
+// Traccia in tempo reale dal watch (null se non sta registrando)
+export async function watchLive() {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    const r = await IF().watchLive();
+    const j = r && r.json ? JSON.parse(r.json) : null;
+    if (!j || !j.on || Date.now() - j.ts > 150000) return null;
+    const pts = String(r.csv || '').split('\n').filter(Boolean).map((l) => l.split(',').map(Number)).filter((a) => isFinite(a[0]) && isFinite(a[1]));
+    return { ...j, pts };
+  } catch { return null; }
+}
+
+let liveLayer = null, liveTimer = null;
+export function startLiveLayer(map, L) {
+  if (!Capacitor.isNativePlatform() || liveTimer) return;
+  const tick = async () => {
+    if (document.visibilityState !== 'visible') return;
+    const d = await watchLive();
+    if (!d) {
+      if (liveLayer) { map.removeLayer(liveLayer); liveLayer = null; }
+      return;
+    }
+    if (!liveLayer) liveLayer = L.layerGroup().addTo(map);
+    liveLayer.clearLayers();
+    if (d.pts.length > 1) L.polyline(d.pts, { color: '#ff7a00', weight: 5, opacity: 0.9 }).addTo(liveLayer);
+    if (isFinite(d.lat)) {
+      L.circleMarker([d.lat, d.lon], { radius: 9, color: '#fff', weight: 3, fillColor: '#ff7a00', fillOpacity: 1 })
+        .bindTooltip('Watch ' + ((d.dist || 0) / 1000).toFixed(2) + ' km', { permanent: true, direction: 'top', offset: [0, -8] })
+        .addTo(liveLayer);
+    }
+  };
+  tick();
+  liveTimer = setInterval(tick, 10000);
 }
 
 let timer = null, pendingCfg = false;
@@ -104,6 +164,9 @@ export async function pullWatch() {
 export function initWatchSync() {
   if (!Capacitor.isNativePlatform()) return;
   bus.on('wp:changed', () => queueSend(false, 4000));
+  let tt = null;
+  bus.on('tracks:changed', () => { clearTimeout(tt); tt = setTimeout(() => sendTracks().catch(() => {}), 5000); });
+  setTimeout(() => sendTracks().catch(() => {}), 9000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') pullWatch();
   });

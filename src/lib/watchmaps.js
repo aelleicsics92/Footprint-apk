@@ -4,6 +4,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { tileStore } from './store.js';
 import { tileRange, tileKey, SOURCES, countTiles } from './offline.js';
+import { createLabelRenderer } from './reflayer.js';
 
 const IF = () => (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
 
@@ -143,6 +144,27 @@ export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
   try { await Filesystem.deleteFile({ path, directory: Directory.Cache }); } catch {}
   const zip = new ZipOut(path);
   await zip.add('meta.json', new TextEncoder().encode(JSON.stringify({ id: a.id, name: a.name })));
+  // satellite: si incollano i nomi (paesi, monti, acque) sopra ogni tile
+  let lab = null, cv = null, cx = null;
+  if (src === 'sat') {
+    try {
+      lab = await createLabelRenderer(512);
+      cv = document.createElement('canvas');
+      cv.width = cv.height = 256;
+      cx = cv.getContext('2d');
+    } catch { lab = null; }
+  }
+  const withLabels = async (blob, z, x, y) => {
+    try {
+      const bmp = await createImageBitmap(blob);
+      cx.clearRect(0, 0, 256, 256);
+      cx.drawImage(bmp, 0, 0, 256, 256);
+      if (bmp.close) bmp.close();
+      await lab.draw(cx, z, x, y);
+      const out = await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.82));
+      return out ? { buf: new Uint8Array(await out.arrayBuffer()), ext: 'jpg' } : null;
+    } catch { return null; }
+  };
   let done = 0, have = 0;
   for (let z = a.zmin; z <= zl; z++) {
     const r = tileRange(a.bounds, z);
@@ -151,14 +173,20 @@ export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
         done++;
         const blob = await get(tileKey(src, z, x, y), tileStore);
         if (blob) {
-          const buf = new Uint8Array(await blob.arrayBuffer());
-          await zip.add(`${z}/${x}/${y}.${extOf(blob.type)}`, buf);
+          let buf = null, ext = extOf(blob.type);
+          if (lab) {
+            const r = await withLabels(blob, z, x, y);
+            if (r) { buf = r.buf; ext = r.ext; }
+          }
+          if (!buf) buf = new Uint8Array(await blob.arrayBuffer());
+          await zip.add(`${z}/${x}/${y}.${ext}`, buf);
           have++;
         }
         if (done % 60 === 0) onPhase && onPhase('prep', done, total);
       }
     }
   }
+  if (lab) lab.remove();
   if (!have) throw new Error('nessun tile salvato per questa zona e questo strato');
   await zip.finish();
   onPhase && onPhase('send', total, total);

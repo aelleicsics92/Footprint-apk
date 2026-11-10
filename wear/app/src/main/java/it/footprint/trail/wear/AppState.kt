@@ -79,6 +79,11 @@ object AppState {
     var lastType by mutableStateOf("porcino")
     val icons = mutableStateListOf<String>()
     var offM by mutableIntStateOf(30)
+    var rec by mutableStateOf(true)
+    var recConfirm = 0L
+    var crumbReset = false
+    var showSaved by mutableStateOf(true)
+    val saved = mutableStateListOf<List<LL>>()
     var targetId by mutableStateOf<String?>(null)
 
     fun load(c: Context) {
@@ -93,6 +98,8 @@ object AppState {
         saveKey = sp.getInt("saveKey", KeyEvent.KEYCODE_STEM_2)
         altKey = sp.getInt("altKey", KeyEvent.KEYCODE_STEM_1)
         offM = sp.getInt("offM", 30)
+        rec = sp.getBoolean("rec", true)
+        showSaved = sp.getBoolean("showSaved", true)
         icons.clear()
         icons.addAll((sp.getString("icons", null) ?: "").split(",").filter { it.isNotBlank() }.ifEmpty { Labels.defaults })
         lastType = sp.getString("lastType", null) ?: icons.first()

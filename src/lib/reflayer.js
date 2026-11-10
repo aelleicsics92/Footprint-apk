@@ -184,3 +184,38 @@ export async function addRefLayer(lmap, onFail, opts = {}) {
   };
   return api;
 }
+
+
+// Rende i nomi (stesso stile della mappa satellitare) dentro un tile: serve per l'invio al watch, che non ha il livello vettoriale
+export async function createLabelRenderer(size = 512) {
+  const maplibregl = (await import('maplibre-gl')).default;
+  registerProtocols(maplibregl);
+  const base = baseStyle(12);
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;left:-9999px;top:0;width:${size}px;height:${size}px;pointer-events:none`;
+  document.body.appendChild(el);
+  const ml = new maplibregl.Map({
+    container: el, interactive: false, attributionControl: false, fadeDuration: 0, renderWorldCopies: false, pixelRatio: 1,
+    canvasContextAttributes: { preserveDrawingBuffer: true },
+    center: [0, 0], zoom: 1,
+    style: { version: 8, glyphs: base.glyphs, sources: base.sources, layers: labelLayers(base.key) },
+  });
+  await new Promise((res) => (ml.loaded() ? res() : ml.once('load', res)));
+  const n2lng = (x, z) => (x / 2 ** z) * 360 - 180;
+  const n2lat = (y, z) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
+  return {
+    // disegna i nomi del tile z/x/y sul canvas 2D ctx (256x256)
+    async draw(ctx, z, x, y) {
+      ml.jumpTo({ center: [n2lng(x + 0.5, z), n2lat(y + 0.5, z)], zoom: z - 1 });
+      await new Promise((res) => {
+        const t = setTimeout(res, 4000);
+        const done = () => { clearTimeout(t); res(); };
+        ml.once('idle', done);
+        ml.triggerRepaint();
+      });
+      const o = (size - 256) / 2;
+      ctx.drawImage(ml.getCanvas(), o, o, 256, 256, 0, 0, 256, 256);
+    },
+    remove() { try { ml.remove(); } catch {} el.remove(); },
+  };
+}

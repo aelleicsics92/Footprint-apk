@@ -171,6 +171,7 @@ export function mountMap(el) {
   applyForecast();
   applyStorm();
   wpGroup = L.layerGroup().addTo(map);
+  import('../lib/watchsync.js').then((m) => m.startLiveLayer(map, L)).catch(() => {});
   map.on('moveend zoomend', scheduleWaypoints);
   shownGroup = L.layerGroup().addTo(map);
   mateGroup = L.layerGroup().addTo(map);

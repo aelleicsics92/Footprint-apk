@@ -4,7 +4,7 @@ import { getSettings, setSetting } from '../lib/store.js';
 import { WP_ICONS, WP_BY_ID } from '../lib/icons.js';
 import { esc, bus } from '../lib/util.js';
 import { listAreas, fmtMB } from '../lib/offline.js';
-import { watchCfg, sendToWatch, queueSend, watchInfo, WATCH_DEFAULT_ICONS, WATCH_MAX_ICONS } from '../lib/watchsync.js';
+import { watchCfg, sendCmd, sendTracks, sendToWatch, queueSend, watchInfo, WATCH_DEFAULT_ICONS, WATCH_MAX_ICONS } from '../lib/watchsync.js';
 import { estimateWatchBytes, estimateMinutes, pickSource, sendAreaToWatch } from '../lib/watchmaps.js';
 
 let TAB = 0; // scheda aperta: 0 icone, 1 mappe, 2 hardware
@@ -15,7 +15,7 @@ const sel = (k, v, opts) => `<select data-k="${k}" ${FULL} onfocus="this.select&
 // riga di form: titolo e descrizione in alto a tutta larghezza, controllo sotto a tutta larghezza
 const row = (t, d, ctl) => `<div class="set-row col"><div class="ti"><b>${t}</b>${d ? `<small>${d}</small>` : ''}</div>${ctl}</div>`;
 // mappe: strato e dettaglio fissi, niente scelte
-const MAP_SRC = 'topo', MAP_Z = 16;
+const MAP_SRC = 'sat', MAP_Z = 16;
 const SRC_NAME = { sat: 'Satellite', topo: 'Topografica' };
 
 export function openWatch() {
@@ -120,14 +120,14 @@ export function openWatch() {
               const prog = mine ? (sending.phase === 'prep' ? `Preparo ${Math.round((sending.done / (sending.total || 1)) * 100)}%` : 'Invio in corso...') : '';
               const sent = st && st.maps && st.maps[a.id] != null;
               const can = !!sr && info.nodes.length > 0 && !busy;
-              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
+              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !busy ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
             })
             .join('')}</div>`
         : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono.</p></div>`;
       return `<div style="padding:0 14px">${storage}
         <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${list}
         <button class="btn primary big" id="w-dl" style="margin-top:14px">+ Scarica nuova mappa</button>
-        <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per le zone grandi tieni il watch vicino. Le mappe si cancellano dal menu del watch.</p></div>`;
+        <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per le zone grandi tieni il watch vicino. Con il satellite sono inclusi i nomi di paesi, monti e acque (la preparazione richiede qualche minuto). Puoi eliminarle dal watch con «Elimina dal Watch».</p></div>`;
     };
 
     const startSend = async (a) => {
@@ -215,7 +215,7 @@ export function openWatch() {
     };
 
     // ---------- eventi ----------
-    pg.body.addEventListener('click', (e) => {
+    pg.body.addEventListener('click', async (e) => {
       const tab = e.target.closest('[data-tab]');
       if (tab) {
         TAB = Number(tab.dataset.tab);
@@ -253,6 +253,19 @@ export function openWatch() {
         leavePages();
         bus.emit('nav:tab', 'map');
         setTimeout(() => bus.emit('map:download'), 250);
+      } else if (e.target.closest('[data-del]')) {
+        const a = areas.find((z) => z.id === e.target.closest('[data-del]').dataset.del);
+        if (a && (await confirmBox(`Eliminare <b>${esc(a.name)}</b> dal watch?`, { ok: 'Elimina' }))) {
+          try {
+            await sendCmd({ op: 'delmap', id: a.id });
+            if (info.status && info.status.maps) delete info.status.maps[a.id];
+            delete pendingAck[a.id];
+            toast('Richiesta inviata: il watch elimina la mappa');
+          } catch (err) {
+            toast('Non riuscito: ' + ((err && err.message) || err));
+          }
+          paintPane();
+        }
       } else if (e.target.closest('[data-send]')) {
         const a = areas.find((z) => z.id === e.target.closest('[data-send]').dataset.send);
         if (a) startSend(a);

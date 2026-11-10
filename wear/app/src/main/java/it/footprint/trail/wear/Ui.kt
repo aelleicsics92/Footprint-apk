@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -305,6 +307,20 @@ private fun DrawScope.drawMap(p: Pal, paint: android.graphics.Paint) {
         }
     }
 
+    // Tracce salvate sul telefono
+    if (AppState.showSaved) {
+        for (st in AppState.saved) {
+            val path = Path()
+            var first = true
+            for (pt in st) {
+                val x = sx(pt.lon)
+                val y = sy(pt.lat)
+                if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
+            }
+            drawPath(path, Color(0xFFFFA726).copy(alpha = 0.8f), style = Stroke(width = 3f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+
     // Traccia
     val tr = AppState.track
     if (tr.size > 1) {
@@ -375,7 +391,7 @@ fun TripScreen(p: Pal) {
     val elapsed = if (AppState.startTs > 0) System.currentTimeMillis() - AppState.startTs else 0L
 
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 30.dp),
+        Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -398,9 +414,16 @@ fun TripScreen(p: Pal) {
                 Canvas(Modifier.size(34.dp)) { arrow(Offset(size.width / 2f, size.height / 2f), 14f, p.sec, rel) }
                 T(" " + Geo.fmtDist(d), p.sec, 22, true)
             }
-            T(nt.name, p.dim, 12)
-        } else {
-            T("nessuna destinazione", p.dim, 13)
+        }
+        val rec = AppState.rec
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(50))
+                .background(if (rec) p.dim.copy(alpha = 0.35f) else p.main)
+                .clickable { Controls.recTap() }
+                .padding(horizontal = 18.dp, vertical = 7.dp)
+        ) {
+            T(if (rec) "■ FINE E INVIA" else "● AVVIA TRACCIA", if (rec) p.text else Color.Black, 13, true)
         }
     }
 }

@@ -54,7 +54,14 @@ object Status {
         AppState.sp.edit().putString("maps", o.toString()).apply()
     }
 
+    fun removeMap(id: String) {
+        val o = JSONObject(AppState.sp.getString("maps", "{}") ?: "{}")
+        o.remove(id)
+        AppState.sp.edit().putString("maps", o.toString()).apply()
+    }
+
     fun clearMaps() {
         AppState.sp.edit().remove("maps").apply()
+        File(FpApp.ctx.filesDir, "maps").deleteRecursively()
     }
 }

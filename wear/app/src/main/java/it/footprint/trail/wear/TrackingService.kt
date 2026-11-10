@@ -51,6 +51,7 @@ class TrackingService : Service(), SensorEventListener {
     private var stillSince = 0L
     private var accEma = 0f
     private var lastDecl = 0L
+    private var lastLive = 0L
 
     private val cb = object : LocationCallback() {
         override fun onLocationResult(r: LocationResult) {
@@ -70,7 +71,7 @@ class TrackingService : Service(), SensorEventListener {
         sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL, 2_000_000)
         }
-        if (AppState.startTs == 0L) AppState.startTs = System.currentTimeMillis()
+        if (AppState.rec && AppState.startTs == 0L) AppState.startTs = System.currentTimeMillis()
         request(2000L)
     }
 
@@ -163,6 +164,10 @@ class TrackingService : Service(), SensorEventListener {
         if (!AppState.still && f.acc <= 30f) crumb(f)
         if (f.speed > AppState.maxSpeed && !AppState.still) AppState.maxSpeed = f.speed
 
+        if (AppState.rec && now - lastLive > 20_000) {
+            lastLive = now
+            AppState.scope.launch(Dispatchers.IO) { Sync.pushLive(applicationContext, true) }
+        }
         checkProximity(f)
         if (AppState.returnMode) updateReturn(f, now)
         adaptRate()
@@ -170,6 +175,12 @@ class TrackingService : Service(), SensorEventListener {
 
     /** Breadcrumb ogni 5 m: traccia per il rientro, distanza, dislivello (auto-pause quando fermo). */
     private fun crumb(f: Fix) {
+        if (!AppState.rec) return
+        if (AppState.crumbReset) {
+            AppState.crumbReset = false
+            lastCrumb = null
+            altRef = Double.NaN
+        }
         val last = lastCrumb
         if (last != null && Geo.dist(last.lat, last.lon, f.lat, f.lon) < 5.0) return
         if (last != null) AppState.distance += Geo.dist(last.lat, last.lon, f.lat, f.lon)

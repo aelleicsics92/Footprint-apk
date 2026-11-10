@@ -33,6 +33,92 @@ object Sync {
     const val TILES = "/fp/tiles"
     const val CONFIG = "/fp/config"
     const val BULK = "/fp/wps"
+    const val TRACKS = "/fp/tracks"
+    const val CMD = "/fp/cmd"
+    const val LIVE = "/fp/live"
+
+    /** Posizione e traccia in tempo reale per il telefono. */
+    suspend fun pushLive(ctx: Context, on: Boolean) {
+        try {
+            val f = AppState.fix
+            val o = org.json.JSONObject()
+            o.put("on", on)
+            o.put("ts", System.currentTimeMillis())
+            o.put("dist", AppState.distance)
+            o.put("start", AppState.startTs)
+            if (f != null) { o.put("lat", f.lat); o.put("lon", f.lon); o.put("alt", f.alt) }
+            val pts = AppState.track.toList()
+            val step = (pts.size / 500) + 1
+            val sb = StringBuilder()
+            pts.forEachIndexed { i, p -> if (i % step == 0 || i == pts.size - 1) sb.append(p.lat).append(',').append(p.lon).append('\n') }
+            val bos = ByteArrayOutputStream()
+            GZIPOutputStream(bos).use { it.write(sb.toString().toByteArray()) }
+            val req = PutDataMapRequest.create(LIVE)
+            req.dataMap.putString("json", o.toString())
+            req.dataMap.putAsset("track", Asset.createFromBytes(bos.toByteArray()))
+            Wearable.getDataClient(ctx).putDataItem(req.asPutDataRequest()).await()
+        } catch (e: Exception) {
+        }
+    }
+
+    /** Tracce salvate sul telefono, da mostrare sulla mappa del watch. */
+    suspend fun applyTracks(ctx: Context, asset: Asset) {
+        val fd = Wearable.getDataClient(ctx).getFdForAsset(asset).await()
+        val text = java.util.zip.GZIPInputStream(fd.inputStream).bufferedReader().use { it.readText() }
+        File(ctx.filesDir, "tracks.json").writeText(text)
+        val list = parseTracks(text)
+        withContext(Dispatchers.Main) {
+            AppState.saved.clear()
+            AppState.saved.addAll(list)
+            Controls.toast("Tracce dal telefono: ${list.size}")
+        }
+    }
+
+    fun parseTracks(text: String): List<List<LL>> {
+        val arr = org.json.JSONArray(text)
+        val out = ArrayList<List<LL>>()
+        for (i in 0 until arr.length()) {
+            val a = arr.getJSONObject(i).getJSONArray("p")
+            val l = ArrayList<LL>(a.length() / 2)
+            var j = 0
+            while (j + 1 < a.length()) { l.add(LL(a.getDouble(j), a.getDouble(j + 1))); j += 2 }
+            if (l.size > 1) out.add(l)
+        }
+        return out
+    }
+
+    /** Comandi dal telefono (es. elimina una mappa). Ogni comando ha un ts: i DataItem rimandati non si rieseguono. */
+    suspend fun applyCmd(ctx: Context, json: String) {
+        val o = org.json.JSONObject(json)
+        val ts = o.optLong("ts")
+        if (ts <= AppState.sp.getLong("cmdTs", 0L)) return
+        AppState.sp.edit().putLong("cmdTs", ts).apply()
+        when (o.optString("op")) {
+            "delmap" -> {
+                val id = o.optString("id")
+                val lst = File(File(ctx.filesDir, "maps"), "$id.lst")
+                if (lst.exists()) {
+                    val root = TileCache.dir.canonicalFile
+                    lst.readLines().forEach { rel ->
+                        val f = File(root, rel).canonicalFile
+                        if (f.path.startsWith(root.path + File.separator)) f.delete()
+                    }
+                    lst.delete()
+                }
+                Status.removeMap(id)
+                withContext(Dispatchers.Main) {
+                    TileCache.scan()
+                    Controls.toast("Mappa eliminata")
+                }
+            }
+            "clearmaps" -> {
+                TileCache.clear()
+                Status.clearMaps()
+                withContext(Dispatchers.Main) { Controls.toast("Mappe eliminate") }
+            }
+        }
+        Status.push(ctx)
+    }
 
     suspend fun push(ctx: Context, w: Waypoint) {
         try {
@@ -178,6 +264,8 @@ class SyncService : WearableListenerService() {
         val items = ArrayList<Waypoint>()
         var cfg: String? = null
         var bulk: Asset? = null
+        var tracks: Asset? = null
+        var cmd: String? = null
         for (e in events) {
             if (e.type != DataEvent.TYPE_CHANGED) continue
             val path = e.dataItem.uri.path ?: continue
@@ -185,6 +273,8 @@ class SyncService : WearableListenerService() {
             when {
                 path == Sync.CONFIG -> cfg = map.getString("json")
                 path == Sync.BULK -> bulk = map.getAsset("data")
+                path == Sync.TRACKS -> tracks = map.getAsset("data")
+                path == Sync.CMD -> cmd = map.getString("json")
                 path.startsWith(Sync.WP) -> Sync.fromMap(map)?.let { items.add(it) }
             }
         }
@@ -192,6 +282,8 @@ class SyncService : WearableListenerService() {
         AppState.scope.launch {
             try { cfg?.let { Sync.applyConfig(it) } } catch (e: Exception) { }
             try { bulk?.let { Sync.applyBulk(ctx, it) } } catch (e: Exception) { }
+            try { tracks?.let { Sync.applyTracks(ctx, it) } } catch (e: Exception) { }
+            try { cmd?.let { Sync.applyCmd(ctx, it) } } catch (e: Exception) { }
             for (w in items) Sync.applyRemote(w)
         }
     }
@@ -211,9 +303,15 @@ class SyncService : WearableListenerService() {
             return
         }
         AppState.scope.launch(Dispatchers.IO) {
-            val (n, metaId) = unzipTiles(tmp, TileCache.dir)
+            val files = ArrayList<String>()
+            val (n, metaId) = unzipTiles(tmp, TileCache.dir, files)
             tmp.delete()
-            if (metaId != null) Status.addMap(metaId, n)
+            if (metaId != null) {
+                Status.addMap(metaId, n)
+                val md = File(filesDir, "maps")
+                md.mkdirs()
+                File(md, "$metaId.lst").writeText(files.joinToString("\n"))
+            }
             withContext(Dispatchers.Main) {
                 TileCache.scan()
                 Controls.toast("Mappe ricevute: $n tile")
@@ -223,7 +321,7 @@ class SyncService : WearableListenerService() {
     }
 
     /** Ritorna (numero di tile, id area dal file meta.json). */
-    private fun unzipTiles(zip: File, dest: File): Pair<Int, String?> {
+    private fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Pair<Int, String?> {
         val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
         val root = dest.canonicalFile
         var n = 0
@@ -242,6 +340,7 @@ class SyncService : WearableListenerService() {
                             f.parentFile?.mkdirs()
                             f.outputStream().use { out -> zin.copyTo(out) }
                             n++
+                            files.add("${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext")
                         }
                     }
                 }

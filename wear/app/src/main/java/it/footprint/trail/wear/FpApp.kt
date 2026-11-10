@@ -19,11 +19,17 @@ class FpApp : Application() {
         AppState.scope.launch {
             val wps = Store.db.allWp()
             val tr = Store.db.loadTrack()
+            val saved = try {
+                val f = java.io.File(filesDir, "tracks.json")
+                if (f.exists()) Sync.parseTracks(f.readText()) else emptyList()
+            } catch (e: Exception) { emptyList() }
             withContext(Dispatchers.Main) {
                 AppState.waypoints.clear()
                 AppState.waypoints.addAll(wps)
                 AppState.track.clear()
                 AppState.track.addAll(tr.map { LL(it.lat, it.lon) })
+                AppState.saved.clear()
+                AppState.saved.addAll(saved)
             }
             Sync.pushAllUnsynced(this@FpApp)
             Status.push(this@FpApp)

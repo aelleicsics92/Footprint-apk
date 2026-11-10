@@ -271,7 +271,8 @@ object Controls {
         MI("tscale", "Mappa: ${AppState.tileScale}x"),
         MI("learnSave", "Assegna SALVA (${keyName(AppState.saveKey)})"),
         MI("learnAlt", "Assegna ALT (${keyName(AppState.altKey)})"),
-        MI("endTrip", "Fine uscita > telefono"),
+        MI("rec", if (AppState.rec) "Ferma traccia > telefono" else "Avvia traccia"),
+        MI("showSaved", "Tracce salvate: ${onOff(AppState.showSaved)}"),
         MI("clearMaps", "Cancella mappe"),
         MI("exit", "Esci e ferma GPS"),
         MI("back", "Torna alla mappa")
@@ -358,7 +359,11 @@ object Controls {
                 AppState.learn = 2
                 toast("Premi il tasto ALT")
             }
-            "endTrip" -> endTrip()
+            "rec" -> if (AppState.rec) endTrip() else startRec()
+            "showSaved" -> {
+                AppState.showSaved = !AppState.showSaved
+                AppState.putBool("showSaved", AppState.showSaved)
+            }
             "clearMaps" -> {
                 TileCache.clear()
                 Status.clearMaps()
@@ -370,16 +375,24 @@ object Controls {
         }
     }
 
-    private fun endTrip() {
-        val now = System.currentTimeMillis()
-        val start = if (AppState.startTs > 0) AppState.startTs else now
-        val d = AppState.distance
-        val up = AppState.ascent
-        val down = AppState.descent
-        val mx = AppState.maxSpeed
+    /** Tocco sul pulsante del computer di viaggio: avvia, oppure (con conferma) termina e invia. */
+    fun recTap() {
+        if (!AppState.rec) {
+            startRec()
+        } else {
+            val now = System.currentTimeMillis()
+            if (now < AppState.recConfirm) {
+                AppState.recConfirm = 0
+                endTrip()
+            } else {
+                AppState.recConfirm = now + 3000
+                toast("Tocca ancora per terminare")
+            }
+        }
+    }
+
+    fun startRec() {
         AppState.scope.launch(Dispatchers.IO) {
-            val pts = Store.db.loadTrack()
-            Sync.pushTrip(ctx, start, d, up, down, mx, pts)
             Store.db.clearTrack()
             withContext(Dispatchers.Main) {
                 AppState.track.clear()
@@ -390,7 +403,41 @@ object Controls {
                 AppState.descent = 0.0
                 AppState.maxSpeed = 0f
                 AppState.startTs = System.currentTimeMillis()
-                toast("Uscita inviata al telefono")
+                AppState.crumbReset = true
+                AppState.rec = true
+                AppState.putBool("rec", true)
+                Haptics.tick()
+                toast("Traccia avviata")
+            }
+            Sync.pushLive(ctx, true)
+        }
+    }
+
+    fun endTrip() {
+        val now = System.currentTimeMillis()
+        val start = if (AppState.startTs > 0) AppState.startTs else now
+        val d = AppState.distance
+        val up = AppState.ascent
+        val down = AppState.descent
+        val mx = AppState.maxSpeed
+        AppState.scope.launch(Dispatchers.IO) {
+            val pts = Store.db.loadTrack()
+            val ok = pts.size > 1
+            if (ok) Sync.pushTrip(ctx, start, d, up, down, mx, pts)
+            Store.db.clearTrack()
+            Sync.pushLive(ctx, false)
+            withContext(Dispatchers.Main) {
+                AppState.track.clear()
+                AppState.returnMode = false
+                AppState.returnNext = null
+                AppState.distance = 0.0
+                AppState.ascent = 0.0
+                AppState.descent = 0.0
+                AppState.maxSpeed = 0f
+                AppState.startTs = 0L
+                AppState.rec = false
+                AppState.putBool("rec", false)
+                toast(if (ok) "Uscita inviata al telefono" else "Traccia vuota, scartata")
             }
         }
     }
