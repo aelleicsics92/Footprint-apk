@@ -177,9 +177,32 @@ object Controls {
 
     // ---- Tasti ----
 
+    private var tripJob: kotlinx.coroutines.Job? = null
+    private var tripPressTs = 0L
+
+    /** Computer di viaggio: doppio clic = avvia/ferma traccia, clic singolo = salva waypoint (dopo 0,35 s). */
+    private fun tripPress() {
+        val now = System.currentTimeMillis()
+        val j = tripJob
+        if (j != null && j.isActive && now - tripPressTs < 350) {
+            j.cancel()
+            tripJob = null
+            if (AppState.rec) endTrip() else startRec()
+            return
+        }
+        tripPressTs = now
+        tripJob = AppState.scope.launch {
+            delay(350)
+            withContext(Dispatchers.Main) {
+                if (AppState.keyMode == 0) instantSave(AppState.lastType) else openWheel()
+            }
+        }
+    }
+
     fun onSavePress() {
         when {
             AppState.wheelOpen -> wheelConfirm()
+            AppState.screen == 1 -> tripPress()
             AppState.screen == 3 || AppState.screen == 4 -> activateSelection()
             AppState.keyMode == 0 -> instantSave(AppState.lastType)
             else -> openWheel()
