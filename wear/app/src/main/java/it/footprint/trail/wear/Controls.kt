@@ -361,6 +361,8 @@ object Controls {
             "endTrip" -> endTrip()
             "clearMaps" -> {
                 TileCache.clear()
+                Status.clearMaps()
+                AppState.scope.launch { Status.push(ctx) }
                 toast("Mappe cancellate")
             }
             "exit" -> AppState.exitRequested = true

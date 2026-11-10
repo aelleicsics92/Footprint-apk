@@ -103,7 +103,7 @@ object Sync {
             if (ic != null && ic.length() > 0) {
                 val l = ArrayList<String>()
                 for (i in 0 until ic.length()) l.add(ic.getString(i))
-                val ten = l.take(10)
+                val ten = l.take(12)
                 AppState.icons.clear()
                 AppState.icons.addAll(ten)
                 AppState.putStr("icons", ten.joinToString(","))
@@ -211,25 +211,31 @@ class SyncService : WearableListenerService() {
             return
         }
         AppState.scope.launch(Dispatchers.IO) {
-            val n = unzipTiles(tmp, TileCache.dir)
+            val (n, metaId) = unzipTiles(tmp, TileCache.dir)
             tmp.delete()
+            if (metaId != null) Status.addMap(metaId, n)
             withContext(Dispatchers.Main) {
                 TileCache.scan()
                 Controls.toast("Mappe ricevute: $n tile")
             }
+            Status.push(applicationContext)
         }
     }
 
-    private fun unzipTiles(zip: File, dest: File): Int {
+    /** Ritorna (numero di tile, id area dal file meta.json). */
+    private fun unzipTiles(zip: File, dest: File): Pair<Int, String?> {
         val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
         val root = dest.canonicalFile
         var n = 0
+        var metaId: String? = null
         ZipInputStream(zip.inputStream().buffered()).use { zin ->
             var e = zin.nextEntry
             while (e != null) {
                 if (!e.isDirectory) {
                     val m = rx.matchEntire(e.name)
-                    if (m != null) {
+                    if (e.name == "meta.json") {
+                        metaId = try { org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8)).optString("id").ifEmpty { null } } catch (x: Exception) { null }
+                    } else if (m != null) {
                         val ext = if (m.groupValues[4] == "jpeg") "jpg" else m.groupValues[4]
                         val f = File(root, "${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext").canonicalFile
                         if (f.path.startsWith(root.path + File.separator)) {
@@ -243,6 +249,6 @@ class SyncService : WearableListenerService() {
                 e = zin.nextEntry
             }
         }
-        return n
+        return Pair(n, metaId)
     }
 }

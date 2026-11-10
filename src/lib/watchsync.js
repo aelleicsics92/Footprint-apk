@@ -7,6 +7,7 @@ import { getWaypoints, getWaypoint, addWaypoint, removeWaypoint } from './waypoi
 import { saveTrack } from './track.js';
 import { buildTrack } from './gpsio.js';
 
+export const WATCH_MAX_ICONS = 12;
 export const WATCH_DEFAULT_ICONS = ['porcino', 'regius', 'galletto', 'ovulo', 'scorzone', 'bianco', 'fungo', 'parcheggio', 'acqua', 'pericolo'];
 const IF = () => (Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -14,7 +15,7 @@ const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 // Configurazione dell'orologio (si imposta dal telefono, il watch la riceve via Bluetooth)
 export function watchCfg() {
   const s = getSettings();
-  const icons = Array.isArray(s.watchIcons) && s.watchIcons.length ? s.watchIcons.slice(0, 10) : WATCH_DEFAULT_ICONS;
+  const icons = Array.isArray(s.watchIcons) && s.watchIcons.length ? s.watchIcons.slice(0, WATCH_MAX_ICONS) : WATCH_DEFAULT_ICONS;
   return {
     icons,
     keyMode: num(s.watchKeyMode, 0),
@@ -48,6 +49,19 @@ export function queueSend(cfg = false, delay = 1500) {
     pendingCfg = false;
     sendToWatch({ config: c, wps: true }).catch(() => {});
   }, delay);
+}
+
+// Orologi collegati e stato pubblicato dal watch (batteria, memoria, mappe presenti)
+export async function watchInfo() {
+  if (!Capacitor.isNativePlatform()) return { nodes: [], status: null };
+  const r = await IF().watchInfo();
+  let nodes = [], status = null;
+  try { nodes = JSON.parse((r && r.nodes) || '[]'); } catch {}
+  try {
+    status = r && r.status ? JSON.parse(r.status) : null;
+    if (status && typeof status.maps === 'string') status.maps = JSON.parse(status.maps || '{}');
+  } catch { status = null; }
+  return { nodes, status };
 }
 
 // Waypoint e uscite fatti col watch: entrano nel database del telefono

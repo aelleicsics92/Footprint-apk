@@ -621,8 +621,9 @@ fun Wheel(p: Pal) {
                 val y = cy + (r * sin(a)).toFloat()
                 val s = i == sel
                 if (!item.cmd) {
-                    drawWpIcon(item.key, x, y, if (s) 64 else 40, null)
-                    if (s) drawCircle(p.main, 38f, Offset(x, y), style = Stroke(width = 4f))
+                    val many = items.size > 14
+                    drawWpIcon(item.key, x, y, if (s) (if (many) 54 else 64) else (if (many) 34 else 40), null)
+                    if (s) drawCircle(p.main, if (many) 33f else 38f, Offset(x, y), style = Stroke(width = 4f))
                 } else {
                     drawCircle(Color(item.color), if (s) 30f else 19f, Offset(x, y))
                     if (s) drawCircle(p.main, 35f, Offset(x, y), style = Stroke(width = 4f))

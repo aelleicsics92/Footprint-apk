@@ -26,6 +26,11 @@ class FpApp : Application() {
                 AppState.track.addAll(tr.map { LL(it.lat, it.lon) })
             }
             Sync.pushAllUnsynced(this@FpApp)
+            Status.push(this@FpApp)
+            while (true) {
+                kotlinx.coroutines.delay(10 * 60_000L)
+                Status.push(this@FpApp)
+            }
         }
     }
 }

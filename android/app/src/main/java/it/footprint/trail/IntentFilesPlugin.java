@@ -30,6 +30,10 @@ import java.util.List;
 import java.util.zip.GZIPOutputStream;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.ChannelClient;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataItemBuffer;
+import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.DataClient;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.PutDataMapRequest;
@@ -460,5 +464,72 @@ public class IntentFilesPlugin extends Plugin {
         r.put("wps", v[0]);
         r.put("trips", v[1]);
         call.resolve(r);
+    }
+
+    /** Orologi collegati (nome, vicino) e ultimo stato pubblicato dal watch (batteria, memoria, mappe). */
+    @PluginMethod
+    public void watchInfo(final PluginCall call) {
+        new Thread(() -> {
+            try {
+                Context c = getContext();
+                JSObject o = new JSObject();
+                org.json.JSONArray arr = new org.json.JSONArray();
+                try {
+                    List<Node> nodes = Tasks.await(Wearable.getNodeClient(c).getConnectedNodes());
+                    for (Node n : nodes) {
+                        org.json.JSONObject j = new org.json.JSONObject();
+                        j.put("name", n.getDisplayName());
+                        j.put("nearby", n.isNearby());
+                        arr.put(j);
+                    }
+                } catch (Exception e) {
+                    o.put("error", String.valueOf(e.getMessage()));
+                }
+                o.put("nodes", arr.toString());
+                String best = "";
+                long bestTs = -1;
+                try {
+                    Uri u = new Uri.Builder().scheme("wear").path("/fp/status").build();
+                    DataItemBuffer buf = Tasks.await(Wearable.getDataClient(c).getDataItems(u));
+                    for (DataItem it : buf) {
+                        String js = DataMapItem.fromDataItem(it).getDataMap().getString("json", "");
+                        long ts = new org.json.JSONObject(js).optLong("ts", 0);
+                        if (ts > bestTs) { bestTs = ts; best = js; }
+                    }
+                    buf.release();
+                } catch (Exception e) {
+                    // nessuno stato ancora pubblicato
+                }
+                o.put("status", best);
+                call.resolve(o);
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()));
+            }
+        }).start();
+    }
+
+    /** Invia un file (ZIP di tile) al watch con un canale Data Layer. */
+    @PluginMethod
+    public void watchSendFile(final PluginCall call) {
+        final String path = call.getString("path", "");
+        new Thread(() -> {
+            try {
+                Context c = getContext();
+                File f = new File(path.startsWith("file://") ? Uri.parse(path).getPath() : path);
+                if (!f.exists()) { call.reject("file mancante"); return; }
+                List<Node> nodes = Tasks.await(Wearable.getNodeClient(c).getConnectedNodes());
+                if (nodes.isEmpty()) { call.reject("nessun orologio collegato"); return; }
+                Node target = nodes.get(0);
+                for (Node n : nodes) if (n.isNearby()) { target = n; break; }
+                ChannelClient cc = Wearable.getChannelClient(c);
+                ChannelClient.Channel ch = Tasks.await(cc.openChannel(target.getId(), "/fp/tiles"));
+                Tasks.await(cc.sendFile(ch, Uri.fromFile(f)));
+                try { Thread.sleep(2000); } catch (InterruptedException ie) {}
+                try { Tasks.await(cc.close(ch)); } catch (Exception ce) {}
+                call.resolve();
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()));
+            }
+        }).start();
     }
 }
