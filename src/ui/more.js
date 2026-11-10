@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { ITALY } from '../data/italy.js';
 import { CITIES, LAKES, RIVERS, TOWNS, RIVERS2 } from '../data/italyfeat.js';
 import { registerPlugin, Capacitor } from '@capacitor/core';
+import { openWatch } from './watch.js';
 import { ico, wpIcon, orderedIcons } from '../lib/icons.js';
 import { esc, bus, fmtDist, fmtDur, fmtDate, uid, haversine } from '../lib/util.js';
 import { lastPos } from '../lib/geo.js';
@@ -92,6 +93,7 @@ export function mountMore(el) {
     ]],
     ['SINCRO, IMPORT E IMPOSTAZIONI', [
       ['nav', 'Strumenti GPS e Garmin', 'Garmin GPSMAP, importa, esporta', gpsHub],
+      ['phone', 'Smartwatch', 'Icone e impostazioni dell\'orologio Wear OS', openWatch],
       ['sliders', 'Impostazioni', 'Traccia, emergenza SOS, AI, bussola', openSettings],
       ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
     ]],

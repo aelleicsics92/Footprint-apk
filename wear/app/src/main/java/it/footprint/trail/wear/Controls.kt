@@ -31,7 +31,8 @@ object Controls {
     private val ctx get() = FpApp.ctx
     var suppressUp = 0
 
-    val wheel: List<WItem> = Types.all.map { WItem(it.id, it.label, it.letter, it.color) } + listOf(
+    /** Voci del menu a ruota: le 10 icone scelte dal telefono + i comandi. */
+    fun wheel(): List<WItem> = AppState.icons.map { WItem(it, Labels.of(it), "", 0xFF000000) } + listOf(
         WItem("cmd_next", "Schermata", ">", 0xFF3B9BD1, true),
         WItem("cmd_voice", "Tag vocale", "V", 0xFF8A5BD6, true),
         WItem("cmd_lock", "Blocco touch", "L", 0xFF3B9BD1, true),
@@ -79,11 +80,12 @@ object Controls {
 
     private fun hhmm(): String = SimpleDateFormat("HH:mm", Locale.ITALY).format(Date())
 
-    fun instantSave(typeId: String) {
-        val t = Types.byId(typeId)
-        AppState.lastType = typeId
-        AppState.putStr("lastType", typeId)
-        saveAt(AppState.bestFix(), t.icon, "${t.prefix} ${hhmm()}", t.label, false)
+    fun instantSave(icon: String) {
+        AppState.lastType = icon
+        AppState.putStr("lastType", icon)
+        val label = Labels.of(icon)
+        val title = if (icon == "parcheggio") "Auto parcheggiata" else "$label ${hhmm()}"
+        saveAt(AppState.bestFix(), icon, title, label, false)
     }
 
     fun saveAt(f: Fix?, icon: String, title: String, label: String, dog: Boolean) {
@@ -135,7 +137,7 @@ object Controls {
                 toast("Non capito")
                 return@listen
             }
-            val lastIcon = Types.byId(AppState.lastType).icon
+            val lastIcon = AppState.lastType
             val tag = Voice.match(text)
             if (tag != null) {
                 saveAt(at, tag.icon ?: lastIcon, tag.title, tag.title, tag.dog)
@@ -149,7 +151,7 @@ object Controls {
     // ---- Menu a ruota ----
 
     fun openWheel() {
-        AppState.wheelIndex = wheel.indexOfFirst { it.key == AppState.lastType }.coerceAtLeast(0)
+        AppState.wheelIndex = wheel().indexOfFirst { it.key == AppState.lastType }.coerceAtLeast(0)
         AppState.wheelOpen = true
         Haptics.tick()
     }
@@ -159,7 +161,7 @@ object Controls {
     }
 
     fun wheelConfirm() {
-        val it = wheel[AppState.wheelIndex]
+        val it = wheel()[AppState.wheelIndex]
         closeWheel()
         if (it.cmd) {
             when (it.key) {
@@ -207,7 +209,7 @@ object Controls {
         if (steps == 0) return
         Haptics.step()
         if (AppState.wheelOpen) {
-            val n = wheel.size
+            val n = wheel().size
             AppState.wheelIndex = ((AppState.wheelIndex + steps) % n + n) % n
             return
         }

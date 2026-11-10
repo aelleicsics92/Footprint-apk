@@ -63,6 +63,18 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, "fp.db", null, 1) {
     }
 
     @Synchronized
+    fun bulkUpsert(list: List<Waypoint>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            for (w in list) db.insertWithOnConflict("wp", null, cv(w), SQLiteDatabase.CONFLICT_REPLACE)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    @Synchronized
     fun allWp(): List<Waypoint> {
         val out = ArrayList<Waypoint>()
         readableDatabase.rawQuery("SELECT $cols FROM wp WHERE deleted=0 ORDER BY ts ASC", null).use { c ->

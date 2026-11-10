@@ -27,6 +27,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.DataClient;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 /** Riceve file GPX/KML aperti o condivisi con Footprint (es. da Garmin Explore o dal file manager). */
 @CapacitorPlugin(name = "IntentFiles")
@@ -410,5 +417,48 @@ public class IntentFilesPlugin extends Plugin {
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()));
         }
+    }
+
+    /** Invia al watch (Data Layer): configurazione (JSON) ed elenco waypoint (JSON gzip). */
+    @PluginMethod
+    public void watchSend(final PluginCall call) {
+        final String cfg = call.getString("config", "");
+        final String wps = call.getString("wps", "");
+        new Thread(() -> {
+            try {
+                Context c = getContext();
+                DataClient dc = Wearable.getDataClient(c);
+                if (!cfg.isEmpty()) {
+                    PutDataMapRequest r = PutDataMapRequest.create("/fp/config");
+                    r.getDataMap().putString("json", cfg);
+                    Tasks.await(dc.putDataItem(r.asPutDataRequest().setUrgent()));
+                }
+                if (!wps.isEmpty()) {
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    GZIPOutputStream g = new GZIPOutputStream(bos);
+                    g.write(wps.getBytes("UTF-8"));
+                    g.close();
+                    PutDataMapRequest r = PutDataMapRequest.create("/fp/wps");
+                    r.getDataMap().putAsset("data", Asset.createFromBytes(bos.toByteArray()));
+                    Tasks.await(dc.putDataItem(r.asPutDataRequest()));
+                }
+                List<Node> nodes = Tasks.await(Wearable.getNodeClient(c).getConnectedNodes());
+                JSObject o = new JSObject();
+                o.put("nodes", nodes.size());
+                call.resolve(o);
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()));
+            }
+        }).start();
+    }
+
+    /** Waypoint e uscite arrivati dal watch mentre l'app era chiusa. */
+    @PluginMethod
+    public void watchTake(PluginCall call) {
+        JSObject r = new JSObject();
+        String[] v = WatchListener.take(getContext());
+        r.put("wps", v[0]);
+        r.put("trips", v[1]);
+        call.resolve(r);
     }
 }

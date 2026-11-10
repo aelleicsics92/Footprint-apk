@@ -35,46 +35,27 @@ data class Waypoint(
 
 data class NavTarget(val lat: Double, val lon: Double, val name: String)
 
-/** Tipo di waypoint sul watch. [icon] e' l'id icona usato dall'app del telefono. */
-data class WType(
-    val id: String,
-    val label: String,
-    val letter: String,
-    val color: Long,
-    val icon: String,
-    val prefix: String
-)
-
-object Types {
-    val all = listOf(
-        WType("porcino", "Porcino", "P", 0xFF8A4B21, "porcino", "Porcino"),
-        WType("baby", "Baby porcino", "b", 0xFFC58A4B, "porcino", "Baby porcino"),
-        WType("tartufo", "Tartufo", "T", 0xFF5A4A3C, "scorzone", "Tartufo"),
-        WType("auto", "Auto", "A", 0xFF1F6FB5, "parcheggio", "Auto parcheggiata"),
-        WType("galletto", "Galletto", "G", 0xFFE2A017, "galletto", "Galletto"),
-        WType("ovolo", "Ovolo", "O", 0xFFE2531F, "ovulo", "Ovolo"),
-        WType("fungo", "Fungo", "F", 0xFFA88A5D, "fungo", "Fungo"),
-        WType("acqua", "Acqua", "W", 0xFF3B9BD1, "acqua", "Sorgente"),
-        WType("pericolo", "Pericolo", "!", 0xFFD9792A, "pericolo", "Pericolo"),
-        WType("altro", "Altro", "o", 0xFF777777, "orma", "Punto")
+/** Nomi delle icone waypoint (stessi id dell'app del telefono). */
+object Labels {
+    private val map = mapOf(
+        "porcino" to "Porcino", "regius" to "Porcino reale", "galletto" to "Gallinaccio", "ovulo" to "Ovulo buono",
+        "prugnolo" to "Prugnolo", "gambesecche" to "Gambesecche", "chiodini" to "Chiodini", "pioppino" to "Pioppino",
+        "prataiolo" to "Prataiolo", "morchella" to "Spugnola", "steccherino" to "Steccherino",
+        "trombetta" to "Trombetta dei morti", "pinarolo" to "Pinarolo", "pinaiolo" to "Pinaiolo",
+        "leccino" to "Leccino", "cardoncello" to "Cardoncello", "tignosa" to "Tignosa vinata",
+        "lactarius" to "Sanguinello", "vescia" to "Vescia gigante", "russola" to "Russola",
+        "mazza" to "Mazza di tamburo", "pleurotus" to "Orecchione", "fungo" to "Fungo",
+        "scorzone" to "Tartufo scorzone", "uncinato" to "Tartufo uncinato", "bianco" to "Tartufo bianco",
+        "bianchetto" to "Bianchetto", "nero" to "Nero pregiato", "parcheggio" to "Auto", "acqua" to "Sorgente",
+        "pericolo" to "Pericolo", "panorama" to "Panorama", "orma" to "Orma"
     )
 
-    private val truffle = setOf("scorzone", "uncinato", "bianco", "bianchetto", "nero")
-    private val fungi = setOf(
-        "regius", "prugnolo", "gambesecche", "chiodini", "pioppino", "prataiolo", "morchella",
-        "steccherino", "trombetta", "pinarolo", "pinaiolo", "leccino", "cardoncello", "tignosa",
-        "lactarius", "vescia", "russola", "mazza", "pleurotus"
+    /** Le 10 icone del menu a ruota finche' non le scegli dal telefono. */
+    val defaults = listOf(
+        "porcino", "regius", "galletto", "ovulo", "scorzone", "bianco", "fungo", "parcheggio", "acqua", "pericolo"
     )
 
-    fun byId(id: String): WType = all.firstOrNull { it.id == id } ?: all[0]
-
-    fun forWp(w: Waypoint): WType {
-        val ic = w.icon
-        if (ic == "porcino") return byId(if (w.title.startsWith("Baby", true)) "baby" else "porcino")
-        if (ic in truffle) return byId("tartufo")
-        if (ic in fungi) return byId("fungo")
-        return all.firstOrNull { it.icon == ic } ?: byId("altro")
-    }
+    fun of(icon: String): String = map[icon] ?: "Punto"
 }
 
 object Geo {

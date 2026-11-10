@@ -31,6 +31,8 @@ object Sync {
     const val WP = "/fp/wp/"
     const val TRIP = "/fp/trip/"
     const val TILES = "/fp/tiles"
+    const val CONFIG = "/fp/config"
+    const val BULK = "/fp/wps"
 
     suspend fun push(ctx: Context, w: Waypoint) {
         try {
@@ -93,6 +95,65 @@ object Sync {
         if (w.deleted) Store.db.softDelete(w.id, true) else Store.db.upsert(w)
     }
 
+    /** Impostazioni scelte dal telefono: le 10 icone del menu a ruota e le preferenze. */
+    suspend fun applyConfig(json: String) {
+        val o = org.json.JSONObject(json)
+        withContext(Dispatchers.Main) {
+            val ic = o.optJSONArray("icons")
+            if (ic != null && ic.length() > 0) {
+                val l = ArrayList<String>()
+                for (i in 0 until ic.length()) l.add(ic.getString(i))
+                val ten = l.take(10)
+                AppState.icons.clear()
+                AppState.icons.addAll(ten)
+                AppState.putStr("icons", ten.joinToString(","))
+                if (AppState.lastType !in ten) {
+                    AppState.lastType = ten.first()
+                    AppState.putStr("lastType", ten.first())
+                }
+            }
+            if (o.has("keyMode")) { AppState.keyMode = o.getInt("keyMode"); AppState.putInt("keyMode", AppState.keyMode) }
+            if (o.has("theme")) { AppState.theme = o.getInt("theme"); AppState.putInt("theme", AppState.theme) }
+            if (o.has("prox")) { AppState.proxM = o.getInt("prox"); AppState.putInt("proxM", AppState.proxM) }
+            if (o.has("offM")) { AppState.offM = o.getInt("offM"); AppState.putInt("offM", AppState.offM) }
+            if (o.has("rot")) { AppState.rotaryPx = o.getDouble("rot").toFloat(); AppState.putFloat("rot", AppState.rotaryPx) }
+            if (o.has("tscale")) { AppState.tileScale = o.getDouble("tscale").toFloat(); AppState.putFloat("tscale", AppState.tileScale) }
+            if (o.has("lock")) { AppState.touchLock = o.getBoolean("lock"); AppState.putBool("lock", AppState.touchLock) }
+            Controls.toast("Impostazioni dal telefono")
+        }
+    }
+
+    /** Elenco completo dei waypoint del telefono (JSON gzip in un Asset). I punti spariti dal telefono si tolgono anche qui. */
+    suspend fun applyBulk(ctx: Context, asset: Asset) {
+        val fd = Wearable.getDataClient(ctx).getFdForAsset(asset).await()
+        val text = java.util.zip.GZIPInputStream(fd.inputStream).bufferedReader().use { it.readText() }
+        val arr = org.json.JSONArray(text)
+        val list = ArrayList<Waypoint>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            list.add(
+                Waypoint(
+                    o.getString("id"), o.optString("icon", "fungo"), o.optString("title", ""),
+                    o.getDouble("lat"), o.getDouble("lon"), o.optDouble("alt", 0.0), o.optDouble("acc", 0.0).toFloat(),
+                    o.optLong("ts"), o.optBoolean("dog"), synced = true
+                )
+            )
+        }
+        val newIds = list.map { it.id }.toSet()
+        val prev: Set<String> = HashSet(AppState.sp.getStringSet("phoneIds", emptySet()) ?: emptySet())
+        val gone = prev - newIds
+        Store.db.bulkUpsert(list)
+        for (id in gone) Store.db.softDelete(id, true)
+        AppState.sp.edit().putStringSet("phoneIds", newIds).apply()
+        withContext(Dispatchers.Main) {
+            val byId = list.associateBy { it.id }
+            val keep = AppState.waypoints.toList().filter { it.id !in gone && it.id !in byId }
+            AppState.waypoints.clear()
+            AppState.waypoints.addAll(keep + list.sortedBy { it.ts })
+            Controls.toast("Waypoint dal telefono: ${list.size}")
+        }
+    }
+
     fun fromMap(m: DataMap): Waypoint? {
         val id = m.getString("id") ?: return null
         return Waypoint(
@@ -115,15 +176,24 @@ class SyncService : WearableListenerService() {
 
     override fun onDataChanged(events: DataEventBuffer) {
         val items = ArrayList<Waypoint>()
+        var cfg: String? = null
+        var bulk: Asset? = null
         for (e in events) {
             if (e.type != DataEvent.TYPE_CHANGED) continue
             val path = e.dataItem.uri.path ?: continue
-            if (!path.startsWith(Sync.WP)) continue
-            val w = Sync.fromMap(DataMapItem.fromDataItem(e.dataItem).dataMap) ?: continue
-            items.add(w)
+            val map = DataMapItem.fromDataItem(e.dataItem).dataMap
+            when {
+                path == Sync.CONFIG -> cfg = map.getString("json")
+                path == Sync.BULK -> bulk = map.getAsset("data")
+                path.startsWith(Sync.WP) -> Sync.fromMap(map)?.let { items.add(it) }
+            }
         }
-        if (items.isEmpty()) return
-        AppState.scope.launch { for (w in items) Sync.applyRemote(w) }
+        val ctx = applicationContext
+        AppState.scope.launch {
+            try { cfg?.let { Sync.applyConfig(it) } } catch (e: Exception) { }
+            try { bulk?.let { Sync.applyBulk(ctx, it) } } catch (e: Exception) { }
+            for (w in items) Sync.applyRemote(w)
+        }
     }
 
     override fun onChannelOpened(ch: ChannelClient.Channel) {

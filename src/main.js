@@ -211,6 +211,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setTimeout(pullQuick, 1200);
 setTimeout(pullQuick, 3500);
 setTimeout(() => { try { initWidgetSync(); } catch {} }, 2500);
+import('./lib/watchsync.js').then((m) => setTimeout(() => { try { m.initWatchSync(); } catch {} }, 3000)).catch(() => {});
 import('./lib/calib.js').then((m) => m.initAutoLearn()).catch(() => {});
 
 boot().catch((e) => { console.error(e); try { const bs = document.getElementById('bootsplash'); if (bs) bs.textContent = 'Errore di avvio, riapri l\'app'; } catch {} });

@@ -14,7 +14,6 @@ object Voice {
     class Tag(val icon: String?, val title: String, val dog: Boolean)
 
     private val rules = listOf(
-        Triple(listOf("baby", "piccolo", "piccoli"), "porcino", "Baby porcino"),
         Triple(listOf("porcino", "porcini"), "porcino", "Porcino"),
         Triple(listOf("scorzone"), "scorzone", "Scorzone"),
         Triple(listOf("uncinato"), "uncinato", "Tartufo uncinato"),

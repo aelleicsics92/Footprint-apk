@@ -347,9 +347,7 @@ private fun DrawScope.drawMap(p: Pal, paint: android.graphics.Paint) {
         val x = sx(wp.lon)
         val y = sy(wp.lat)
         if (x < -30f || x > w + 30f || y < -30f || y > h + 30f) continue
-        val t = Types.forWp(wp)
-        val baby = t.id == "baby"
-        drawWpIcon(wp.icon, x, y, if (baby) 30 else 42, if (wp.id == AppState.targetId) p.main else null)
+        drawWpIcon(wp.icon, x, y, 42, if (wp.id == AppState.targetId) p.main else null)
     }
 
     // Freccia propria
@@ -531,7 +529,6 @@ fun ListScreen(p: Pal) {
             val to = min(l.size - 1, sel + 2)
             for (i in from..to) {
                 val w = l[i]
-                val t = Types.forWp(w)
                 val selected = i == sel
                 Row(
                     Modifier
@@ -555,8 +552,8 @@ fun ListScreen(p: Pal) {
                     if (ib != null) {
                         Image(bitmap = ib, contentDescription = null, modifier = Modifier.size(30.dp))
                     } else {
-                        Box(Modifier.size(30.dp).background(Color(t.color), CircleShape), contentAlignment = Alignment.Center) {
-                            T(t.letter, Color.White, 13, true)
+                        Box(Modifier.size(30.dp).background(Color(0xFF777777), CircleShape), contentAlignment = Alignment.Center) {
+                            T(Labels.of(w.icon).take(1), Color.White, 13, true)
                         }
                     }
                     Column(Modifier.weight(1f)) {
@@ -610,7 +607,7 @@ fun MenuScreen(p: Pal) {
 
 @Composable
 fun Wheel(p: Pal) {
-    val items = Controls.wheel
+    val items = Controls.wheel()
     val sel = AppState.wheelIndex.coerceIn(0, items.size - 1)
     val paint = remember { mkPaint(26f, 0xFFFFFFFF.toInt()) }
     Box(Modifier.fillMaxSize().background(Color(0xEE000000))) {
@@ -624,7 +621,7 @@ fun Wheel(p: Pal) {
                 val y = cy + (r * sin(a)).toFloat()
                 val s = i == sel
                 if (!item.cmd) {
-                    drawWpIcon(Types.byId(item.key).icon, x, y, if (s) 64 else 40, null)
+                    drawWpIcon(item.key, x, y, if (s) 64 else 40, null)
                     if (s) drawCircle(p.main, 38f, Offset(x, y), style = Stroke(width = 4f))
                 } else {
                     drawCircle(Color(item.color), if (s) 30f else 19f, Offset(x, y))

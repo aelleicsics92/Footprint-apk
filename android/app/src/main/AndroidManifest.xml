@@ -59,6 +59,12 @@
 
         </activity>
 
+        <service android:name=".WatchListener" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/fp/" />
+            </intent-filter>
+        </service>
         <service android:name=".MateService" android:exported="false" android:foregroundServiceType="connectedDevice|location" />
         <service android:name=".KeepService" android:exported="false" android:foregroundServiceType="location" />
         <service android:name=".RecService" android:exported="false" android:foregroundServiceType="location" />

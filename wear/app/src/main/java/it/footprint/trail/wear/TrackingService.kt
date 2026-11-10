@@ -231,7 +231,7 @@ class TrackingService : Service(), SensorEventListener {
             AppState.scope.launch(Dispatchers.Main) { Controls.toast("Rientro completato") }
             return
         }
-        if (bd > 30.0 && now - lastOff > 45_000) {
+        if (bd > AppState.offM && now - lastOff > 45_000) {
             lastOff = now
             Haptics.offTrack()
             AppState.scope.launch(Dispatchers.Main) { Controls.toast("Fuori traccia: ${bd.toInt()} m") }

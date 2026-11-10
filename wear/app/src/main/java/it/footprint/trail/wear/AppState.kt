@@ -77,6 +77,8 @@ object AppState {
     var saveKey by mutableIntStateOf(KeyEvent.KEYCODE_STEM_2)
     var altKey by mutableIntStateOf(KeyEvent.KEYCODE_STEM_1)
     var lastType by mutableStateOf("porcino")
+    val icons = mutableStateListOf<String>()
+    var offM by mutableIntStateOf(30)
     var targetId by mutableStateOf<String?>(null)
 
     fun load(c: Context) {
@@ -90,7 +92,10 @@ object AppState {
         zoom = sp.getInt("zoom", 16)
         saveKey = sp.getInt("saveKey", KeyEvent.KEYCODE_STEM_2)
         altKey = sp.getInt("altKey", KeyEvent.KEYCODE_STEM_1)
-        lastType = sp.getString("lastType", "porcino") ?: "porcino"
+        offM = sp.getInt("offM", 30)
+        icons.clear()
+        icons.addAll((sp.getString("icons", null) ?: "").split(",").filter { it.isNotBlank() }.ifEmpty { Labels.defaults })
+        lastType = sp.getString("lastType", null) ?: icons.first()
         targetId = sp.getString("target", null)
     }
 
