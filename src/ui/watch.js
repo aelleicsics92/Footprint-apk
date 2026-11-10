@@ -1,17 +1,21 @@
 // Pagina "Smartwatch": stato dell'orologio, icone del menu a ruota, mappe offline e preferenze hardware
-import { openPage, openSheet, toast, closeTopSheet, confirmBox } from '../lib/ui.js';
+import { openPage, openSheet, toast, closeTopSheet, confirmBox, leavePages } from '../lib/ui.js';
 import { getSettings, setSetting } from '../lib/store.js';
 import { WP_ICONS, WP_BY_ID } from '../lib/icons.js';
-import { esc } from '../lib/util.js';
+import { esc, bus } from '../lib/util.js';
 import { listAreas, fmtMB } from '../lib/offline.js';
 import { watchCfg, sendToWatch, queueSend, watchInfo, WATCH_DEFAULT_ICONS, WATCH_MAX_ICONS } from '../lib/watchsync.js';
-import { DETAIL, estimateWatchBytes, estimateMinutes, pickSource, watchSources, sendAreaToWatch } from '../lib/watchmaps.js';
+import { estimateWatchBytes, estimateMinutes, pickSource, sendAreaToWatch } from '../lib/watchmaps.js';
 
 let TAB = 0; // scheda aperta: 0 icone, 1 mappe, 2 hardware
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 const fmtSize = (b) => (b >= 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : fmtMB(b));
-const sel = (k, v, opts) => `<select data-k="${k}" onfocus="this.select&&this.select()">${opts.map(([val, lab]) => `<option value="${val}" ${String(val) === String(v) ? 'selected' : ''}>${lab}</option>`).join('')}</select>`;
-const row = (t, d, ctl) => `<div class="set-row"><div class="ti"><b>${t}</b>${d ? `<small>${d}</small>` : ''}</div>${ctl}</div>`;
+const FULL = 'style="width:100%;box-sizing:border-box"';
+const sel = (k, v, opts) => `<select data-k="${k}" ${FULL} onfocus="this.select&&this.select()">${opts.map(([val, lab]) => `<option value="${val}" ${String(val) === String(v) ? 'selected' : ''}>${lab}</option>`).join('')}</select>`;
+// riga di form: titolo e descrizione in alto a tutta larghezza, controllo sotto a tutta larghezza
+const row = (t, d, ctl) => `<div class="set-row col"><div class="ti"><b>${t}</b>${d ? `<small>${d}</small>` : ''}</div>${ctl}</div>`;
+// mappe: strato e dettaglio fissi, niente scelte
+const MAP_SRC = 'topo', MAP_Z = 16;
 const SRC_NAME = { sat: 'Satellite', topo: 'Topografica' };
 
 export function openWatch() {
@@ -53,11 +57,13 @@ export function openWatch() {
     const paneIcons = () => {
       const c = watchCfg();
       const n = c.icons.length;
-      return `<div class="sec-h">VOCI DEL MENU A RUOTA (${n}/${WATCH_MAX_ICONS})</div>
+      const sq = 'flex:none;width:38px;height:38px;border-radius:12px;border:0;background:#ebe4d0;color:#12372a;font-size:1rem;display:inline-flex;align-items:center;justify-content:center;padding:0';
+      return `<style>.wx-ic img,.wx-ic svg{width:100%;height:100%;display:block;object-fit:contain}</style>
+        <div class="sec-h">VOCI DEL MENU A RUOTA (${n}/${WATCH_MAX_ICONS})</div>
         <div class="list">${c.icons
           .map((id, i) => {
             const ic = WP_BY_ID[id];
-            return `<div class="set-row"><span class="ic" data-pick="${i}" style="width:34px;height:34px;display:inline-block">${ic ? ic.svg : ''}</span><div class="ti" data-pick="${i}"><b>${i + 1}. ${esc(ic ? ic.label : id)}</b></div><button class="chip" data-pick="${i}">Cambia</button><button class="btn ghost" data-u="${i}" ${i ? '' : 'disabled'} aria-label="Su">▲</button><button class="btn ghost" data-d="${i}" ${i < n - 1 ? '' : 'disabled'} aria-label="Giù">▼</button><button class="btn ghost" data-x="${i}" ${n > 1 ? '' : 'disabled'} aria-label="Elimina" style="color:#c0392b">✕</button></div>`;
+            return `<div class="set-row" style="gap:12px;padding:10px 12px"><span class="wx-ic" data-pick="${i}" style="flex:none;display:block;width:36px;height:36px;margin-right:2px">${ic ? ic.svg : ''}</span><div class="ti" style="min-width:0"><b data-pick="${i}">${i + 1}. ${esc(ic ? ic.label : id)}</b><button class="chip" data-pick="${i}" style="margin-top:5px;padding:4px 14px;font-size:.8rem">Cambia</button></div><div style="display:flex;gap:6px;flex:none"><button data-u="${i}" ${i ? '' : 'disabled style="opacity:.35;' + sq + '"'} ${i ? `style="${sq}"` : ''} aria-label="Su">▲</button><button data-d="${i}" ${i < n - 1 ? `style="${sq}"` : `disabled style="opacity:.35;${sq}"`} aria-label="Giù">▼</button><button data-x="${i}" ${n > 1 ? `style="${sq};color:#c0392b"` : `disabled style="opacity:.35;${sq}"`} aria-label="Elimina">✕</button></div></div>`;
           })
           .join('')}</div>
         <button class="btn primary big" id="w-add" style="margin-top:12px" ${n >= WATCH_MAX_ICONS ? 'disabled' : ''}>+ Aggiungi icona</button>
@@ -87,7 +93,7 @@ export function openWatch() {
     const mapStatus = (a) => {
       const st = info.status;
       if (sending && sending.id === a.id) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
-      if (st && st.maps && st.maps[a.id] != null) return ["Sull'orologio", '#1f7a45', '#dff3e6'];
+      if (st && st.maps && st.maps[a.id] != null) return ['Inviata', '#1f7a45', '#dff3e6'];
       const t = pendingAck[a.id];
       if (t && Date.now() - t < 10 * 60000) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
       if (t) return ['Non confermata', '#c0392b', '#fbe3df'];
@@ -95,45 +101,38 @@ export function openWatch() {
     };
     const paneMaps = () => {
       const st = info.status;
-      const s = getSettings();
-      const src = s.watchMapSrc || 'topo', mz = num(s.watchMapZ, 16);
       let storage;
       if (st && st.total) {
         const used = st.tiles || 0;
         const pct = Math.max(used > 0 ? 1.5 : 0, Math.min(100, (used / st.total) * 100));
-        storage = `<div style="margin:12px 14px 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd"><div style="display:flex;justify-content:space-between;font-size:.85rem"><b>Memoria dell'orologio</b><span>${fmtSize(used)} di mappe</span></div><div style="height:10px;border-radius:5px;background:#e3e0d2;margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#2e7a4d"></div></div><small class="muted">Liberi ${fmtSize(st.free)} su ${fmtSize(st.total)}</small></div>`;
+        storage = `<div style="margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.9rem"><b>Spazio occupato sul Watch</b><span>${fmtSize(used)}</span></div><div style="height:10px;border-radius:5px;background:#e3e0d2;margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#2e7a4d"></div></div><small class="muted">Liberi ${fmtSize(st.free)} su ${fmtSize(st.total)}</small></div>`;
       } else {
-        storage = `<div style="margin:12px 14px 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd;font-size:.85rem"><b>Memoria dell'orologio</b><br><small class="muted">Dato non ancora disponibile: apri l'app Footprint sul watch.</small></div>`;
+        storage = `<div style="margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd;font-size:.9rem"><b>Spazio occupato sul Watch</b><br><small class="muted">Dato non ancora disponibile: apri l'app Footprint sul watch.</small></div>`;
       }
       const list = areas.length
         ? `<div class="list">${areas
             .map((a) => {
-              const sr = pickSource(a, src);
-              const est = sr ? estimateWatchBytes(a, sr, mz) : 0;
+              const sr = pickSource(a, MAP_SRC);
+              const est = sr ? estimateWatchBytes(a, sr, MAP_Z) : 0;
               const [lab, col, bg] = mapStatus(a);
               const busy = !!sending;
               const mine = sending && sending.id === a.id;
               const prog = mine ? (sending.phase === 'prep' ? `Preparo ${Math.round((sending.done / (sending.total || 1)) * 100)}%` : 'Invio in corso...') : '';
               const sent = st && st.maps && st.maps[a.id] != null;
               const can = !!sr && info.nodes.length > 0 && !busy;
-              return `<div class="set-row" style="flex-wrap:wrap"><span class="lead">${'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>'}</span><div class="ti" style="min-width:0"><b>${esc(a.name)}</b><small>${sr ? `${SRC_NAME[sr] || sr}, circa ${fmtSize(est)} sul watch` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><span style="flex:none;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:10px;color:${col};background:${bg}">${lab}</span><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'} style="flex:none;margin-left:8px">${sent ? 'Reinvia' : 'Invia al Watch'}</button>${prog ? `<div data-prog="${a.id}" style="flex-basis:100%;font-size:.78rem;color:#b7791f;margin:4px 0 0 34px">${prog}</div>` : ''}</div>`;
+              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
             })
             .join('')}</div>`
-        : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono. Scaricale da Altro, Mappe offline.</p></div>`;
-      return `${storage}
-        <div class="sec-h">COSA INVIARE</div>
-        <div class="list">
-          ${row('Strato della mappa', 'Sul watch la topografica si legge meglio', sel('watchMapSrc', src, [['topo', 'Topografica'], ['sat', 'Satellite']]))}
-          ${row('Dettaglio', 'Più dettaglio = più spazio e più tempo di invio', sel('watchMapZ', mz, DETAIL))}
-        </div>
-        <div class="sec-h">MAPPE SUL TELEFONO</div>${list}
-        <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per zone grandi conviene tenere il watch vicino e lo schermo del telefono acceso. Le mappe si cancellano dal menu del watch.</p>`;
+        : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono.</p></div>`;
+      return `<div style="padding:0 14px">${storage}
+        <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${list}
+        <button class="btn primary big" id="w-dl" style="margin-top:14px">+ Scarica nuova mappa</button>
+        <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per le zone grandi tieni il watch vicino. Le mappe si cancellano dal menu del watch.</p></div>`;
     };
 
     const startSend = async (a) => {
-      const s = getSettings();
-      const src = pickSource(a, s.watchMapSrc || 'topo');
-      const mz = num(s.watchMapZ, 16);
+      const src = pickSource(a, MAP_SRC);
+      const mz = MAP_Z;
       if (!src) return toast('Questa zona ha solo sentieri');
       const est = estimateWatchBytes(a, src, mz);
       const st = info.status;
@@ -250,6 +249,10 @@ export function openWatch() {
         openPicker('Aggiungi icona', (id) => saveIcons([...watchCfg().icons, id]), cur);
       } else if (e.target.closest('#w-reset')) {
         saveIcons(WATCH_DEFAULT_ICONS.slice());
+      } else if (e.target.closest('#w-dl')) {
+        leavePages();
+        bus.emit('nav:tab', 'map');
+        setTimeout(() => bus.emit('map:download'), 250);
       } else if (e.target.closest('[data-send]')) {
         const a = areas.find((z) => z.id === e.target.closest('[data-send]').dataset.send);
         if (a) startSend(a);
@@ -265,18 +268,9 @@ export function openWatch() {
       const k = e.target && e.target.dataset && e.target.dataset.k;
       if (!k) return;
       let v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-      if (e.target.tagName === 'SELECT' && (k === 'watchMapSrc')) {
-        setSetting(k, v);
-        paintPane();
-        return;
-      }
       if (e.target.tagName === 'SELECT' || e.target.type === 'number') v = Number(v);
       if (e.target.type === 'number' && !isFinite(v)) return;
       setSetting(k, v);
-      if (k === 'watchMapZ') {
-        paintPane();
-        return;
-      }
       queueSend(true);
     });
     // Invio da tastiera: conferma il campo
