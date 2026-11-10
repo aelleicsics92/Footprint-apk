@@ -1,6 +1,7 @@
 package it.footprint.trail.wear
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -90,6 +91,20 @@ private fun mkPaint(size: Float, argb: Int): android.graphics.Paint = android.gr
     textSize = size
     typeface = android.graphics.Typeface.DEFAULT_BOLD
     color = argb
+}
+
+private fun DrawScope.drawWpIcon(icon: String, x: Float, y: Float, sz: Int, ring: Color?) {
+    val img = Icons.get(icon)
+    if (img != null) {
+        drawImage(
+            img,
+            dstOffset = IntOffset((x - sz / 2f).roundToInt(), (y - sz / 2f).roundToInt()),
+            dstSize = IntSize(sz, sz)
+        )
+    } else {
+        drawCircle(Color.Gray, sz / 2f, Offset(x, y))
+    }
+    if (ring != null) drawCircle(ring, sz / 2f + 3f, Offset(x, y), style = Stroke(width = 3f))
 }
 
 private fun DrawScope.arrow(center: Offset, len: Float, color: Color, deg: Float) {
@@ -333,9 +348,8 @@ private fun DrawScope.drawMap(p: Pal, paint: android.graphics.Paint) {
         val y = sy(wp.lat)
         if (x < -30f || x > w + 30f || y < -30f || y > h + 30f) continue
         val t = Types.forWp(wp)
-        drawCircle(Color(t.color), 16f, Offset(x, y))
-        drawCircle(if (wp.id == AppState.targetId) p.main else Color.White, 16f, Offset(x, y), style = Stroke(width = 3f))
-        drawContext.canvas.nativeCanvas.drawText(t.letter, x, y + 8f, paint)
+        val baby = t.id == "baby"
+        drawWpIcon(wp.icon, x, y, if (baby) 30 else 42, if (wp.id == AppState.targetId) p.main else null)
     }
 
     // Freccia propria
@@ -537,8 +551,13 @@ fun ListScreen(p: Pal) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(Modifier.size(24.dp).background(Color(t.color), CircleShape), contentAlignment = Alignment.Center) {
-                        T(t.letter, Color.White, 13, true)
+                    val ib = Icons.get(w.icon)
+                    if (ib != null) {
+                        Image(bitmap = ib, contentDescription = null, modifier = Modifier.size(30.dp))
+                    } else {
+                        Box(Modifier.size(30.dp).background(Color(t.color), CircleShape), contentAlignment = Alignment.Center) {
+                            T(t.letter, Color.White, 13, true)
+                        }
                     }
                     Column(Modifier.weight(1f)) {
                         T(w.title, if (selected) p.main else p.text, 14, selected)
@@ -604,10 +623,15 @@ fun Wheel(p: Pal) {
                 val x = cx + (r * cos(a)).toFloat()
                 val y = cy + (r * sin(a)).toFloat()
                 val s = i == sel
-                drawCircle(Color(item.color), if (s) 30f else 19f, Offset(x, y))
-                if (s) drawCircle(p.main, 35f, Offset(x, y), style = Stroke(width = 4f))
-                paint.textSize = if (s) 30f else 20f
-                drawContext.canvas.nativeCanvas.drawText(item.letter, x, y + paint.textSize / 3f, paint)
+                if (!item.cmd) {
+                    drawWpIcon(Types.byId(item.key).icon, x, y, if (s) 64 else 40, null)
+                    if (s) drawCircle(p.main, 38f, Offset(x, y), style = Stroke(width = 4f))
+                } else {
+                    drawCircle(Color(item.color), if (s) 30f else 19f, Offset(x, y))
+                    if (s) drawCircle(p.main, 35f, Offset(x, y), style = Stroke(width = 4f))
+                    paint.textSize = if (s) 30f else 20f
+                    drawContext.canvas.nativeCanvas.drawText(item.letter, x, y + paint.textSize / 3f, paint)
+                }
             }
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
