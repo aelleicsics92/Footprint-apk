@@ -77,7 +77,6 @@ public class RecService extends Service implements LocationListener {
             lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
             lm.removeUpdates(this);
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 3, this);
-            try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 20, this); } catch (Exception ignore) {}
         } catch (SecurityException e) { stopSelf(); } catch (Exception ignore) {}
         return START_STICKY;
     }
@@ -99,6 +98,9 @@ public class RecService extends Service implements LocationListener {
     @Override
     public void onLocationChanged(Location l) {
         if (l == null) return;
+        // solo GPS e solo fix freschi: i fix di rete o in cache (allo sblocco) sono spesso sbagliati di centinaia di metri
+        if (!LocationManager.GPS_PROVIDER.equals(l.getProvider())) return;
+        if ((android.os.SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos()) / 1000000L > 20000L) return;
         if (l.hasAccuracy() && l.getAccuracy() > 45) return;
         if (last != null && last.distanceTo(l) < 3 && l.getTime() - last.getTime() < 15000) return;
         last = l;

@@ -18,7 +18,7 @@ export async function mergeNative() {
       const last = rec.points[rec.points.length - 1];
       if (last && ts <= last[3]) continue;
       if ((rec.gaps || []).some((g) => ts >= g[0] && ts <= g[1])) continue;
-      if (pushPoint([q[0], q[1], q[2], ts])) n++;
+      if (feed([q[0], q[1], q[2], ts])) n++;
     }
     if (n) { persistCurrent(); bus.emit('rec:point', rec.points[rec.points.length - 1]); }
     return n;
@@ -92,10 +92,36 @@ function pushPoint(cur) {
   return true;
 }
 
+// Filtro anti-salto: un punto lontano dall'ultimo con velocità impossibile (tipico fix errato allo sblocco) viene trattenuto;
+// se il punto successivo torna vicino all'ultimo valido, quello errato viene scartato, se lo conferma (es. auto) entrano entrambi.
+let pend = null;
+const JUMP_M = 40, JUMP_V = 8;
+function feed(cur) {
+  const last = rec.points[rec.points.length - 1];
+  if (last && cur[3] <= last[3]) return false; // fuori ordine (posizione vecchia in cache)
+  if (!last || rec.brk) { pend = null; return pushPoint(cur); }
+  const v = (a, b) => { const d = haversine({ lat: a[0], lon: a[1] }, { lat: b[0], lon: b[1] }); return [d, d / Math.max(1, (b[3] - a[3]) / 1000)]; };
+  const [d, sp] = v(last, cur);
+  if (d > JUMP_M && sp > JUMP_V) {
+    if (!pend) { pend = cur; return false; }
+    const [, sq] = v(pend, cur), [, spp] = v(last, pend);
+    if (cur[3] > pend[3] && sq <= Math.max(JUMP_V * 2, spp * 1.5)) {
+      const first = pend; pend = null;
+      const a = pushPoint(first), b = pushPoint(cur);
+      return a || b;
+    }
+    pend = cur; return false;
+  }
+  pend = null;
+  return pushPoint(cur);
+}
+
 function accept(p) {
   if (rec.status !== 'rec') return;
   if (p.acc != null && p.acc > 45) return;
-  pushPoint([p.lat, p.lon, p.alt != null ? p.alt : null, p.ts || Date.now()]);
+  const ts = p.ts || Date.now();
+  if (Date.now() - ts > 30000) return; // posizione vecchia (cache)
+  feed([p.lat, p.lon, p.alt != null ? p.alt : null, ts]);
 }
 
 const persistCurrent = () => kvSet('rec:current', { ...rec, live: rec.status === 'rec', savedAt: Date.now() });
@@ -109,6 +135,7 @@ export function elapsed() {
 export async function startRecording(resume = null) {
   if (rec.status !== 'idle') return;
   await ensurePermission();
+  pend = null;
   Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
   rec.status = 'rec';
   if (!rec.name) {
@@ -174,6 +201,7 @@ export function pauseRecording() {
 }
 export function resumeRecording() {
   if (rec.status !== 'pause') return;
+  pend = null;
   rec.paused += Date.now() - rec.pauseAt;
   (rec.gaps = rec.gaps || []).push([rec.pauseAt, Date.now()]);
   rec.brk = true;
