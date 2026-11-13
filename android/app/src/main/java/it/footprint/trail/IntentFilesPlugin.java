@@ -325,7 +325,8 @@ public class IntentFilesPlugin extends Plugin {
     @PluginMethod
     public void recRead(PluginCall call) {
         JSObject r = new JSObject();
-        try { r.put("points", new JSArray(RecService.read(getContext()))); } catch (Exception e) { r.put("points", new JSArray()); }
+        int from = call.getInt("from", 0);
+        try { r.put("points", new JSArray(RecService.read(getContext(), from))); r.put("total", RecService.lastTotal); } catch (Exception e) { r.put("points", new JSArray()); r.put("total", from); }
         r.put("active", getContext().getSharedPreferences(RecService.PREFS, Context.MODE_PRIVATE).getBoolean("active", false));
         call.resolve(r);
     }

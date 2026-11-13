@@ -8,22 +8,27 @@ const BG = registerPlugin('BackgroundGeolocation');
 const IF = () => (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.IntentFiles) || registerPlugin('IntentFiles');
 
 // Punti scritti dal servizio nativo (continua anche se l'app viene chiusa dal sistema)
-export async function mergeNative() {
-  if (!isNative() || rec.status !== 'rec') return 0;
-  try {
-    const r = await IF().recRead();
-    let n = 0;
-    for (const q of r.points || []) {
-      const ts = q[3];
-      const last = rec.points[rec.points.length - 1];
-      if (last && ts <= last[3]) continue;
-      if ((rec.gaps || []).some((g) => ts >= g[0] && ts <= g[1])) continue;
-      if (feed([q[0], q[1], q[2], ts])) n++;
-    }
-    if (n) { persistCurrent(); bus.emit('rec:point', rec.points[rec.points.length - 1]); }
-    return n;
-  } catch { return 0; }
+let merging = null;
+export function mergeNative() {
+  if (!isNative() || rec.status !== 'rec') return Promise.resolve(0);
+  if (merging) return merging;
+  merging = (async () => {
+    try {
+      const r = await IF().recRead({ from: rec.nIdx || 0 });
+      let n = 0;
+      for (const q of r.points || []) {
+        const ts = q[3];
+        if ((rec.gaps || []).some((g) => ts >= g[0] && ts <= g[1])) continue;
+        if (feed([q[0], q[1], q[2], ts])) n++;
+      }
+      if (typeof r.total === 'number') rec.nIdx = r.total;
+      if (n) { persistCurrent(); bus.emit('rec:point', rec.points[rec.points.length - 1]); }
+      return n;
+    } catch { return 0; } finally { merging = null; }
+  })();
+  return merging;
 }
+async function mergeFinal() { if (merging) await merging; return mergeNative(); }
 export async function nativeActive() {
   try { return !!(isNative() && (await IF().recRead()).active); } catch { return false; }
 }
@@ -32,6 +37,7 @@ const rec = { status: 'idle', id: null, name: '', start: 0, points: [], dist: 0,
 let watcherId = null;
 let unsubPos = null;
 let tickT = null;
+let visHook = false;
 let tracks = [];
 
 export const getRec = () => rec;
@@ -136,7 +142,7 @@ export async function startRecording(resume = null) {
   if (rec.status !== 'idle') return;
   await ensurePermission();
   pend = null;
-  Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
+  Object.assign(rec, resume || { id: uid(), name: '', start: Date.now(), points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [], nIdx: 0 });
   rec.status = 'rec';
   if (!rec.name) {
     const mx = tracks.reduce((m, t) => Math.max(m, Number((/^Traccia (\d+)/.exec(t.name || '') || [])[1]) || 0), 0);
@@ -145,9 +151,11 @@ export async function startRecording(resume = null) {
   const p = lastPos();
   if (p) accept(p);
   if (isNative()) {
+    let nativeOk = false;
     try {
-      if (!resume) await IF().recClear();
+      if (!resume) { await IF().recClear(); rec.nIdx = 0; }
       await IF().recStart();
+      nativeOk = true;
       try { await IF().keepStop(); } catch {}
       try {
         if (!localStorage.getItem('fp.batAsked')) {
@@ -157,31 +165,38 @@ export async function startRecording(resume = null) {
       } catch {}
       if (resume) await mergeNative();
     } catch (e) { console.warn('recService', e); }
-    try {
-      watcherId = await BG.addWatcher(
-        { requestPermissions: true, stale: false, distanceFilter: 3 },
-        (loc, err) => {
-          if (err || !loc) return;
-          accept({ lat: loc.latitude, lon: loc.longitude, alt: loc.altitude, acc: loc.accuracy, ts: loc.time || Date.now() });
-        }
-      );
-    } catch (e) {
-      console.warn('bg watcher', e);
-      unsubPos = bus.on('pos', accept);
+    // la fonte dei punti è il servizio nativo (continua a schermo spento); il watcher JS solo se il servizio non parte
+    if (!nativeOk) {
+      try {
+        watcherId = await BG.addWatcher(
+          { requestPermissions: true, stale: false, distanceFilter: 3 },
+          (loc, err) => {
+            if (err || !loc) return;
+            accept({ lat: loc.latitude, lon: loc.longitude, alt: loc.altitude, acc: loc.accuracy, ts: loc.time || Date.now() });
+          }
+        );
+      } catch (e) {
+        console.warn('bg watcher', e);
+        unsubPos = bus.on('pos', accept);
+      }
+    }
+    if (!visHook) {
+      visHook = true;
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && rec.status === 'rec') mergeNative(); });
     }
   } else {
     unsubPos = bus.on('pos', accept);
   }
   clearInterval(tickT);
   let tk = 0;
-  tickT = setInterval(() => { bus.emit('rec:tick'); if (++tk % 20 === 0 && rec.status === 'rec') mergeNative(); }, 1000);
+  tickT = setInterval(() => { bus.emit('rec:tick'); if (++tk % 2 === 0 && rec.status === 'rec') mergeNative(); }, 1000);
   persistCurrent();
   bus.emit('rec:state');
 }
 
 async function stopWatching() {
   clearInterval(tickT);
-  if (isNative()) { try { await mergeNative(); await IF().recStop(); await IF().recClear(); try { if (getSettings().keepAlive !== false) await IF().keepStart(); } catch {} } catch {} }
+  if (isNative()) { try { await mergeFinal(); await IF().recStop(); await IF().recClear(); try { if (getSettings().keepAlive !== false) await IF().keepStart(); } catch {} } catch {} }
   if (unsubPos) unsubPos(), (unsubPos = null);
   if (watcherId != null) {
     try {
@@ -218,7 +233,7 @@ export async function stopRecording({ save = true } = {}) {
   const name = rec.name;
   const rec0 = { start: rec.start };
   const dur = Math.max(0, (end - rec.start - rec.paused) / 1000);
-  Object.assign(rec, { status: 'idle', id: null, points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [] });
+  Object.assign(rec, { status: 'idle', id: null, points: [], dist: 0, up: 0, down: 0, paused: 0, lastAlt: null, brk: false, gaps: [], nIdx: 0 });
   await kvDel('rec:current');
   bus.emit('rec:state');
   if (!save || pts.length < 2) return null;

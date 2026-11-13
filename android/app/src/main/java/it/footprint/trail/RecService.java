@@ -41,22 +41,29 @@ public class RecService extends Service implements LocationListener {
         c.stopService(new Intent(c, RecService.class));
     }
 
-    static String read(Context c) {
+    static int lastTotal = 0;
+
+    // punti dal numero d'ordine "from" in poi (lastTotal = righe valide totali)
+    static String read(Context c, int from) {
         StringBuilder sb = new StringBuilder("[");
         File f = logFile(c);
+        int idx = 0;
         if (f.exists()) {
             try (BufferedReader r = new BufferedReader(new FileReader(f))) {
                 String l; boolean first = true;
                 while ((l = r.readLine()) != null) {
                     l = l.trim();
                     if (!l.startsWith("[") || !l.endsWith("]")) continue;
+                    if (idx++ < from) continue;
                     if (!first) sb.append(',');
                     sb.append(l); first = false;
                 }
             } catch (Exception ignore) {}
         }
+        lastTotal = idx;
         return sb.append(']').toString();
     }
+    static String read(Context c) { return read(c, 0); }
 
     @Override public IBinder onBind(Intent i) { return null; }
 
@@ -100,7 +107,7 @@ public class RecService extends Service implements LocationListener {
         if (l == null) return;
         // solo GPS e solo fix freschi: i fix di rete o in cache (allo sblocco) sono spesso sbagliati di centinaia di metri
         if (!LocationManager.GPS_PROVIDER.equals(l.getProvider())) return;
-        if ((android.os.SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos()) / 1000000L > 20000L) return;
+        if ((android.os.SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos()) / 1000000L > 60000L) return;
         if (l.hasAccuracy() && l.getAccuracy() > 45) return;
         if (last != null && last.distanceTo(l) < 3 && l.getTime() - last.getTime() < 15000) return;
         last = l;

@@ -3,7 +3,7 @@ import 'leaflet-rotate';
 import 'leaflet/dist/leaflet.css';
 import { Fog } from '../lib/fog.js';
 import { makeAltLayer } from '../lib/altband.js';
-import { SOURCES, makeLayer, countTiles, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
+import { SOURCES, makeLayer, countTiles, countMissing, tileSet, estimateBytes, fmtMB, MAX_TILES, enqueueDownload, initQueue, getQueue } from '../lib/offline.js';
 import { getSettings, setSetting, lsGet, lsSet } from '../lib/store.js';
 import { mark } from '../lib/perf.js';
 import { bus, esc, fmtDist, fmtDur, fmtCoord, haversine, bearing, cardinal, clamp } from '../lib/util.js';
@@ -753,18 +753,21 @@ function openDownload() {
   const q = (x) => sh.body.querySelector(x);
   const srcSel = () => [...sh.body.querySelectorAll('[data-s].sel')].map((x) => x.dataset.s);
   const zmin = () => Math.max(6, Math.min(Number(q('#dl-z').value), cur - 3));
-  const upd = () => {
+  let have = null, seq = 0;
+  tileSet().then((h) => { have = h; upd(); });
+  const upd = async () => {
     const zmax = Number(q('#dl-z').value);
     q('#dl-zl').textContent = zmax;
     const srcs = srcSel();
-    const per = countTiles(bounds, zmin(), zmax);
-    const total = per * srcs.length;
-    const mb = estimateBytes(per, srcs);
-    const big = total > MAX_TILES;
+    const my = ++seq;
+    const cm = await countMissing(bounds, zmin(), zmax, srcs, have || new Set());
+    if (my !== seq) return;
+    const mb = estimateBytes(cm.missing / Math.max(1, srcs.length), srcs);
+    const big = cm.missing > MAX_TILES;
     q('#dl-info').className = big ? 'warnbox' : 'infobox';
     q('#dl-info').innerHTML = big
-      ? `Area troppo grande (${total.toLocaleString('it-IT')} tile). Avvicina la mappa o riduci il dettaglio.`
-      : `<b>${total.toLocaleString('it-IT')}</b> tile · circa <b>${fmtMB(mb)}</b> · zoom ${zmin()}–${zmax}`;
+      ? `Area troppo grande (${cm.missing.toLocaleString('it-IT')} tile da scaricare). Avvicina la mappa o riduci il dettaglio.`
+      : `<b>${cm.total.toLocaleString('it-IT')}</b> tile${cm.have ? ` (già salvate: <b>${cm.have.toLocaleString('it-IT')}</b>, ne scarico <b>${cm.missing.toLocaleString('it-IT')}</b>)` : ''} · circa <b>${fmtMB(mb)}</b> · zoom ${zmin()}–${zmax}`;
     q('#dl-go').disabled = big || !srcs.length;
   };
   let nameEdited = false;

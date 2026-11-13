@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { get, set, del } from 'idb-keyval';
+import { get, set, del, keys as idbKeys } from 'idb-keyval';
 import { tileStore, kvGet, kvSet } from './store.js';
 import { uid, sleep, bus } from './util.js';
 import { getVecTile } from './reflayer.js';
@@ -114,12 +114,36 @@ export const listAreas = async () => (await kvGet('areas')) || [];
 
 export const MAX_TILES = 14000;
 
+// Tile già salvate (anche da altre mappe che si sovrappongono): si scaricano solo quelle mancanti
+export async function tileSet() {
+  try { return new Set(await idbKeys(tileStore)); } catch { return new Set(); }
+}
+export async function countMissing(b, zmin, zmax, sources, have = null) {
+  const set_ = have || (await tileSet());
+  let total = 0, got = 0;
+  for (const src of sources) {
+    for (const t of iterTiles(b, zmin, zmax)) {
+      total++;
+      if (set_.has(tileKey(src, t.z, t.x, t.y))) got++;
+    }
+  }
+  return { total, have: got, missing: total - got };
+}
+
 export async function downloadArea({ name, bounds, zmin, zmax, sources, onProgress, signal }) {
-  const total = countTiles(bounds, zmin, zmax) * sources.length;
-  if (total > MAX_TILES) throw new Error(`Area troppo grande (${total} tile). Riduci l'area o lo zoom.`);
+  const have0 = await tileSet();
+  const cm = await countMissing(bounds, zmin, zmax, sources, have0);
+  const total = cm.total;
+  if (cm.missing > MAX_TILES) throw new Error(`Area troppo grande (${cm.missing} tile da scaricare). Riduci l'area o lo zoom.`);
   const jobs = [];
-  for (const src of sources) for (const t of iterTiles(bounds, zmin, zmax)) jobs.push({ src, ...t });
-  let done = 0, fail = 0, bytes = 0;
+  let bytes0 = 0;
+  for (const src of sources) {
+    for (const t of iterTiles(bounds, zmin, zmax)) {
+      if (have0.has(tileKey(src, t.z, t.x, t.y))) bytes0 += estimateBytes(1, [src]);
+      else jobs.push({ src, ...t });
+    }
+  }
+  let done = cm.have, fail = 0, bytes = bytes0;
   let idx = 0;
   const worker = async () => {
     while (idx < jobs.length) {
@@ -155,7 +179,7 @@ export async function downloadArea({ name, bounds, zmin, zmax, sources, onProgre
         fail++;
       }
       done++;
-      if (done % 10 === 0 || done === jobs.length) onProgress && onProgress({ done, total, fail, bytes });
+      if (done % 10 === 0 || done === total) onProgress && onProgress({ done, total, fail, bytes });
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
@@ -235,8 +259,9 @@ export async function initQueue() {
 }
 export async function enqueueDownload(job) {
   await initQueue();
-  const total = countTiles(job.bounds, job.zmin, job.zmax) * job.sources.length;
-  if (total > MAX_TILES) throw new Error(`Area troppo grande (${total} tile).`);
+  const cm = await countMissing(job.bounds, job.zmin, job.zmax, job.sources);
+  const total = cm.total;
+  if (cm.missing > MAX_TILES) throw new Error(`Area troppo grande (${cm.missing} tile da scaricare).`);
   queue.push({ id: uid(), status: 'queued', done: 0, total, bytes: 0, fail: 0, ...job });
   persist();
   emit();
