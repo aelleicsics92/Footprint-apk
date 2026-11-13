@@ -540,25 +540,11 @@ fun AmbientScreen(p: Pal) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        T("${hd.roundToInt() % 360}° ${Geo.card(hd.toDouble())}", col, 34)
+        T(java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) }, Color.White, 40)
+        T("${hd.roundToInt() % 360}° ${Geo.card(hd.toDouble())}", col, 26)
+        if (f != null) T("${(f.alt).roundToInt()} m", col, 22)
         if (nt != null && f != null) {
-            val rel = ((Geo.bearing(f.lat, f.lon, nt.lat, nt.lon) - hd + 360.0) % 360.0).toFloat()
-            Canvas(Modifier.size(60.dp)) {
-                val c = Offset(size.width / 2f, size.height / 2f)
-                rotate(rel, c) {
-                    val path = Path().apply {
-                        moveTo(c.x, c.y - 24f)
-                        lineTo(c.x + 14f, c.y + 18f)
-                        lineTo(c.x, c.y + 8f)
-                        lineTo(c.x - 14f, c.y + 18f)
-                        close()
-                    }
-                    drawPath(path, col, style = Stroke(width = 2f))
-                }
-            }
-            T(Geo.fmtDist(Geo.dist(f.lat, f.lon, nt.lat, nt.lon)), col, 22)
-        } else if (f != null) {
-            T("${(f.alt).roundToInt()} m", col, 22)
+            T(Geo.fmtDist(Geo.dist(f.lat, f.lon, nt.lat, nt.lon)) + " " + (((Geo.bearing(f.lat, f.lon, nt.lat, nt.lon) - hd + 360.0) % 360.0).roundToInt()) + "°", col, 16)
         }
     }
 }
