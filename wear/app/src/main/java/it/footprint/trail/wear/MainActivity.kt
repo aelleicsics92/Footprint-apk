@@ -52,11 +52,13 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         compass.start(AppState.ambient)
         startTracking()
+        LanServer.start(applicationContext)
     }
 
     override fun onStop() {
         compass.stop()
         wrist.stop()
+        LanServer.stop(applicationContext)
         super.onStop()
     }
 

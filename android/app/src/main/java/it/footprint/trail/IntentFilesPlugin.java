@@ -574,6 +574,7 @@ public class IntentFilesPlugin extends Plugin {
                 Context c = getContext();
                 File f = new File(path.startsWith("file://") ? Uri.parse(path).getPath() : path);
                 if (!f.exists()) { call.reject("file mancante"); return; }
+                try { if (sendLan(c, f)) { JSObject o = new JSObject(); o.put("via", "wifi"); call.resolve(o); return; } } catch (Throwable lanErr) { }
                 List<Node> nodes = Tasks.await(Wearable.getNodeClient(c).getConnectedNodes());
                 if (nodes.isEmpty()) { call.reject("nessun orologio collegato"); return; }
                 Node target = nodes.get(0);
@@ -588,5 +589,32 @@ public class IntentFilesPlugin extends Plugin {
                 call.reject(String.valueOf(e.getMessage()));
             }
         }).start();
+    }
+
+    /** Prova l'invio diretto via WiFi (stessa rete del watch): ip, porta e token arrivano dal Data Layer. */
+    private boolean sendLan(Context c, File f) throws Exception {
+        com.google.android.gms.wearable.DataItemBuffer buf = Tasks.await(Wearable.getDataClient(c).getDataItems(Uri.parse("wear://*/fp/lan"), com.google.android.gms.wearable.DataClient.FILTER_LITERAL));
+        String ip = null, token = null; int port = 0;
+        try {
+            for (com.google.android.gms.wearable.DataItem it : buf) {
+                com.google.android.gms.wearable.DataMap m = com.google.android.gms.wearable.DataMapItem.fromDataItem(it).getDataMap();
+                ip = m.getString("ip"); port = m.getInt("port"); token = m.getString("token");
+            }
+        } finally { buf.release(); }
+        if (ip == null || token == null || port <= 0) return false;
+        java.net.Socket s = new java.net.Socket();
+        try {
+            s.connect(new java.net.InetSocketAddress(ip, port), 2500);
+            s.setSoTimeout(60000);
+            java.io.OutputStream os = new java.io.BufferedOutputStream(s.getOutputStream(), 65536);
+            os.write(("POST /tiles HTTP/1.1\r\nHost: " + ip + "\r\nX-Token: " + token + "\r\nContent-Length: " + f.length() + "\r\nConnection: close\r\n\r\n").getBytes("UTF-8"));
+            java.io.InputStream in = new java.io.FileInputStream(f);
+            byte[] b = new byte[65536]; int n;
+            while ((n = in.read(b)) > 0) os.write(b, 0, n);
+            in.close(); os.flush();
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(s.getInputStream()));
+            String line = r.readLine();
+            return line != null && line.contains(" 200");
+        } finally { try { s.close(); } catch (Exception e) { } }
     }
 }

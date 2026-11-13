@@ -36,6 +36,7 @@ object Sync {
     const val TRACKS = "/fp/tracks"
     const val CMD = "/fp/cmd"
     const val LIVE = "/fp/live"
+    const val LAN = "/fp/lan"
 
     /** Posizione e traccia in tempo reale per il telefono. */
     suspend fun pushLive(ctx: Context, on: Boolean) {
@@ -308,59 +309,62 @@ class SyncService : WearableListenerService() {
             AppState.scope.launch(Dispatchers.Main) { Controls.toast("Mappe: ricezione interrotta") }
             return
         }
-        AppState.scope.launch(Dispatchers.IO) {
-            val files = ArrayList<String>()
-            val (n, metaId, src) = unzipTiles(tmp, TileCache.root, files)
-            tmp.delete()
-            if (metaId != null) {
-                Status.addMap(metaId, src, n)
-                val md = File(File(filesDir, "maps"), src)
-                md.mkdirs()
-                File(md, "$metaId.lst").writeText(files.joinToString("\n"))
-            }
-            withContext(Dispatchers.Main) {
-                TileCache.scan()
-                Controls.toast("Mappe ricevute: $n tile")
-            }
-            Status.push(applicationContext)
-        }
+        AppState.scope.launch(Dispatchers.IO) { finishTiles(applicationContext, tmp) }
     }
+}
 
-    /** Ritorna (numero di tile, id area, strato) dal file meta.json (che il telefono mette per primo nello ZIP). */
-    private fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, String?, String> {
-        val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
-        val root = dest.canonicalFile
-        var n = 0
-        var metaId: String? = null
-        var src = "sat"
-        ZipInputStream(zip.inputStream().buffered()).use { zin ->
-            var e = zin.nextEntry
-            while (e != null) {
-                if (!e.isDirectory) {
-                    val m = rx.matchEntire(e.name)
-                    if (e.name == "meta.json") {
-                        try {
-                            val mo = org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8))
-                            metaId = mo.optString("id").ifEmpty { null }
-                            val sv = mo.optString("src")
-                            if (sv == "sat" || sv == "topo") src = sv
-                        } catch (x: Exception) {
-                        }
-                    } else if (m != null) {
-                        val ext = if (m.groupValues[4] == "jpeg") "jpg" else m.groupValues[4]
-                        val f = File(root, "$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext").canonicalFile
-                        if (f.path.startsWith(root.path + File.separator)) {
-                            f.parentFile?.mkdirs()
-                            f.outputStream().use { out -> zin.copyTo(out) }
-                            n++
-                            files.add("$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext")
-                        }
+/** Ritorna (numero di tile, id area, strato) dal file meta.json (che il telefono mette per primo nello ZIP). */
+fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, String?, String> {
+    val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
+    val root = dest.canonicalFile
+    var n = 0
+    var metaId: String? = null
+    var src = "sat"
+    ZipInputStream(zip.inputStream().buffered()).use { zin ->
+        var e = zin.nextEntry
+        while (e != null) {
+            if (!e.isDirectory) {
+                val m = rx.matchEntire(e.name)
+                if (e.name == "meta.json") {
+                    try {
+                        val mo = org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8))
+                        metaId = mo.optString("id").ifEmpty { null }
+                        val sv = mo.optString("src")
+                        if (sv == "sat" || sv == "topo") src = sv
+                    } catch (x: Exception) {
+                    }
+                } else if (m != null) {
+                    val ext = if (m.groupValues[4] == "jpeg") "jpg" else m.groupValues[4]
+                    val f = File(root, "$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext").canonicalFile
+                    if (f.path.startsWith(root.path + File.separator)) {
+                        f.parentFile?.mkdirs()
+                        f.outputStream().use { out -> zin.copyTo(out) }
+                        n++
+                        files.add("$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext")
                     }
                 }
-                zin.closeEntry()
-                e = zin.nextEntry
             }
+            zin.closeEntry()
+            e = zin.nextEntry
         }
-        return Triple(n, metaId, src)
     }
+    return Triple(n, metaId, src)
+}
+
+/** Decomprime lo ZIP di tile ricevuto (da Bluetooth o WiFi), aggiorna indice e stato. */
+suspend fun finishTiles(ctx: Context, tmp: File) {
+    val files = ArrayList<String>()
+    val (n, metaId, src) = unzipTiles(tmp, TileCache.root, files)
+    tmp.delete()
+    if (metaId != null) {
+        Status.addMap(metaId, src, n)
+        val md = File(File(ctx.filesDir, "maps"), src)
+        md.mkdirs()
+        File(md, "$metaId.lst").writeText(files.joinToString("\n"))
+    }
+    withContext(Dispatchers.Main) {
+        TileCache.scan()
+        Controls.toast("Mappe ricevute: $n tile")
+    }
+    Status.push(ctx)
 }
