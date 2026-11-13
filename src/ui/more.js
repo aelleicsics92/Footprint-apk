@@ -12,7 +12,7 @@ import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints, bulkUpdate, bulkRemove } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
 import { toGPX, shareFile, safeName, parseGpsText, segments } from '../lib/gpsio.js';
-import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload, makeLayer } from '../lib/offline.js';
+import { listAreas, deleteArea, deleteAreas, fmtMB, getQueue, cancelDownload, makeLayer } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
@@ -514,7 +514,7 @@ function openOffline() {
       bar.querySelector('#of-none').onclick = () => { setSel(false); draw(); };
       bar.querySelector('#of-del').onclick = async () => {
         if (!oIds.size) return toast('Nessuna mappa selezionata');
-        if (await confirmBox(`Eliminare <b>${oIds.size}</b> mappe offline?`, { ok: 'Elimina', danger: true })) { for (const id of [...oIds]) await deleteArea(id); toast('Eliminate'); covHl = null; setSel(false); draw(); }
+        if (await confirmBox(`Eliminare <b>${oIds.size}</b> mappe offline?`, { ok: 'Elimina', danger: true })) { await deleteAreas([...oIds]); toast('Eliminate'); covHl = null; setSel(false); draw(); }
       };
       covOnPick = (id, kind) => {
         if (kind === 'long') { if (!oSel) setSel(true); oIds.add(id); if (navigator.vibrate) navigator.vibrate(30); draw(); return; }
@@ -555,7 +555,7 @@ function openOffline() {
       const eb = document.querySelector('#of-all-del');
       if (eb) eb.onclick = async () => {
         if (!areas.length) return toast('Nessuna mappa da eliminare');
-        if (await confirmBox(`Eliminare <b>tutte le ${areas.length}</b> mappe offline? Non si può annullare.`, { ok: 'Elimina tutto', danger: true })) { for (const a of areas) await deleteArea(a.id); covHl = null; setSel(false); toast('Mappe eliminate'); draw(); }
+        if (await confirmBox(`Eliminare <b>tutte le ${areas.length}</b> mappe offline? Non si può annullare.`, { ok: 'Elimina tutto', danger: true })) { await deleteAreas(areas.map((a) => a.id)); covHl = null; setSel(false); toast('Mappe eliminate'); draw(); }
       };
       pg.body.querySelectorAll('[data-go]').forEach(
         (b) =>

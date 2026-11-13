@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { get, set, del, keys as idbKeys } from 'idb-keyval';
+import { get, set, del, delMany, keys as idbKeys } from 'idb-keyval';
 import { tileStore, kvGet, kvSet } from './store.js';
 import { uid, sleep, bus } from './util.js';
 import { getVecTile } from './reflayer.js';
@@ -236,6 +236,18 @@ export async function deleteArea(id) {
     }
   }
   await kvSet('areas', rest);
+}
+
+export async function deleteAreas(ids) {
+  const areas = await listAreas();
+  const gone = new Set(ids);
+  const rest = areas.filter((a) => !gone.has(a.id));
+  const keep = new Set();
+  for (const a of rest) for (const s of a.sources) for (const t of iterTiles(a.bounds, a.zmin, a.zmax)) keep.add(tileKey(s, t.z, t.x, t.y));
+  const dead = [];
+  for (const a of areas) if (gone.has(a.id)) for (const s of a.sources) for (const t of iterTiles(a.bounds, a.zmin, a.zmax)) { const k = tileKey(s, t.z, t.x, t.y); if (!keep.has(k)) dead.push(k); }
+  await kvSet('areas', rest);
+  for (let i = 0; i < dead.length; i += 2000) await delMany(dead.slice(i, i + 2000), tileStore);
 }
 
 export const fmtMB = (b) => (b / 1048576 >= 10 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + ' MB';

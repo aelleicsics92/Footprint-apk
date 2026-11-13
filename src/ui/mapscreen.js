@@ -195,7 +195,7 @@ export function mountMap(el) {
   });
 
   root.querySelector('#btn-layers').onclick = openLayers;
-  root.querySelector('#btn-dl').onclick = openDownload;
+  root.querySelector('#btn-dl').onclick = () => openDownload();
   setupSosHold(root.querySelector('#btn-sos'));
   setupCar(root.querySelector('#btn-car'));
   setupSearch();
@@ -742,7 +742,7 @@ export function openDownloadView(view) {
 }
 function openDownload(view) {
   let bounds, cur;
-  if (view) { bounds = view.bounds; cur = Math.round(view.zoom); } else {
+  if (view && view.bounds) { bounds = view.bounds; cur = Math.round(view.zoom); } else {
     rememberView();
     const b = map.getBounds();
     bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
