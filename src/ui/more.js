@@ -392,7 +392,7 @@ function openWaypointList() {
 let covMap = null, covRects = {}, covHl = null, covView = null, covOnPick = null; const covSel = new Set();
 function covHighlight(ids, fit = true) {
   const set = ids instanceof Set ? ids : new Set(ids ? [ids] : []);
-  for (const [k, r] of Object.entries(covRects)) r.setStyle(set.has(k) ? { color: '#0b4d2a', weight: 3, fillColor: '#1f8a4c', fillOpacity: 0.6 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: set.size ? 0.3 : 0.7 });
+  for (const [k, r] of Object.entries(covRects)) r.setStyle(set.has(k) ? { color: '#b45309', weight: 3.5, fillColor: '#f59e0b', fillOpacity: 0.65 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: set.size ? 0.3 : 0.7 });
   for (const k of set) if (covRects[k]) covRects[k].bringToFront();
   if (fit && set.size === 1) { const r = covRects[[...set][0]]; if (r) try { covMap.fitBounds(r.getBounds(), { padding: [50, 50], maxZoom: 11 }); } catch {} }
 }
@@ -450,12 +450,20 @@ function drawCoverage(el, areas) {
     if (n - s < mn) { const c = (n + s) / 2; n = c + mn / 2; s = c - mn / 2; }
     if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
     covRects[a.id] = L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
-    const rc = covRects[a.id]; let lpT = 0, lpDone = false;
-    rc.on('mousedown touchstart', () => { lpDone = false; clearTimeout(lpT); lpT = setTimeout(() => { lpDone = true; covOnPick && covOnPick(a.id, 'long'); }, 500); });
-    rc.on('mouseup touchend dragstart', () => clearTimeout(lpT));
-    covMap.on('movestart', () => clearTimeout(lpT));
-    rc.on('click', (ev) => { L.DomEvent.stopPropagation(ev); if (lpDone) { lpDone = false; return; } covOnPick && covOnPick(a.id, 'tap'); });
   }
+  // tocco / pressione lunga a livello mappa (affidabile anche con rettangoli sovrapposti)
+  const hit = (ll) => { let best = null, ba = 1e9; for (const [id, r] of Object.entries(covRects)) { const bb = r.getBounds(); if (bb.contains(ll)) { const ar = (bb.getNorth() - bb.getSouth()) * (bb.getEast() - bb.getWest()); if (ar < ba) { ba = ar; best = id; } } } return best; };
+  const cont = covMap.getContainer(); let lpT = 0, lpDone = false, sx = 0, sy = 0;
+  const lpStart = (x, y) => { lpDone = false; sx = x; sy = y; clearTimeout(lpT); lpT = setTimeout(() => { const r = cont.getBoundingClientRect(); const id = hit(covMap.containerPointToLatLng([sx - r.left, sy - r.top])); if (id && covOnPick) { lpDone = true; covOnPick(id, 'long'); } }, 500); };
+  const lpMove = (x, y) => { if (Math.abs(x - sx) + Math.abs(y - sy) > 10) clearTimeout(lpT); };
+  cont.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) lpStart(t.clientX, t.clientY); else clearTimeout(lpT); }, { passive: true });
+  cont.addEventListener('touchmove', (e) => { const t = e.touches[0]; lpMove(t.clientX, t.clientY); }, { passive: true });
+  cont.addEventListener('touchend', () => clearTimeout(lpT), { passive: true });
+  cont.addEventListener('mousedown', (e) => lpStart(e.clientX, e.clientY));
+  cont.addEventListener('mousemove', (e) => lpMove(e.clientX, e.clientY));
+  cont.addEventListener('mouseup', () => clearTimeout(lpT));
+  cont.addEventListener('contextmenu', (e) => e.preventDefault());
+  covMap.on('click', (ev) => { clearTimeout(lpT); if (lpDone) { lpDone = false; return; } const id = hit(ev.latlng); if (id && covOnPick) covOnPick(id, 'tap'); });
   setTimeout(() => { if (covMap) { covMap.invalidateSize(); if (covView) covMap.setView(covView.c, covView.z, { animate: false }); else if (covHl && covRects[covHl]) covHighlight(covHl); else covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); if (covSel.size) covHighlight(covSel, false); upd(); } }, 320);
 }
 function openOffline() {
