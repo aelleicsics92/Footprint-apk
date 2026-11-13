@@ -29,9 +29,13 @@ object Haptics {
         }
     }
 
-    private fun wave(t: LongArray, amp: IntArray, repeat: Int = -1) {
+    private fun wave(t: LongArray, amp0: IntArray, repeat: Int = -1) {
         val v = vib()
         if (!v.hasVibrator()) return
+        val lv = AppState.haptic
+        if (lv <= 0) return
+        val k = when (lv) { 1 -> 0.45f; 3 -> 1.4f; else -> 1f }
+        val amp = IntArray(amp0.size) { i -> if (amp0[i] == 0) 0 else (amp0[i] * k).toInt().coerceIn(20, 255) }
         val e = if (v.hasAmplitudeControl()) {
             VibrationEffect.createWaveform(t, amp, repeat)
         } else {

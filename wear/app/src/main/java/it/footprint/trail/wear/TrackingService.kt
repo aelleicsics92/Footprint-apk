@@ -168,6 +168,7 @@ class TrackingService : Service(), SensorEventListener {
             lastLive = now
             AppState.scope.launch(Dispatchers.IO) { Sync.pushLive(applicationContext, true) }
         }
+        if (f.acc <= 20f) CompassSensor.feedGps(f.bearing, f.speed)
         checkProximity(f)
         if (AppState.returnMode) updateReturn(f, now)
         adaptRate()

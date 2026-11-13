@@ -80,6 +80,12 @@ object AppState {
     val icons = mutableStateListOf<String>()
     var offM by mutableIntStateOf(30)
     var rec by mutableStateOf(true)
+    var compassAcc by mutableIntStateOf(3)
+    var menuGroup by mutableIntStateOf(-1)
+    var iconScale by mutableFloatStateOf(1f)
+    var haptic by mutableIntStateOf(2)
+    var confirmId: String? = null
+    var confirmTs = 0L
     var recConfirm = 0L
     var crumbReset = false
     var showSaved by mutableStateOf(true)
@@ -99,6 +105,8 @@ object AppState {
         altKey = sp.getInt("altKey", KeyEvent.KEYCODE_STEM_1)
         offM = sp.getInt("offM", 30)
         rec = sp.getBoolean("rec", true)
+        iconScale = sp.getFloat("iconScale", 1f)
+        haptic = sp.getInt("haptic", 2)
         showSaved = sp.getBoolean("showSaved", true)
         icons.clear()
         icons.addAll((sp.getString("icons", null) ?: "").split(",").filter { it.isNotBlank() }.ifEmpty { Labels.defaults })

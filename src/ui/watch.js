@@ -18,11 +18,60 @@ const row = (t, d, ctl) => `<div class="set-row col"><div class="ti"><b>${t}</b>
 const MAP_SRC = 'sat', MAP_Z = 16;
 const SRC_NAME = { sat: 'Satellite', topo: 'Topografica' };
 
+// Coda di invio mappe: resta attiva anche se chiudi la pagina
+let sending = null; // {id, phase, done, total}
+const pendingAck = {}; // id area -> istante dell'invio, in attesa che l'orologio confermi
+let queue = [];
+let running = false;
+let repaint = null; // ridisegna la pagina se aperta
+let lastStatus = null;
+
+const watchMapBytes = (a) => {
+  const sr = pickSource(a, MAP_SRC);
+  return sr ? estimateWatchBytes(a, sr, MAP_Z) : 0;
+};
+
+async function runQueue() {
+  if (running) return;
+  running = true;
+  while (queue.length) {
+    const a = queue.shift();
+    const src = pickSource(a, MAP_SRC);
+    if (!src) continue;
+    const est = estimateWatchBytes(a, src, MAP_Z);
+    if (lastStatus && lastStatus.free && est > lastStatus.free * 0.9) {
+      toast(`${a.name}: spazio insufficiente sull'orologio`);
+      continue;
+    }
+    sending = { id: a.id, phase: 'prep', done: 0, total: 1 };
+    repaint && repaint();
+    try {
+      await sendAreaToWatch(a, {
+        src,
+        maxZ: MAP_Z,
+        onPhase: (ph, d, t) => {
+          sending = { id: a.id, phase: ph, done: d, total: t };
+          const el = document.querySelector(`[data-prog="${a.id}"]`);
+          if (el) el.textContent = ph === 'prep' ? `Preparo ${Math.round((d / (t || 1)) * 100)}%` : 'Invio in corso...';
+        },
+      });
+      pendingAck[a.id] = Date.now();
+    } catch (e) {
+      toast(`${a.name}: invio non riuscito (${(e && e.message) || e})`);
+    }
+    sending = null;
+    repaint && repaint();
+  }
+  running = false;
+  toast('Invio mappe completato: l\'orologio le sta installando');
+  repaint && repaint();
+}
+
+const isQueued = (id) => queue.some((q) => q.id === id) || (sending && sending.id === id);
+
 export function openWatch() {
   openPage('Smartwatch', (pg) => {
     let info = { nodes: [], status: null, ok: false };
-    let sending = null; // {id, phase, done, total}
-    const pendingAck = {}; // id area -> istante dell'invio, in attesa che l'orologio confermi
     let areas = [];
     let alive = true;
 
@@ -93,6 +142,7 @@ export function openWatch() {
     const mapStatus = (a) => {
       const st = info.status;
       if (sending && sending.id === a.id) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
+      if (queue.some((q) => q.id === a.id)) return ['In coda', '#8a5a00', '#fdf0d5'];
       if (st && st.maps && st.maps[a.id] != null) return ['Inviata', '#1f7a45', '#dff3e6'];
       const t = pendingAck[a.id];
       if (t && Date.now() - t < 10 * 60000) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
@@ -109,57 +159,43 @@ export function openWatch() {
       } else {
         storage = `<div style="margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd;font-size:.9rem"><b>Spazio occupato sul Watch</b><br><small class="muted">Dato non ancora disponibile: apri l'app Footprint sul watch.</small></div>`;
       }
+      const toSend = areas.filter((a) => pickSource(a, MAP_SRC) && !(st && st.maps && st.maps[a.id] != null) && !isQueued(a.id) && !(pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000));
+      const allBar = areas.length
+        ? `<div style="display:flex;gap:8px;margin:10px 0 2px"><button class="btn primary" id="w-all" style="flex:1" ${toSend.length && info.nodes.length ? '' : 'disabled'}>Invia tutte${toSend.length ? ` (${toSend.length})` : ''}</button>${queue.length ? '<button class="btn" id="w-qclr">Svuota coda</button>' : ''}</div><small class="muted" style="display:block;margin:0 2px 4px">Le mappe già sul watch non vengono rimandate. L'invio va avanti in coda, anche se esci da questa pagina.</small>`
+        : '';
       const list = areas.length
         ? `<div class="list">${areas
             .map((a) => {
               const sr = pickSource(a, MAP_SRC);
               const est = sr ? estimateWatchBytes(a, sr, MAP_Z) : 0;
               const [lab, col, bg] = mapStatus(a);
-              const busy = !!sending;
+              const queued = isQueued(a.id);
               const mine = sending && sending.id === a.id;
               const prog = mine ? (sending.phase === 'prep' ? `Preparo ${Math.round((sending.done / (sending.total || 1)) * 100)}%` : 'Invio in corso...') : '';
               const sent = st && st.maps && st.maps[a.id] != null;
-              const can = !!sr && info.nodes.length > 0 && !busy;
-              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !busy ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
+              const can = !!sr && info.nodes.length > 0 && !queued;
+              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${queued ? 'In coda' : sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !queued ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
             })
             .join('')}</div>`
         : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono.</p></div>`;
       return `<div style="padding:0 14px">${storage}
-        <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${list}
+        <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${allBar}${list}
         <button class="btn primary big" id="w-dl" style="margin-top:14px">+ Scarica nuova mappa</button>
         <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per le zone grandi tieni il watch vicino. Con il satellite sono inclusi i nomi di paesi, monti e acque (la preparazione richiede qualche minuto). Puoi eliminarle dal watch con «Elimina dal Watch».</p></div>`;
     };
 
     const startSend = async (a) => {
       const src = pickSource(a, MAP_SRC);
-      const mz = MAP_Z;
       if (!src) return toast('Questa zona ha solo sentieri');
-      const est = estimateWatchBytes(a, src, mz);
+      if (isQueued(a.id)) return;
+      const est = estimateWatchBytes(a, src, MAP_Z);
       const st = info.status;
       if (st && st.free && est > st.free * 0.9) return toast("Spazio insufficiente sull'orologio");
       if (est > 40e6 && !(await confirmBox(`Circa <b>${fmtSize(est)}</b>: via Bluetooth servono circa ${estimateMinutes(est)} minuti. Continuare?`, { ok: 'Invia' }))) return;
-      sending = { id: a.id, phase: 'prep', done: 0, total: 1 };
+      queue.push(a);
+      toast(running ? 'Aggiunta alla coda' : 'Invio avviato');
       paintPane();
-      try {
-        await sendAreaToWatch(a, {
-          src,
-          maxZ: mz,
-          onPhase: (ph, d, t) => {
-            sending = { id: a.id, phase: ph, done: d, total: t };
-            const el = pg.body.querySelector(`[data-prog="${a.id}"]`);
-            if (el) el.textContent = ph === 'prep' ? `Preparo ${Math.round((d / (t || 1)) * 100)}%` : 'Invio in corso...';
-          },
-        });
-        pendingAck[a.id] = Date.now();
-        toast("Mappa inviata: l'orologio la sta installando");
-      } catch (e) {
-        toast('Invio non riuscito: ' + ((e && e.message) || e));
-      }
-      sending = null;
-      if (alive) {
-        paintPane();
-        refresh();
-      }
+      runQueue();
     };
 
     // ---------- scheda 3: preferenze hardware ----------
@@ -199,11 +235,17 @@ export function openWatch() {
         info = { nodes: [], status: null, ok: true };
       }
       if (!alive) return;
+      lastStatus = info.status;
       areas = await listAreas().catch(() => areas);
       paintBanner();
       if (TAB === 1 && !sending) paintPane();
     };
 
+    repaint = (full) => {
+      if (!alive) return;
+      if (TAB === 1) paintPane();
+      if (full) refresh();
+    };
     paintBanner();
     paintTabs();
     paintPane();
@@ -211,6 +253,7 @@ export function openWatch() {
     const iv = setInterval(refresh, 10000);
     pg.onClose = () => {
       alive = false;
+      repaint = null;
       clearInterval(iv);
     };
 
@@ -253,6 +296,23 @@ export function openWatch() {
         leavePages();
         bus.emit('nav:tab', 'map');
         setTimeout(() => bus.emit('map:download'), 250);
+      } else if (e.target.closest('#w-all')) {
+        const st = info.status;
+        const free = st && st.free ? st.free * 0.9 : Infinity;
+        let tot = 0, n = 0;
+        for (const a of areas) {
+          if (!pickSource(a, MAP_SRC) || (st && st.maps && st.maps[a.id] != null) || isQueued(a.id) || (pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000)) continue;
+          tot += watchMapBytes(a);
+          queue.push(a);
+          n++;
+        }
+        if (tot > free) toast("Attenzione: potrebbe non esserci spazio per tutte, quelle che non entrano vengono saltate");
+        toast(`${n} mappe in coda`);
+        paintPane();
+        runQueue();
+      } else if (e.target.closest('#w-qclr')) {
+        queue = [];
+        paintPane();
       } else if (e.target.closest('[data-del]')) {
         const a = areas.find((z) => z.id === e.target.closest('[data-del]').dataset.del);
         if (a && (await confirmBox(`Eliminare <b>${esc(a.name)}</b> dal watch?`, { ok: 'Elimina' }))) {

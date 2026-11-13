@@ -15,7 +15,7 @@ import java.util.UUID
 import kotlin.math.roundToInt
 
 class WItem(val key: String, val label: String, val letter: String, val color: Long, val cmd: Boolean = false)
-class MI(val id: String, val label: String)
+class MI(val id: String, val label: String, val value: String = "")
 
 /**
  * Tutti i comandi dell'app, azionabili con corona e tasti fisici (nessun tocco necessario).
@@ -218,12 +218,26 @@ object Controls {
         }
     }
 
+    /** Tasto 1: clic = schermata successiva (o conferma nel menu a ruota), tenuto premuto = nuovo waypoint (icona con la corona). */
     fun onAltPress() {
-        if (AppState.wheelOpen) closeWheel() else nextScreen(1)
+        if (AppState.wheelOpen) wheelConfirm() else nextScreen(1)
     }
 
     fun onAltLong() {
-        voice()
+        if (AppState.wheelOpen) closeWheel() else openWheel()
+    }
+
+    /** Conferma a doppia pressione per le azioni distruttive. */
+    fun confirmed(id: String, msg: String): Boolean {
+        val now = System.currentTimeMillis()
+        if (AppState.confirmId == id && now < AppState.confirmTs) {
+            AppState.confirmId = null
+            return true
+        }
+        AppState.confirmId = id
+        AppState.confirmTs = now + 4000
+        toast(msg)
+        return false
     }
 
     // ---- Corona ----
@@ -258,6 +272,7 @@ object Controls {
     }
 
     fun nextScreen(d: Int) {
+        AppState.menuGroup = -1
         AppState.screen = ((AppState.screen + d) % 5 + 5) % 5
         if (AppState.screen == 0) {
             AppState.panX = 0f
@@ -282,24 +297,60 @@ object Controls {
 
     private fun onOff(b: Boolean) = if (b) "SI" else "NO"
 
-    fun menuItems(): List<MI> = listOf(
-        MI("lock", "Blocco touch: ${onOff(AppState.touchLock)}"),
-        MI("return", "Rientro: ${onOff(AppState.returnMode)}"),
-        MI("car", "Torna all'auto"),
-        MI("notarget", "Azzera destinazione"),
-        MI("mode", "Tasto salva: " + if (AppState.keyMode == 0) "subito" else "a ruota"),
-        MI("theme", "Tema: " + if (AppState.theme == 0) "neon" else "rosso notte"),
-        MI("prox", "Vicinanza: ${AppState.proxM} m"),
-        MI("rot", "Corona: " + when (AppState.rotaryPx) { 25f -> "sensibile"; 70f -> "lenta"; else -> "media" }),
-        MI("tscale", "Mappa: ${AppState.tileScale}x"),
-        MI("learnSave", "Assegna SALVA (${keyName(AppState.saveKey)})"),
-        MI("learnAlt", "Assegna ALT (${keyName(AppState.altKey)})"),
-        MI("rec", if (AppState.rec) "Ferma traccia > telefono" else "Avvia traccia"),
-        MI("showSaved", "Tracce salvate: ${onOff(AppState.showSaved)}"),
-        MI("clearMaps", "Cancella mappe"),
-        MI("exit", "Esci e ferma GPS"),
-        MI("back", "Torna alla mappa")
-    )
+    private val GROUPS = listOf("Traccia", "Navigazione", "Tasti e corona", "Aspetto", "Sistema")
+
+    private fun tileSize(): String {
+        val b = Status.tilesBytes()
+        return if (b <= 0) "vuoto" else "%.0f MB".format(b / 1048576.0)
+    }
+
+    /** Impostazioni a gruppi: prima l'elenco dei gruppi, poi le voci con il valore attuale. */
+    fun menuItems(): List<MI> {
+        val g = AppState.menuGroup
+        if (g < 0) {
+            return listOf(
+                MI("g0", "Traccia", if (AppState.rec) "in registrazione" else "ferma"),
+                MI("g1", "Navigazione", AppState.navTarget()?.name ?: "nessuna destinazione"),
+                MI("g2", "Tasti e corona", if (AppState.keyMode == 0) "salva subito" else "salva a ruota"),
+                MI("g3", "Aspetto", if (AppState.theme == 0) "tema neon" else "tema rosso notte"),
+                MI("g4", "Sistema", "mappe, GPS, esci"),
+                MI("close", "Chiudi menu", "torna alla mappa")
+            )
+        }
+        val back = MI("back", "‹ Indietro", GROUPS[g])
+        val list = when (g) {
+            0 -> listOf(
+                MI("rec", if (AppState.rec) "Ferma e invia al telefono" else "Avvia traccia", if (AppState.rec) "premi 2 volte" else "parte subito"),
+                MI("showSaved", "Tracce salvate sulla mappa", onOff(AppState.showSaved)),
+                MI("return", "Rientro sui tuoi passi", onOff(AppState.returnMode)),
+                MI("offM", "Avviso fuori traccia", "oltre ${AppState.offM} m")
+            )
+            1 -> listOf(
+                MI("car", "Torna all'auto", "imposta destinazione"),
+                MI("notarget", "Azzera destinazione", AppState.navTarget()?.name ?: "nessuna"),
+                MI("prox", "Vibra vicino al punto", "entro ${AppState.proxM} m")
+            )
+            2 -> listOf(
+                MI("mode", "Tasto salva", if (AppState.keyMode == 0) "salva subito" else "apre il menu a ruota"),
+                MI("rot", "Sensibilità corona", when (AppState.rotaryPx) { 25f -> "alta"; 70f -> "bassa"; else -> "media" }),
+                MI("lock", "Blocco touch", onOff(AppState.touchLock)),
+                MI("learnSave", "Assegna tasto SALVA", keyName(AppState.saveKey)),
+                MI("learnAlt", "Assegna tasto 1", keyName(AppState.altKey))
+            )
+            3 -> listOf(
+                MI("theme", "Tema", if (AppState.theme == 0) "neon" else "rosso notte"),
+                MI("tscale", "Dettaglio mappa", "${AppState.tileScale}x"),
+                MI("iconScale", "Dimensione icone", when (AppState.iconScale) { 0.7f -> "piccole"; 1.35f -> "grandi"; else -> "medie" }),
+                MI("haptic", "Vibrazione", when (AppState.haptic) { 0 -> "spenta"; 1 -> "debole"; 3 -> "forte"; else -> "normale" })
+            )
+            else -> listOf(
+                MI("clearMaps", "Cancella mappe", tileSize()),
+                MI("compassReset", "Bussola: azzera correzione", "ricalibra col cammino"),
+                MI("exit", "Esci e ferma GPS", "premi 2 volte")
+            )
+        }
+        return listOf(back) + list
+    }
 
     fun activateSelection() {
         if (AppState.screen == 3) {
@@ -316,7 +367,33 @@ object Controls {
     }
 
     fun runMenu(id: String?) {
+        if (id != null && id.length == 2 && id[0] == 'g') {
+            AppState.menuGroup = id[1] - '0'
+            AppState.menuSel = 0
+            Haptics.tick()
+            return
+        }
         when (id) {
+            "close" -> { AppState.menuGroup = -1; AppState.screen = 0 }
+            "offM" -> {
+                val v = listOf(15, 30, 50, 100)
+                AppState.offM = v[(v.indexOf(AppState.offM) + 1) % v.size]
+                AppState.putInt("offM", AppState.offM)
+            }
+            "iconScale" -> {
+                val v = listOf(0.7f, 1f, 1.35f)
+                AppState.iconScale = v[(v.indexOf(AppState.iconScale) + 1) % v.size]
+                AppState.putFloat("iconScale", AppState.iconScale)
+            }
+            "haptic" -> {
+                AppState.haptic = (AppState.haptic + 1) % 4
+                AppState.putInt("haptic", AppState.haptic)
+                Haptics.tick()
+            }
+            "compassReset" -> {
+                CompassSensor.resetBias()
+                toast("Cammina dritto: la bussola si riallinea al GPS")
+            }
             "lock" -> toggleLock()
             "return" -> {
                 if (!AppState.returnMode && AppState.track.size < 3) {
@@ -382,19 +459,23 @@ object Controls {
                 AppState.learn = 2
                 toast("Premi il tasto ALT")
             }
-            "rec" -> if (AppState.rec) endTrip() else startRec()
+            "rec" -> recTap()
             "showSaved" -> {
                 AppState.showSaved = !AppState.showSaved
                 AppState.putBool("showSaved", AppState.showSaved)
             }
             "clearMaps" -> {
+                if (!confirmed("clearMaps", "Premi ancora per cancellare le mappe")) return
                 TileCache.clear()
                 Status.clearMaps()
                 AppState.scope.launch { Status.push(ctx) }
                 toast("Mappe cancellate")
             }
-            "exit" -> AppState.exitRequested = true
-            "back" -> AppState.screen = 0
+            "exit" -> if (confirmed("exit", "Premi ancora per uscire")) AppState.exitRequested = true
+            "back" -> {
+                AppState.menuSel = (AppState.menuGroup).coerceAtLeast(0)
+                AppState.menuGroup = -1
+            }
         }
     }
 

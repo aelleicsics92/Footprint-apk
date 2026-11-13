@@ -253,7 +253,10 @@ fun MapScreen(p: Pal) {
         val info = (if (f != null) "±${f.acc.roundToInt()} m  " else "GPS...  ") + "z${AppState.zoom}"
         T(info, p.main, 12, true, Modifier.align(Alignment.TopCenter).padding(top = 10.dp))
         if (!TileCache.has) {
-            T("nessuna mappa: invia dal telefono", p.dim, 10, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                T("Nessuna mappa", p.dim, 12, true)
+                T("invia dal telefono", p.dim, 11)
+            }
         }
     }
 }
@@ -363,7 +366,13 @@ private fun DrawScope.drawMap(p: Pal, paint: android.graphics.Paint) {
         val x = sx(wp.lon)
         val y = sy(wp.lat)
         if (x < -30f || x > w + 30f || y < -30f || y > h + 30f) continue
-        drawWpIcon(wp.icon, x, y, 42, if (wp.id == AppState.targetId) p.main else null)
+        val zf = when {
+            AppState.zoom >= 16 -> 1f
+            AppState.zoom >= 14 -> 0.8f
+            AppState.zoom >= 12 -> 0.6f
+            else -> 0.45f
+        }
+        drawWpIcon(wp.icon, x, y, (42 * AppState.iconScale * zf).toInt().coerceAtLeast(14), if (wp.id == AppState.targetId) p.main else null)
     }
 
     // Freccia propria
@@ -489,6 +498,7 @@ fun CompassScreen(p: Pal) {
             val hd = AppState.heading.roundToInt() % 360
             T("$hd°", p.text, 34, true)
             T(Geo.card(hd.toDouble()), p.main, 18, true)
+            if (AppState.compassAcc < 2) T("calibra: muovi il polso a 8", p.sec, 11)
             if (nt != null && f != null) {
                 T(Geo.fmtDist(Geo.dist(f.lat, f.lon, nt.lat, nt.lon)), p.sec, 18, true)
             }
@@ -600,26 +610,28 @@ fun MenuScreen(p: Pal) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        T("MENU   tasto: ${Controls.keyName(AppState.lastKey)}", p.dim, 11, true)
-        val from = max(0, sel - 2)
-        val to = min(items.size - 1, sel + 2)
+        val g = AppState.menuGroup
+        T(if (g < 0) "IMPOSTAZIONI" else "IMPOSTAZIONI  ›  " + listOf("Traccia", "Navigazione", "Tasti e corona", "Aspetto", "Sistema")[g], p.dim, 11, true)
+        val from = max(0, sel - 1)
+        val to = min(items.size - 1, from + 2)
         for (i in from..to) {
             val selected = i == sel
-            Box(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .padding(vertical = 2.dp)
-                    .background(if (selected) p.main.copy(alpha = 0.22f) else Color.Transparent, RoundedCornerShape(10.dp))
+                    .background(if (selected) p.main.copy(alpha = 0.22f) else Color.Transparent, RoundedCornerShape(12.dp))
                     .pointerInput(i) {
                         detectTapGestures(onTap = {
                             AppState.menuSel = i
                             Controls.activateSelection()
                         })
                     }
-                    .padding(horizontal = 8.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 T(items[i].label, if (selected) p.main else p.text, 15, selected)
+                if (items[i].value.isNotEmpty()) T(items[i].value, if (selected) p.sec else p.dim, 12)
             }
         }
         if (AppState.learn != 0) T("premi il tasto da assegnare", p.sec, 12)
