@@ -5,7 +5,7 @@ import { WP_ICONS, WP_BY_ID } from '../lib/icons.js';
 import { esc, bus } from '../lib/util.js';
 import { listAreas, fmtMB } from '../lib/offline.js';
 import { watchCfg, sendCmd, sendTracks, sendToWatch, queueSend, watchInfo, WATCH_DEFAULT_ICONS, WATCH_MAX_ICONS } from '../lib/watchsync.js';
-import { estimateWatchBytes, estimateMinutes, pickSource, sendAreaToWatch } from '../lib/watchmaps.js';
+import { estimateWatchBytes, estimateMinutes, watchSources, sendAreaToWatch } from '../lib/watchmaps.js';
 
 let TAB = 0; // scheda aperta: 0 icone, 1 mappe, 2 hardware
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -24,41 +24,57 @@ const pendingAck = {}; // id area -> istante dell'invio, in attesa che l'orologi
 let queue = [];
 const selected = new Set(); // mappe scelte nell'elenco
 let running = false;
+let selMode = false; // la selezione compare solo dopo una pressione lunga su una mappa
 let repaint = null; // ridisegna la pagina se aperta
 let lastStatus = null;
 
-const watchMapBytes = (a) => {
-  const sr = pickSource(a, MAP_SRC);
-  return sr ? estimateWatchBytes(a, sr, MAP_Z) : 0;
+// un'area puo' stare sul watch in piu' strati (satellite e/o topografica): l'orologio sceglie quale mostrare
+const srcsOf = (a) => watchSources(a);
+const mapKey = (id, sr) => `${id}|${sr}`;
+const hasOn = (st, a, sr) => !!(st && st.maps && (st.maps[mapKey(a.id, sr)] != null || (sr === 'sat' && st.maps[a.id] != null)));
+const isSent = (st, a) => { const l = srcsOf(a); return l.length > 0 && l.every((x) => hasOn(st, a, x)); };
+const anySent = (st, a) => srcsOf(a).some((x) => hasOn(st, a, x));
+const estOf = (a, list = srcsOf(a)) => list.reduce((t, x) => t + estimateWatchBytes(a, x, MAP_Z), 0);
+const SRC_LABEL = { sat: 'Satellite (con nomi)', topo: 'Topografica' };
+const forced = new Set(); // aree da rimandare anche se gia' presenti (Reinvia)
+const dropMaps = (ids) => {
+  if (!lastStatus || !lastStatus.maps) return;
+  for (const k of Object.keys(lastStatus.maps)) if (ids.some((i) => k === i || k.startsWith(i + '|'))) delete lastStatus.maps[k];
 };
+const watchMapBytes = (a) => estOf(a);
 
 async function runQueue() {
   if (running) return;
   running = true;
   while (queue.length) {
     const a = queue.shift();
-    const src = pickSource(a, MAP_SRC);
-    if (!src) continue;
-    const est = estimateWatchBytes(a, src, MAP_Z);
+    let todo = srcsOf(a);
+    if (!forced.has(a.id)) todo = todo.filter((x) => !hasOn(lastStatus, a, x));
+    forced.delete(a.id);
+    if (!todo.length) continue;
+    const est = estOf(a, todo);
     if (lastStatus && lastStatus.free && est > lastStatus.free * 0.9) {
       toast(`${a.name}: spazio insufficiente sull'orologio`);
       continue;
     }
-    sending = { id: a.id, phase: 'prep', done: 0, total: 1 };
-    repaint && repaint();
-    try {
-      await sendAreaToWatch(a, {
-        src,
-        maxZ: MAP_Z,
-        onPhase: (ph, d, t) => {
-          sending = { id: a.id, phase: ph, done: d, total: t };
-          const el = document.querySelector(`[data-prog="${a.id}"]`);
-          if (el) el.textContent = ph === 'prep' ? `Preparo ${Math.round((d / (t || 1)) * 100)}%` : 'Invio in corso...';
-        },
-      });
-      pendingAck[a.id] = Date.now();
-    } catch (e) {
-      toast(`${a.name}: invio non riuscito (${(e && e.message) || e})`);
+    for (const src of todo) {
+      sending = { id: a.id, phase: 'prep', done: 0, total: 1 };
+      repaint && repaint();
+      try {
+        await sendAreaToWatch(a, {
+          src,
+          maxZ: MAP_Z,
+          onPhase: (ph, d, t) => {
+            sending = { id: a.id, phase: ph, done: d, total: t };
+            const el = document.querySelector(`[data-prog="${a.id}"]`);
+            if (el) el.textContent = `${SRC_LABEL[src] || src}: ` + (ph === 'prep' ? `preparo ${Math.round((d / (t || 1)) * 100)}%` : 'invio in corso...');
+          },
+        });
+        pendingAck[a.id] = Date.now();
+      } catch (e) {
+        toast(`${a.name}: invio non riuscito (${(e && e.message) || e})`);
+        break;
+      }
     }
     sending = null;
     repaint && repaint();
@@ -144,7 +160,8 @@ export function openWatch() {
       const st = info.status;
       if (sending && sending.id === a.id) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
       if (queue.some((q) => q.id === a.id)) return ['In coda', '#8a5a00', '#fdf0d5'];
-      if (st && st.maps && st.maps[a.id] != null) return ['Inviata', '#1f7a45', '#dff3e6'];
+      if (isSent(st, a)) return ['Inviata', '#1f7a45', '#dff3e6'];
+      if (anySent(st, a)) return ['Parziale', '#8a5a00', '#fdf0d5'];
       const t = pendingAck[a.id];
       if (t && Date.now() - t < 10 * 60000) return ['In trasferimento...', '#b7791f', '#fdf0d5'];
       if (t) return ['Non confermata', '#c0392b', '#fbe3df'];
@@ -160,27 +177,30 @@ export function openWatch() {
       } else {
         storage = `<div style="margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#fffdf6;border:1px solid #e6e0cd;font-size:.9rem"><b>Spazio occupato sul Watch</b><br><small class="muted">Dato non ancora disponibile: apri l'app Footprint sul watch.</small></div>`;
       }
-      const toSend = areas.filter((a) => pickSource(a, MAP_SRC) && !(st && st.maps && st.maps[a.id] != null) && !isQueued(a.id) && !(pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000));
+      const toSend = areas.filter((a) => srcsOf(a).length && !isSent(st, a) && !isQueued(a.id) && !(pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000));
       const allBar = areas.length
         ? `<div style="display:flex;gap:8px;margin:10px 0 2px"><button class="btn primary" id="w-all" style="flex:1" ${toSend.length && info.nodes.length ? '' : 'disabled'}>Invia tutte${toSend.length ? ` (${toSend.length})` : ''}</button>${queue.length ? '<button class="btn" id="w-qclr">Svuota coda</button>' : ''}</div><small class="muted" style="display:block;margin:0 2px 4px">Le mappe già sul watch non vengono rimandate. L'invio va avanti in coda, anche se esci da questa pagina.</small>`
         : '';
       for (const id of [...selected]) if (!areas.find((a) => a.id === id)) selected.delete(id);
       const nSel = selected.size;
+      const delAll = `<button class="chip" id="w-delall" style="color:#c0392b;margin:0 0 10px" ${info.nodes.length ? '' : 'disabled'}>Elimina tutte le mappe dal Watch</button>`;
       const selBar = areas.length
-        ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px;align-items:center"><button class="chip" id="w-selall">${nSel === areas.length ? 'Deseleziona tutte' : 'Seleziona tutte'}</button>${nSel ? `<b style="font-size:.9rem">${nSel} selezionate</b>` : '<small class="muted">Spunta le mappe per inviarle o eliminarle insieme</small>'}</div>${nSel ? `<div style="display:flex;gap:8px;margin:0 0 8px"><button class="btn primary" id="w-selsend" style="flex:1" ${info.nodes.length ? '' : 'disabled'}>Invia selezione</button><button class="btn" id="w-seldel" style="flex:1;color:#c0392b" ${info.nodes.length ? '' : 'disabled'}>Elimina dal Watch</button></div>` : ''}<button class="chip" id="w-delall" style="color:#c0392b;margin:0 0 10px" ${info.nodes.length ? '' : 'disabled'}>Elimina tutte le mappe dal Watch</button>`
+        ? selMode
+          ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px;align-items:center"><button class="chip" id="w-selall">${nSel === areas.length ? 'Deseleziona tutte' : 'Seleziona tutte'}</button><b style="font-size:.9rem;flex:1">${nSel} selezionate</b><button class="chip" id="w-selend">Fine</button></div>${nSel ? `<div style="display:flex;gap:8px;margin:0 0 8px"><button class="btn primary" id="w-selsend" style="flex:1" ${info.nodes.length ? '' : 'disabled'}>Invia selezione</button><button class="btn" id="w-seldel" style="flex:1;color:#c0392b" ${info.nodes.length ? '' : 'disabled'}>Elimina dal Watch</button></div>` : ''}`
+          : `<small class="muted" style="display:block;margin:2px 2px 8px">Tieni premuta una mappa per selezionarne più di una.</small>${delAll}`
         : '';
       const list = areas.length
         ? `<div class="list">${areas
             .map((a) => {
-              const sr = pickSource(a, MAP_SRC);
-              const est = sr ? estimateWatchBytes(a, sr, MAP_Z) : 0;
+              const sl = srcsOf(a);
+              const est = estOf(a);
               const [lab, col, bg] = mapStatus(a);
               const queued = isQueued(a.id);
               const mine = sending && sending.id === a.id;
               const prog = mine ? (sending.phase === 'prep' ? `Preparo ${Math.round((sending.done / (sending.total || 1)) * 100)}%` : 'Invio in corso...') : '';
-              const sent = st && st.maps && st.maps[a.id] != null;
-              const can = !!sr && info.nodes.length > 0 && !queued;
-              return `<div class="set-row col" style="gap:8px"><label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer"><input type="checkbox" data-sel="${a.id}" ${selected.has(a.id) ? 'checked' : ''} style="width:22px;height:22px;margin-top:2px;flex:none"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div></label><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${queued ? 'In coda' : sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !queued ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
+              const sent = isSent(st, a);
+              const can = sl.length > 0 && info.nodes.length > 0 && !queued;
+              return `<div class="set-row col" style="gap:8px" data-row="${a.id}"><div style="display:flex;gap:12px;align-items:flex-start">${selMode ? `<input type="checkbox" ${selected.has(a.id) ? 'checked' : ''} style="width:22px;height:22px;margin-top:2px;flex:none;pointer-events:none">` : ''}<div class="ti"><b>${esc(a.name)}</b><small>${sl.length ? `${sl.map((x) => SRC_LABEL[x] || x).join(' + ')} · circa ${fmtSize(est)} sul watch` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${queued ? 'In coda' : sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !queued ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
             })
             .join('')}</div>`
         : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono.</p></div>`;
@@ -191,11 +211,13 @@ export function openWatch() {
     };
 
     const startSend = async (a) => {
-      const src = pickSource(a, MAP_SRC);
-      if (!src) return toast('Questa zona ha solo sentieri');
+      const l = srcsOf(a);
+      if (!l.length) return toast('Questa zona ha solo sentieri');
       if (isQueued(a.id)) return;
-      const est = estimateWatchBytes(a, src, MAP_Z);
       const st = info.status;
+      const sent = isSent(st, a);
+      if (sent) forced.add(a.id);
+      const est = estOf(a, sent ? l : l.filter((x) => !hasOn(st, a, x)));
       if (st && st.free && est > st.free * 0.9) return toast("Spazio insufficiente sull'orologio");
       if (est > 40e6 && !(await confirmBox(`Circa <b>${fmtSize(est)}</b>: via Bluetooth servono circa ${estimateMinutes(est)} minuti. Continuare?`, { ok: 'Invia' }))) return;
       queue.push(a);
@@ -307,7 +329,7 @@ export function openWatch() {
         const free = st && st.free ? st.free * 0.9 : Infinity;
         let tot = 0, n = 0;
         for (const a of areas) {
-          if (!pickSource(a, MAP_SRC) || (st && st.maps && st.maps[a.id] != null) || isQueued(a.id) || (pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000)) continue;
+          if (!srcsOf(a).length || isSent(st, a) || isQueued(a.id) || (pendingAck[a.id] && Date.now() - pendingAck[a.id] < 10 * 60000)) continue;
           tot += watchMapBytes(a);
           queue.push(a);
           n++;
@@ -316,6 +338,14 @@ export function openWatch() {
         toast(`${n} mappe in coda`);
         paintPane();
         runQueue();
+      } else if (e.target.closest('#w-selend')) {
+        selMode = false;
+        selected.clear();
+        paintPane();
+      } else if (e.target.closest('[data-row]') && selMode && !e.target.closest('button')) {
+        const id = e.target.closest('[data-row]').dataset.row;
+        if (selected.has(id)) selected.delete(id); else selected.add(id);
+        paintPane();
       } else if (e.target.closest('#w-selall')) {
         if (selected.size === areas.length) selected.clear(); else areas.forEach((a) => selected.add(a.id));
         paintPane();
@@ -324,11 +354,12 @@ export function openWatch() {
         let n = 0, skip = 0;
         for (const a of areas) {
           if (!selected.has(a.id)) continue;
-          if (!pickSource(a, MAP_SRC) || (st && st.maps && st.maps[a.id] != null) || isQueued(a.id)) { skip++; continue; }
+          if (!srcsOf(a).length || isSent(st, a) || isQueued(a.id)) { skip++; continue; }
           queue.push(a);
           n++;
         }
         selected.clear();
+        selMode = false;
         toast(n ? `${n} mappe in coda${skip ? `, ${skip} già presenti` : ''}` : 'Le mappe scelte sono già sul watch');
         paintPane();
         runQueue();
@@ -337,7 +368,7 @@ export function openWatch() {
         if (ids.length && (await confirmBox(`Eliminare <b>${ids.length}</b> mappe dal watch? Restano sul telefono.`, { ok: 'Elimina' }))) {
           try {
             await sendCmd({ op: 'delmap', ids });
-            if (info.status && info.status.maps) ids.forEach((i) => delete info.status.maps[i]);
+            dropMaps(ids);
             ids.forEach((i) => delete pendingAck[i]);
             selected.clear();
             toast('Richiesta inviata: il watch elimina le mappe');
@@ -366,7 +397,7 @@ export function openWatch() {
         if (a && (await confirmBox(`Eliminare <b>${esc(a.name)}</b> dal watch?`, { ok: 'Elimina' }))) {
           try {
             await sendCmd({ op: 'delmap', id: a.id });
-            if (info.status && info.status.maps) delete info.status.maps[a.id];
+            dropMaps([a.id]);
             delete pendingAck[a.id];
             toast('Richiesta inviata: il watch elimina la mappa');
           } catch (err) {
@@ -385,6 +416,25 @@ export function openWatch() {
           .catch(() => (st.textContent = "Invio non riuscito: controlla che l'orologio sia collegato al telefono (app Wear OS)."));
       }
     });
+    {
+      let lpT = 0, lpDone = false;
+      const clr = () => clearTimeout(lpT);
+      pg.body.addEventListener('touchstart', (e) => {
+        const row = e.target.closest && e.target.closest('[data-row]');
+        if (!row || TAB !== 1) return;
+        lpDone = false;
+        lpT = setTimeout(() => {
+          lpDone = true;
+          selMode = true;
+          selected.add(row.dataset.row);
+          if (navigator.vibrate) navigator.vibrate(30);
+          paintPane();
+        }, 500);
+      }, { passive: true });
+      ['touchend', 'touchmove', 'touchcancel'].forEach((ev) => pg.body.addEventListener(ev, clr, { passive: true }));
+      pg.body.addEventListener('click', (e) => { if (lpDone) { lpDone = false; e.stopPropagation(); e.preventDefault(); } }, true);
+      pg.body.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('[data-row]')) e.preventDefault(); });
+    }
     pg.body.addEventListener('change', (e) => {
       const cb = e.target.closest && e.target.closest('[data-sel]');
       if (cb) {

@@ -277,7 +277,7 @@ object Controls {
 
     fun setZoom(z: Int) {
         val lo = if (TileCache.has) TileCache.minZ else 3
-        val hi = if (TileCache.has) (TileCache.maxZ + 3).coerceAtMost(20) else 18
+        val hi = if (TileCache.has) (TileCache.maxZ + 3).coerceAtMost(17).coerceAtLeast(TileCache.maxZ) else 17
         AppState.zoom = z.coerceIn(lo, hi)
         AppState.putInt("zoom", AppState.zoom)
     }
@@ -349,6 +349,7 @@ object Controls {
                 MI("learnAlt", "Assegna tasto 1", keyName(AppState.altKey))
             )
             3 -> listOf(
+                MI("mapSrc", "Mappa", (if (AppState.mapSrc == "sat") "Satellite" else "Topografica") + if (AppState.mapSrc in TileCache.srcs) "" else " (non inviata)"),
                 MI("theme", "Tema", if (AppState.theme == 0) "neon" else "rosso notte"),
                 MI("tscale", "Dettaglio mappa", "${AppState.tileScale}x"),
                 MI("iconScale", "Dimensione icone", when (AppState.iconScale) { 0.7f -> "piccole"; 1.35f -> "grandi"; else -> "medie" }),
@@ -390,6 +391,12 @@ object Controls {
                 val v = listOf(15, 30, 50, 100)
                 AppState.offM = v[(v.indexOf(AppState.offM) + 1) % v.size]
                 AppState.putInt("offM", AppState.offM)
+            }
+            "mapSrc" -> {
+                AppState.mapSrc = if (AppState.mapSrc == "sat") "topo" else "sat"
+                AppState.putStr("mapSrc", AppState.mapSrc)
+                TileCache.scan()
+                toast(if (AppState.mapSrc in TileCache.srcs) "Mappa: " + (if (AppState.mapSrc == "sat") "satellite" else "topografica") else "Nessuna mappa di questo tipo sul watch: inviala dal telefono")
             }
             "iconScale" -> {
                 val v = listOf(0.7f, 1f, 1.35f)

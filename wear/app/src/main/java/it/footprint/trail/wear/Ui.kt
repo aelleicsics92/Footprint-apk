@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusable
@@ -65,6 +66,7 @@ import kotlin.math.sin
 
 // ---------- Utilita' ----------
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun T(
     text: String,
@@ -73,9 +75,10 @@ fun T(
     bold: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // se il testo non entra scorre da solo (marquee); se entra resta fermo
     BasicText(
         text = text,
-        modifier = modifier,
+        modifier = modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1500, velocity = 28.dp),
         style = TextStyle(
             color = color,
             fontSize = size.sp,
@@ -83,7 +86,8 @@ fun T(
             textAlign = TextAlign.Center
         ),
         maxLines = 1,
-        overflow = TextOverflow.Ellipsis
+        softWrap = false,
+        overflow = TextOverflow.Clip
     )
 }
 
@@ -254,8 +258,13 @@ fun MapScreen(p: Pal) {
         T(info, p.main, 12, true, Modifier.align(Alignment.TopCenter).padding(top = 10.dp))
         if (!TileCache.has) {
             Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                T("Nessuna mappa", p.dim, 12, true)
-                T("invia dal telefono", p.dim, 11)
+                if (TileCache.srcs.isEmpty()) {
+                    T("Nessuna mappa", p.dim, 12, true)
+                    T("invia dal telefono", p.dim, 11)
+                } else {
+                    T("Nessuna mappa " + (if (AppState.mapSrc == "sat") "satellitare" else "topografica"), p.dim, 12, true)
+                    T("cambia in Impostazioni", p.dim, 11)
+                }
             }
         }
     }

@@ -143,7 +143,7 @@ export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
   const path = 'watchmap/area.zip';
   try { await Filesystem.deleteFile({ path, directory: Directory.Cache }); } catch {}
   const zip = new ZipOut(path);
-  await zip.add('meta.json', new TextEncoder().encode(JSON.stringify({ id: a.id, name: a.name })));
+  await zip.add('meta.json', new TextEncoder().encode(JSON.stringify({ id: a.id, name: a.name, src })));
   // satellite: si incollano i nomi (paesi, monti, acque) sopra ogni tile
   let lab = null, cv = null, cx = null;
   if (src === 'sat') {

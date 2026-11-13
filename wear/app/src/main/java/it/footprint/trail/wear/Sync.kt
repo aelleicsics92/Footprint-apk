@@ -99,14 +99,16 @@ object Sync {
                 o.optString("id").takeIf { it.isNotEmpty() }?.let { ids.add(it) }
                 o.optJSONArray("ids")?.let { a -> for (i in 0 until a.length()) ids.add(a.getString(i)) }
                 for (id in ids) {
-                    val lst = File(File(ctx.filesDir, "maps"), "$id.lst")
-                    if (lst.exists()) {
-                        val root = TileCache.dir.canonicalFile
-                        lst.readLines().forEach { rel ->
-                            val f = File(root, rel).canonicalFile
-                            if (f.path.startsWith(root.path + File.separator)) f.delete()
+                    val root = TileCache.root.canonicalFile
+                    File(ctx.filesDir, "maps").listFiles()?.filter { it.isDirectory }?.forEach { sd ->
+                        val lst = File(sd, "$id.lst")
+                        if (lst.exists()) {
+                            lst.readLines().forEach { rel ->
+                                val f = File(root, rel).canonicalFile
+                                if (f.path.startsWith(root.path + File.separator)) f.delete()
+                            }
+                            lst.delete()
                         }
-                        lst.delete()
                     }
                     Status.removeMap(id)
                 }
@@ -308,11 +310,11 @@ class SyncService : WearableListenerService() {
         }
         AppState.scope.launch(Dispatchers.IO) {
             val files = ArrayList<String>()
-            val (n, metaId) = unzipTiles(tmp, TileCache.dir, files)
+            val (n, metaId, src) = unzipTiles(tmp, TileCache.root, files)
             tmp.delete()
             if (metaId != null) {
-                Status.addMap(metaId, n)
-                val md = File(filesDir, "maps")
+                Status.addMap(metaId, src, n)
+                val md = File(File(filesDir, "maps"), src)
                 md.mkdirs()
                 File(md, "$metaId.lst").writeText(files.joinToString("\n"))
             }
@@ -324,27 +326,34 @@ class SyncService : WearableListenerService() {
         }
     }
 
-    /** Ritorna (numero di tile, id area dal file meta.json). */
-    private fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Pair<Int, String?> {
+    /** Ritorna (numero di tile, id area, strato) dal file meta.json (che il telefono mette per primo nello ZIP). */
+    private fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, String?, String> {
         val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
         val root = dest.canonicalFile
         var n = 0
         var metaId: String? = null
+        var src = "sat"
         ZipInputStream(zip.inputStream().buffered()).use { zin ->
             var e = zin.nextEntry
             while (e != null) {
                 if (!e.isDirectory) {
                     val m = rx.matchEntire(e.name)
                     if (e.name == "meta.json") {
-                        metaId = try { org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8)).optString("id").ifEmpty { null } } catch (x: Exception) { null }
+                        try {
+                            val mo = org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8))
+                            metaId = mo.optString("id").ifEmpty { null }
+                            val sv = mo.optString("src")
+                            if (sv == "sat" || sv == "topo") src = sv
+                        } catch (x: Exception) {
+                        }
                     } else if (m != null) {
                         val ext = if (m.groupValues[4] == "jpeg") "jpg" else m.groupValues[4]
-                        val f = File(root, "${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext").canonicalFile
+                        val f = File(root, "$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext").canonicalFile
                         if (f.path.startsWith(root.path + File.separator)) {
                             f.parentFile?.mkdirs()
                             f.outputStream().use { out -> zin.copyTo(out) }
                             n++
-                            files.add("${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext")
+                            files.add("$src/${m.groupValues[1]}/${m.groupValues[2]}/${m.groupValues[3]}.$ext")
                         }
                     }
                 }
@@ -352,6 +361,6 @@ class SyncService : WearableListenerService() {
                 e = zin.nextEntry
             }
         }
-        return Pair(n, metaId)
+        return Triple(n, metaId, src)
     }
 }

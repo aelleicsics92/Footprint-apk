@@ -81,6 +81,7 @@ object AppState {
     var offM by mutableIntStateOf(30)
     var rec by mutableStateOf(true)
     var compassAcc by mutableIntStateOf(3)
+    var mapSrc by mutableStateOf("sat") // strato mostrato dalla mappa: sat o topo
     var menuGroup by mutableIntStateOf(-1)
     var iconScale by mutableFloatStateOf(1f)
     var haptic by mutableIntStateOf(2)
@@ -106,6 +107,7 @@ object AppState {
         offM = sp.getInt("offM", 30)
         rec = sp.getBoolean("rec", true)
         iconScale = sp.getFloat("iconScale", 1f)
+        mapSrc = sp.getString("mapSrc", "sat") ?: "sat"
         haptic = sp.getInt("haptic", 2)
         showSaved = sp.getBoolean("showSaved", true)
         icons.clear()

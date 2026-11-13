@@ -12,7 +12,7 @@ import { openWeather } from './weather.js';
 import { getWaypoints, openWaypoint, mergeWaypoints, bulkUpdate, bulkRemove } from '../lib/waypoints.js';
 import { getTracks, loadTrackPoints, renameTrack, deleteTrack, saveTrack, startRecording, stopRecording, getRec } from '../lib/track.js';
 import { toGPX, shareFile, safeName, parseGpsText, segments } from '../lib/gpsio.js';
-import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload } from '../lib/offline.js';
+import { listAreas, deleteArea, fmtMB, getQueue, cancelDownload, makeLayer } from '../lib/offline.js';
 import { setWakeLock } from '../lib/wake.js';
 import { askNotifPermission } from '../lib/notify.js';
 import { openDiary } from './diary.js';
@@ -399,10 +399,20 @@ function covHighlight(ids, fit = true) {
 function drawCoverage(el, areas) {
   if (!el) return;
   covRects = {};
-  covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 12, zoomControl: false });
+  covMap = L.map(el, { attributionControl: false, zoomSnap: 0.25, minZoom: 4, maxZoom: 17, zoomControl: false });
   const ll = ITALY.flatMap((poly) => poly.map((ring) => { const o = []; for (let i = 0; i < ring.length; i += 2) o.push([ring[i + 1], ring[i]]); return o; }));
   const it = L.polygon(ll, { color: '#a89f86', weight: 1.2, fillColor: '#f6f2e6', fillOpacity: 1, interactive: false }).addTo(covMap);
   if (covView) covMap.setView(covView.c, covView.z, { animate: false }); else covMap.fitBounds(it.getBounds(), { padding: [6, 6] });
+  // da zoom 9 sotto lo schema compare la mappa vera (dalla memoria offline, se c'e')
+  const realBase = makeLayer(getSettings().baseLayer === 'topo' ? 'topo' : 'sat');
+  const realUpd = () => {
+    const on = covMap.getZoom() >= 9;
+    if (on && !covMap.hasLayer(realBase)) realBase.addTo(covMap);
+    if (!on && covMap.hasLayer(realBase)) covMap.removeLayer(realBase);
+    it.setStyle({ fillOpacity: on ? 0 : 1, opacity: on ? 0 : 1 });
+  };
+  covMap.on('zoomend', realUpd);
+  realUpd();
   const rivLbl = [];
   for (const [nm, pts] of [...RIVERS, ...RIVERS2]) {
     L.polyline(pts, { color: '#7fb0d6', weight: 1.6, opacity: 0.9, interactive: false }).addTo(covMap);
@@ -457,7 +467,7 @@ function openOffline() {
       const qq = getQueue();
       const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
       if (covMap) { try { covView = { c: covMap.getCenter(), z: covMap.getZoom() }; covMap.remove(); } catch {} covMap = null; }
-      pg.body.innerHTML = `<div style="padding:14px 14px 0"><button class="btn primary big" id="off-here">${ico('download', 20)} Scarica la zona che stai guardando</button><small class="muted" style="display:block;margin:6px 2px 0">È l'area visibile ora sulla mappa principale: scegli nome, dettaglio e strati e va in coda.</small></div><div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Le zone si scaricano in coda, in background: puoi aggiungerne altre. ${usage}</div>${qHTML}
+      pg.body.innerHTML = `<div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><div style="padding:0 14px"><button class="btn primary big" id="off-here">${ico('download', 20)} Scarica la zona che vedi sulla mappa</button><small class="muted" style="display:block;margin:6px 2px 0">Sposta e ingrandisci la mappa qui sopra sulla zona che ti serve (da zoom 9 compare il satellite), poi tocca il pulsante: nome, dettaglio e strati si scelgono dopo.</small></div><small class="muted" style="display:block;margin:10px 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Le zone si scaricano in coda, in background: puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
             ? `<div class="list">${areas
@@ -469,7 +479,13 @@ function openOffline() {
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
       pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Inquadra un'altra zona sulla mappa</button></div>`);
-      pg.body.querySelector('#off-here').onclick = () => import('./mapscreen.js').then((m) => m.openDownloadHere());
+      pg.body.querySelector('#off-here').onclick = () => {
+        if (!covMap) return;
+        const z = covMap.getZoom();
+        if (z < 9) return toast('Avvicina la mappa alla zona da scaricare (zoom 9 o più)');
+        const b = covMap.getBounds();
+        import('./mapscreen.js').then((m) => m.openDownloadView({ fromCov: true, zoom: z, bounds: { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() } }));
+      };
       pg.body.querySelector('#off-new').onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('map:download'), 250); };
       drawCoverage(pg.body.querySelector('#cov-it'), areas);
       if (oSel) covHighlight(oIds, false);

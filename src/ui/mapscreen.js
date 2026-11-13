@@ -736,6 +736,10 @@ export function openDownloadHere() {
   rememberView();
   openDownload(lastView);
 }
+// Dalla schermata Mappe offline: scarica l'area visibile sulla mappa di quella schermata
+export function openDownloadView(view) {
+  openDownload(view);
+}
 function openDownload(view) {
   let bounds, cur;
   if (view) { bounds = view.bounds; cur = Math.round(view.zoom); } else {
@@ -760,7 +764,7 @@ function openDownload(view) {
     body: `<div data-enter-scope>
       <p class="muted" style="margin:0 0 4px">L'area visibile viene messa in coda e scaricata in background. Puoi inquadrare altre zone e aggiungerle: si scaricano una dopo l'altra.</p>
       <label class="field"><span>Nome area</span><input id="dl-name" type="text" value="${esc(defName)}" maxlength="60"></label>
-      <label class="field"><span>Dettaglio massimo: zoom <b id="dl-zl"></b></span><input id="dl-z" type="range" min="12" max="17" value="${clamp(cur + 1, 13, 17)}" style="width:100%"></label>
+      <label class="field"><span>Dettaglio massimo: zoom <b id="dl-zl"></b></span><input id="dl-z" type="range" min="12" max="17" value="${view && view.fromCov ? 16 : clamp(cur + 1, 13, 17)}" style="width:100%"></label>
       <div class="chips" style="padding:0 0 8px">
         <button class="chip ${s.baseLayer === 'sat' ? 'sel' : ''}" data-s="sat">Satellite</button>
         <button class="chip ${s.baseLayer === 'topo' ? 'sel' : ''}" data-s="topo">Topografica</button>

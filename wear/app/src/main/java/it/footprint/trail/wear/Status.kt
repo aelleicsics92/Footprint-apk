@@ -21,7 +21,7 @@ object Status {
         return n
     }
 
-    fun tilesBytes(): Long = dirSize(TileCache.dir)
+    fun tilesBytes(): Long = dirSize(TileCache.root)
 
     suspend fun push(ctx: Context) {
         try {
@@ -48,15 +48,17 @@ object Status {
     }
 
     /** Registra una mappa ricevuta (id area dal telefono). */
-    fun addMap(id: String, count: Int) {
+    fun addMap(id: String, src: String, count: Int) {
         val o = JSONObject(AppState.sp.getString("maps", "{}") ?: "{}")
-        o.put(id, count)
+        o.put("$id|$src", count)
         AppState.sp.edit().putString("maps", o.toString()).apply()
     }
 
     fun removeMap(id: String) {
         val o = JSONObject(AppState.sp.getString("maps", "{}") ?: "{}")
-        o.remove(id)
+        val keys = ArrayList<String>()
+        o.keys().forEach { keys.add(it) }
+        for (k in keys) if (k == id || k.startsWith("$id|")) o.remove(k)
         AppState.sp.edit().putString("maps", o.toString()).apply()
     }
 
