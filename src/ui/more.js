@@ -477,8 +477,8 @@ function openOffline() {
         const e = await navigator.storage.estimate();
         usage = `Spazio usato dall'app: ${fmtMB(e.usage || 0)}`;
       } catch {}
-      const qq = getQueue();
-      const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
+      const qBuild = () => { const qq = getQueue(); return qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : ''; };
+      const qHTML = `<div id="of-q">${qBuild()}</div>`;
       if (covMap) { try { covView = { c: covMap.getCenter(), z: covMap.getZoom() }; covMap.remove(); } catch {} covMap = null; }
       pg.body.innerHTML = `<div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><div style="padding:0 14px"><button class="btn primary big" id="off-here">${ico('download', 20)} Scarica la zona che vedi sulla mappa</button><small class="muted" style="display:block;margin:6px 2px 0">Sposta e ingrandisci la mappa qui sopra sulla zona che ti serve (da zoom 9 compare il satellite), poi tocca il pulsante: nome, dettaglio e strati si scelgono dopo.</small></div><small class="muted" style="display:block;margin:10px 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Le zone si scaricano in coda, in background: puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
@@ -491,6 +491,7 @@ function openOffline() {
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
+      { const qe = pg.body.querySelector('#of-q'); if (qe) { qe.__qb = qBuild; qe.onclick = (ev) => { const c = ev.target.closest('[data-cancel]'); if (c) cancelDownload(c.dataset.cancel); }; qe.dataset.n = String(getQueue().length); } }
       pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Inquadra un'altra zona sulla mappa</button></div>`);
       pg.body.querySelector('#off-here').onclick = () => {
         if (!covMap) return;
@@ -567,7 +568,7 @@ function openOffline() {
       );
     };
     draw();
-    const o1 = bus.on('dl:update', () => draw());
+    const o1 = bus.on('dl:update', () => { const el = pg.body.querySelector('#of-q'); if (el && el.dataset.n === String(getQueue().length)) el.innerHTML = el.__qb ? el.__qb() : el.innerHTML; else draw(); });
     const o2 = bus.on('dl:done', () => draw());
     pg.onClose = () => { covHl = null; covView = null; covSel.clear(); if (popB) popB(); o1 && o1(); o2 && o2(); if (covMap) { try { covMap.remove(); } catch {} covMap = null; } };
   }, { actions: `<button class="chip" id="of-all-del" style="color:#ff8a7a">Elimina tutto</button>` });
