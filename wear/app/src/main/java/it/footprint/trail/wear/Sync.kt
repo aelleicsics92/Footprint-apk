@@ -101,12 +101,16 @@ object Sync {
                 o.optJSONArray("ids")?.let { a -> for (i in 0 until a.length()) ids.add(a.getString(i)) }
                 for (id in ids) {
                     val root = TileCache.root.canonicalFile
+                    val keep = HashSet<String>()
+                    File(ctx.filesDir, "maps").listFiles()?.filter { it.isDirectory }?.forEach { sd ->
+                        sd.listFiles()?.filter { it.name.endsWith(".lst") && it.name != "$id.lst" && !ids.contains(it.name.removeSuffix(".lst")) }?.forEach { keep.addAll(it.readLines()) }
+                    }
                     File(ctx.filesDir, "maps").listFiles()?.filter { it.isDirectory }?.forEach { sd ->
                         val lst = File(sd, "$id.lst")
                         if (lst.exists()) {
                             lst.readLines().forEach { rel ->
                                 val f = File(root, rel).canonicalFile
-                                if (f.path.startsWith(root.path + File.separator)) f.delete()
+                                if (rel !in keep && f.path.startsWith(root.path + File.separator)) f.delete()
                             }
                             lst.delete()
                         }
@@ -314,7 +318,7 @@ class SyncService : WearableListenerService() {
 }
 
 /** Ritorna (numero di tile, id area, strato) dal file meta.json (che il telefono mette per primo nello ZIP). */
-fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, String?, String> {
+fun unzipTiles(zip: File, dest: File, files: MutableList<String>, refs: MutableList<String> = ArrayList()): Triple<Int, String?, String> {
     val rx = Regex("^(?:tiles/)?(\\d{1,2})/(\\d+)/(\\d+)\\.(png|jpg|jpeg|webp)$")
     val root = dest.canonicalFile
     var n = 0
@@ -325,7 +329,9 @@ fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, S
         while (e != null) {
             if (!e.isDirectory) {
                 val m = rx.matchEntire(e.name)
-                if (e.name == "meta.json") {
+                if (e.name == "ref.txt") {
+                    refs.addAll(zin.readBytes().toString(Charsets.UTF_8).lines().filter { it.isNotBlank() })
+                } else if (e.name == "meta.json") {
                     try {
                         val mo = org.json.JSONObject(zin.readBytes().toString(Charsets.UTF_8))
                         metaId = mo.optString("id").ifEmpty { null }
@@ -354,8 +360,16 @@ fun unzipTiles(zip: File, dest: File, files: MutableList<String>): Triple<Int, S
 /** Decomprime lo ZIP di tile ricevuto (da Bluetooth o WiFi), aggiorna indice e stato. */
 suspend fun finishTiles(ctx: Context, tmp: File) {
     val files = ArrayList<String>()
-    val (n, metaId, src) = unzipTiles(tmp, TileCache.root, files)
+    val refs = ArrayList<String>()
+    val (n0, metaId, src) = unzipTiles(tmp, TileCache.root, files, refs)
     tmp.delete()
+    var n = n0
+    for (r in refs) {
+        if (!Regex("^\\d{1,2}/\\d+/\\d+$").matches(r)) continue
+        for (ext in listOf("jpg", "png", "webp")) {
+            if (File(TileCache.root, "$src/$r.$ext").exists()) { files.add("$src/$r.$ext"); n++; break }
+        }
+    }
     if (metaId != null) {
         Status.addMap(metaId, src, n)
         val md = File(File(ctx.filesDir, "maps"), src)

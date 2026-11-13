@@ -3,7 +3,7 @@ import { openPage, openSheet, toast, closeTopSheet, confirmBox, leavePages } fro
 import { getSettings, setSetting } from '../lib/store.js';
 import { WP_ICONS, WP_BY_ID } from '../lib/icons.js';
 import { esc, bus } from '../lib/util.js';
-import { listAreas, fmtMB } from '../lib/offline.js';
+import { listAreas, fmtMB, tileRange } from '../lib/offline.js';
 import { watchCfg, sendCmd, sendTracks, sendToWatch, queueSend, watchInfo, WATCH_DEFAULT_ICONS, WATCH_MAX_ICONS } from '../lib/watchsync.js';
 import { estimateWatchBytes, estimateMinutes, watchSources, sendAreaToWatch } from '../lib/watchmaps.js';
 
@@ -61,8 +61,16 @@ async function runQueue() {
       sending = { id: a.id, phase: 'prep', done: 0, total: 1 };
       repaint && repaint();
       try {
-        await sendAreaToWatch(a, {
+        const known = new Set();
+        try {
+          for (const b of await listAreas()) {
+            if (b.id === a.id || !hasOn(lastStatus, b, src)) continue;
+            for (let z = b.zmin; z <= Math.min(b.zmax, MAP_Z); z++) { const r = tileRange(b.bounds, z); for (let x = r.x0; x <= r.x1; x++) for (let y = r.y0; y <= r.y1; y++) known.add(`${z}/${x}/${y}`); }
+          }
+        } catch {}
+        const res = await sendAreaToWatch(a, {
           src,
+          known,
           maxZ: MAP_Z,
           onPhase: (ph, d, t) => {
             sending = { id: a.id, phase: ph, done: d, total: t };
@@ -71,6 +79,7 @@ async function runQueue() {
           },
         });
         pendingAck[a.id] = Date.now();
+        toast(`${a.name}: inviata via ${res.via === 'wifi' ? 'WiFi' : 'Bluetooth'} (${res.tiles} nuove${res.shared ? ', ' + res.shared + ' già sul watch' : ''})`);
       } catch (e) {
         toast(`${a.name}: invio non riuscito (${(e && e.message) || e})`);
         break;

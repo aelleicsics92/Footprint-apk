@@ -137,7 +137,7 @@ const extOf = (t) => (t === 'image/jpeg' ? 'jpg' : t === 'image/webp' ? 'webp' :
  * Prepara lo ZIP dei tile dell'area e lo invia al watch.
  * onPhase('prep', fatti, totali) durante la preparazione, onPhase('send') durante il trasferimento.
  */
-export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
+export async function sendAreaToWatch(a, { src, maxZ, onPhase, known }) {
   const zl = zoomLimit(a, maxZ);
   const total = countTiles(a.bounds, a.zmin, zl);
   const path = 'watchmap/area.zip';
@@ -165,12 +165,14 @@ export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
       return out ? { buf: new Uint8Array(await out.arrayBuffer()), ext: 'jpg' } : null;
     } catch { return null; }
   };
-  let done = 0, have = 0;
+  let done = 0, have = 0, shared = 0;
+  const refs = [];
   for (let z = a.zmin; z <= zl; z++) {
     const r = tileRange(a.bounds, z);
     for (let x = r.x0; x <= r.x1; x++) {
       for (let y = r.y0; y <= r.y1; y++) {
         done++;
+        if (known && known.has(`${z}/${x}/${y}`)) { refs.push(`${z}/${x}/${y}`); shared++; if (done % 60 === 0) onPhase && onPhase('prep', done, total); continue; }
         const blob = await get(tileKey(src, z, x, y), tileStore);
         if (blob) {
           let buf = null, ext = extOf(blob.type);
@@ -187,11 +189,12 @@ export async function sendAreaToWatch(a, { src, maxZ, onPhase }) {
     }
   }
   if (lab) lab.remove();
-  if (!have) throw new Error('nessun tile salvato per questa zona e questo strato');
+  if (!have && !shared) throw new Error('nessun tile salvato per questa zona e questo strato');
+  if (refs.length) await zip.add('ref.txt', new TextEncoder().encode(refs.join('\n')));
   await zip.finish();
   onPhase && onPhase('send', total, total);
   const u = await Filesystem.getUri({ path, directory: Directory.Cache });
-  await IF().watchSendFile({ path: u.uri });
+  const sr = await IF().watchSendFile({ path: u.uri });
   try { await Filesystem.deleteFile({ path, directory: Directory.Cache }); } catch {}
-  return { tiles: have, bytes: zip.offset };
+  return { tiles: have, shared, via: (sr && sr.via) || 'bluetooth', bytes: zip.offset };
 }
