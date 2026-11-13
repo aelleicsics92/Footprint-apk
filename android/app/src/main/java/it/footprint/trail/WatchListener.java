@@ -1,6 +1,12 @@
 package it.footprint.trail;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.content.SharedPreferences;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Asset;
@@ -59,6 +65,23 @@ public class WatchListener extends WearableListenerService {
         }
         out.put(o);
         sp.edit().putString("wps", out.toString()).apply();
+        if ("parcheggio".equals(m.getString("icon")) && !m.getBoolean("del")) notifyCar(c);
+    }
+
+    /** Se l'app e' chiusa la condivisione dell'auto parte quando si apre: la notifica la riapre con un tocco. */
+    private static void notifyCar(Context c) {
+        try {
+            NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(new NotificationChannel("fp_watch_car", "Auto dal watch", NotificationManager.IMPORTANCE_HIGH));
+            Intent i = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
+            if (i == null) return;
+            PendingIntent pi = PendingIntent.getActivity(c, 78, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, "fp_watch_car") : new Notification.Builder(c);
+            b.setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("Auto parcheggiata dal watch")
+                .setContentText("Tocca per condividere la posizione dell'auto").setContentIntent(pi).setAutoCancel(true);
+            nm.notify(78, b.build());
+        } catch (Exception ignore) {
+        }
     }
 
     private void addTrip(Context c, DataMap m) throws Exception {

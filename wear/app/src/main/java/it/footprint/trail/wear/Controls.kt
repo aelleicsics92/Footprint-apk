@@ -220,11 +220,22 @@ object Controls {
 
     /** Tasto 1: clic = schermata successiva (o conferma nel menu a ruota), tenuto premuto = nuovo waypoint (icona con la corona). */
     fun onAltPress() {
-        if (AppState.wheelOpen) wheelConfirm() else nextScreen(1)
+        when {
+            AppState.wheelOpen -> wheelConfirm()
+            AppState.screen == 4 -> activateSelection() // nelle impostazioni: tasto 1 = seleziona la voce (corona = scorri)
+            else -> nextScreen(1)
+        }
     }
 
     fun onAltLong() {
-        if (AppState.wheelOpen) closeWheel() else openWheel()
+        when {
+            AppState.wheelOpen -> closeWheel()
+            AppState.screen == 4 -> { // nelle impostazioni: tenuto premuto = indietro
+                Haptics.tick()
+                if (AppState.menuGroup >= 0) runMenu("back") else nextScreen(1)
+            }
+            else -> openWheel()
+        }
     }
 
     /** Conferma a doppia pressione per le azioni distruttive. */

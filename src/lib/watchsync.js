@@ -6,6 +6,7 @@ import { toast } from './ui.js';
 import { getWaypoints, getWaypoint, addWaypoint, removeWaypoint } from './waypoints.js';
 import { saveTrack, getTracks, loadTrackPoints } from './track.js';
 import { buildTrack } from './gpsio.js';
+import { shareParking, parkShare } from './cloud.js';
 
 export const WATCH_MAX_ICONS = 12;
 export const WATCH_DEFAULT_ICONS = ['porcino', 'regius', 'galletto', 'ovulo', 'scorzone', 'bianco', 'fungo', 'parcheggio', 'acqua', 'pericolo'];
@@ -132,7 +133,7 @@ export async function pullWatch() {
     const wps = JSON.parse((r && r.wps) || '[]');
     const trips = JSON.parse((r && r.trips) || '[]');
     const dog = ((getSettings().dogName || '').split(',')[0] || '').trim();
-    let n = 0, t = 0;
+    let n = 0, t = 0, car = false;
     for (const w of wps) {
       if (!w || !w.id) continue;
       if (w.del) {
@@ -140,6 +141,7 @@ export async function pullWatch() {
         continue;
       }
       if (getWaypoint(w.id)) continue;
+      if (w.icon === 'parcheggio') car = true;
       await addWaypoint({ id: w.id, title: w.title || 'Punto watch', desc: '', icon: w.icon || 'fungo', dog: w.dog ? dog : '', lat: w.lat, lon: w.lon, alt: w.alt, acc: w.acc, ts: w.ts });
       n++;
     }
@@ -156,6 +158,11 @@ export async function pullWatch() {
         await saveTrack(buildTrack('Uscita col watch · ' + new Date(tr.start).toLocaleDateString('it-IT'), pts));
         t++;
       }
+    }
+    // parcheggio salvato col watch: come sul telefono, la posizione va subito a chi hai invitato (link o Telegram)
+    if (car && parkShare()) {
+      const r = await shareParking(true).catch(() => null);
+      toast(r && r.ok ? 'Auto del watch condivisa' : 'Auto del watch salvata: condivisione non riuscita, riprova più tardi');
     }
     if (n || t) toast(`Dal watch: ${n ? n + ' waypoint' : ''}${n && t ? ', ' : ''}${t ? t + ' traccia' : ''}`);
   } catch {}

@@ -634,7 +634,7 @@ fun MenuScreen(p: Pal) {
                 if (items[i].value.isNotEmpty()) T(items[i].value, if (selected) p.sec else p.dim, 12)
             }
         }
-        if (AppState.learn != 0) T("premi il tasto da assegnare", p.sec, 12)
+        if (AppState.learn != 0) T("premi il tasto da assegnare", p.sec, 12) else T("corona scorri · tasto 1 sceglie · tieni = indietro", p.dim, 9)
     }
 }
 
