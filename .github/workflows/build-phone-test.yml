@@ -82,6 +82,7 @@ jobs:
           APK=android/app/build/outputs/apk/release/app-release.apk
           if [ "$GRADLE_CODE" = "0" ] && [ -f "$APK" ]; then
             cp "$APK" "$RUNNER_TEMP/Footprint-telefono-wear-${{ github.run_number }}.apk"
+            cp "$APK" "$RUNNER_TEMP/pub/footprint-telefono.apk"
             gh release create "phone-wear-${{ github.run_number }}" "$RUNNER_TEMP/Footprint-telefono-wear-${{ github.run_number }}.apk" \
               --target "${{ github.sha }}" --prerelease --latest=false \
               --title "Telefono + sync watch (prova ${{ github.run_number }})" \
