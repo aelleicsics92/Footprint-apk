@@ -173,6 +173,8 @@ export function mountMap(el) {
   wpGroup = L.layerGroup().addTo(map);
   import('../lib/watchsync.js').then((m) => m.startLiveLayer(map, L)).catch(() => {});
   map.on('moveend zoomend', scheduleWaypoints);
+  map.on('moveend zoomend', rememberView);
+  setTimeout(rememberView, 1500);
   shownGroup = L.layerGroup().addTo(map);
   mateGroup = L.layerGroup().addTo(map);
   othersGroup = L.layerGroup().addTo(map);
@@ -720,10 +722,28 @@ function openLayers() {
 }
 
 // ---------- download offline ----------
-function openDownload() {
-  const b = map.getBounds();
-  const bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
-  const cur = Math.round(map.getZoom());
+let lastView = null; // ultima inquadratura valida della mappa principale (serve anche quando la mappa e' nascosta)
+function rememberView() {
+  try {
+    const s = map.getSize();
+    if (s.x < 60 || s.y < 60) return;
+    const b = map.getBounds();
+    lastView = { bounds: { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() }, zoom: map.getZoom() };
+  } catch {}
+}
+// Dalla schermata Mappe offline: scarica la zona che stai guardando sulla mappa principale
+export function openDownloadHere() {
+  rememberView();
+  openDownload(lastView);
+}
+function openDownload(view) {
+  let bounds, cur;
+  if (view) { bounds = view.bounds; cur = Math.round(view.zoom); } else {
+    rememberView();
+    const b = map.getBounds();
+    bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
+    cur = Math.round(map.getZoom());
+  }
   const s = getSettings();
   const now = new Date();
   // nome automatico: località più vicina al centro dell'area + tipo di mappa

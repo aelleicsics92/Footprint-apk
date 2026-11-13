@@ -93,7 +93,7 @@ export function mountMore(el) {
     ]],
     ['SINCRO, IMPORT E IMPOSTAZIONI', [
       ['nav', 'Strumenti GPS e Garmin', 'Garmin GPSMAP, importa, esporta', gpsHub],
-      ['phone', 'Smartwatch', 'Icone e impostazioni dell\'orologio Wear OS', openWatch],
+      ['watch', 'Smartwatch', 'Icone e impostazioni dell\'orologio Wear OS', openWatch],
       ['sliders', 'Impostazioni', 'Traccia, emergenza SOS, AI, bussola', openSettings],
       ['info', 'Info su Footprint', 'Versione e crediti', openAbout],
     ]],
@@ -457,7 +457,7 @@ function openOffline() {
       const qq = getQueue();
       const qHTML = qq.length ? `<div class="sec-title" style="font-size:1.05rem">Coda download</div><div class="list">${qq.map((j) => { const pc = Math.round(((j.done || 0) / (j.total || 1)) * 100); return `<div class="item" style="cursor:default;flex-wrap:wrap"><span class="lead">${ico('download', 22)}</span><div class="ti"><b>${esc(j.name)}</b><small>${j.status === 'running' ? `Scarico… ${pc}% · ${fmtMB(j.bytes || 0)}` : 'In attesa'}</small></div><button class="icon-btn" data-cancel="${j.id}" aria-label="Annulla" style="color:var(--danger)">${ico('close', 20)}</button>${j.status === 'running' ? `<div class="progress" style="flex-basis:100%;margin-top:6px"><i style="width:${pc}%"></i></div>` : ''}</div>`; }).join('')}</div>` : '';
       if (covMap) { try { covView = { c: covMap.getCenter(), z: covMap.getZoom() }; covMap.remove(); } catch {} covMap = null; }
-      pg.body.innerHTML = `<div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Per scaricare una zona: apri la mappa, inquadra l'area e tocca ${ico('download', 16)}: finisce in coda e scarica in background, puoi aggiungerne altre. ${usage}</div>${qHTML}
+      pg.body.innerHTML = `<div style="padding:14px 14px 0"><button class="btn primary big" id="off-here">${ico('download', 20)} Scarica la zona che stai guardando</button><small class="muted" style="display:block;margin:6px 2px 0">È l'area visibile ora sulla mappa principale: scegli nome, dettaglio e strati e va in coda.</small></div><div id="cov-it" style="height:360px;margin:14px 14px 4px;border-radius:16px;overflow:hidden;background:#e9e4d4"></div><small class="muted" style="display:block;margin:0 16px 8px">${areas.length ? `Verde = zone già scaricate (${areas.length}). Tocca un'area per il nome.` : 'Qui compariranno le zone che scarichi.'}</small><div class="infobox" style="margin:14px">Le zone si scaricano in coda, in background: puoi aggiungerne altre. ${usage}</div>${qHTML}
         ${
           areas.length
             ? `<div class="list">${areas
@@ -468,7 +468,8 @@ function openOffline() {
                 .join('')}</div>`
             : `<div class="empty">${ico('download', 40)}<p>Nessuna area scaricata.</p></div>`
         }`;
-      pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Scarica nuova zona dalla mappa</button></div>`);
+      pg.body.insertAdjacentHTML('beforeend', `<div style="padding:16px 14px 24px"><button class="btn primary big" id="off-new">${ico('download', 20)} Inquadra un'altra zona sulla mappa</button></div>`);
+      pg.body.querySelector('#off-here').onclick = () => import('./mapscreen.js').then((m) => m.openDownloadHere());
       pg.body.querySelector('#off-new').onclick = () => { leavePages(); bus.emit('nav:tab', 'map'); setTimeout(() => bus.emit('map:download'), 250); };
       drawCoverage(pg.body.querySelector('#cov-it'), areas);
       if (oSel) covHighlight(oIds, false);

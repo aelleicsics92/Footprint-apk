@@ -277,7 +277,7 @@ object Controls {
 
     fun setZoom(z: Int) {
         val lo = if (TileCache.has) TileCache.minZ else 3
-        val hi = if (TileCache.has) TileCache.maxZ else 18
+        val hi = if (TileCache.has) (TileCache.maxZ + 3).coerceAtMost(20) else 18
         AppState.zoom = z.coerceIn(lo, hi)
         AppState.putInt("zoom", AppState.zoom)
     }

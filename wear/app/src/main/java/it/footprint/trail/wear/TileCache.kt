@@ -38,7 +38,7 @@ object TileCache {
         if (has) {
             minZ = zs.min()
             maxZ = zs.max()
-            if (AppState.zoom !in minZ..maxZ) AppState.zoom = AppState.zoom.coerceIn(minZ, maxZ)
+            if (AppState.zoom !in minZ..(maxZ + 3)) AppState.zoom = AppState.zoom.coerceIn(minZ, maxZ + 3)
         }
         cache.evictAll()
         missing.clear()

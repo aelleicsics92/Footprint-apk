@@ -95,17 +95,21 @@ object Sync {
         AppState.sp.edit().putLong("cmdTs", ts).apply()
         when (o.optString("op")) {
             "delmap" -> {
-                val id = o.optString("id")
-                val lst = File(File(ctx.filesDir, "maps"), "$id.lst")
-                if (lst.exists()) {
-                    val root = TileCache.dir.canonicalFile
-                    lst.readLines().forEach { rel ->
-                        val f = File(root, rel).canonicalFile
-                        if (f.path.startsWith(root.path + File.separator)) f.delete()
+                val ids = ArrayList<String>()
+                o.optString("id").takeIf { it.isNotEmpty() }?.let { ids.add(it) }
+                o.optJSONArray("ids")?.let { a -> for (i in 0 until a.length()) ids.add(a.getString(i)) }
+                for (id in ids) {
+                    val lst = File(File(ctx.filesDir, "maps"), "$id.lst")
+                    if (lst.exists()) {
+                        val root = TileCache.dir.canonicalFile
+                        lst.readLines().forEach { rel ->
+                            val f = File(root, rel).canonicalFile
+                            if (f.path.startsWith(root.path + File.separator)) f.delete()
+                        }
+                        lst.delete()
                     }
-                    lst.delete()
+                    Status.removeMap(id)
                 }
-                Status.removeMap(id)
                 withContext(Dispatchers.Main) {
                     TileCache.scan()
                     Controls.toast("Mappa eliminata")

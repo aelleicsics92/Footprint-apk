@@ -1,5 +1,6 @@
 // Icone UI (stroke) e icone waypoint (colorate)
 const P = {
+  watch: '<rect x="7" y="6.5" width="10" height="11" rx="3.5"/><path d="M9 6.5l.8-3h4.4l.8 3M9 17.5l.8 3h4.4l.8-3M12 9.8v2.4l1.7 1.1"/>',
   map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   layers: '<path d="M12 3L3 8l9 5 9-5z"/><path d="M3 12.5l9 5 9-5M3 16.5l9 5 9-5"/>',
   locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',

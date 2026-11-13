@@ -290,14 +290,26 @@ private fun DrawScope.drawMap(p: Pal, paint: android.graphics.Paint) {
         val y1 = floor((cy + h / 2.0) / ts).toInt()
         val maxT = 1 shl z
         val side = ts.roundToInt() + 1
+        // oltre l'ultimo livello scaricato si ingrandisce il tile piu' vicino (zoom digitale)
+        val dz = (z - TileCache.maxZ).coerceIn(0, 3)
+        val k = 1 shl dz
+        val tz = z - dz
         for (tx in x0..x1) {
             for (ty in y0..y1) {
                 if (ty < 0 || ty >= maxT) continue
                 val wrap = ((tx % maxT) + maxT) % maxT
-                val img = TileCache.get(z, wrap, ty) ?: continue
+                val img = TileCache.get(tz, wrap shr dz, ty shr dz) ?: continue
+                val sw = max(1, img.width / k)
+                val sh = max(1, img.height / k)
                 val ox = (tx * ts - cx + w / 2.0).roundToInt()
                 val oy = (ty * ts - cy + h / 2.0).roundToInt()
-                drawImage(img, dstOffset = IntOffset(ox, oy), dstSize = IntSize(side, side))
+                drawImage(
+                    img,
+                    srcOffset = IntOffset((wrap and (k - 1)) * sw, (ty and (k - 1)) * sh),
+                    srcSize = IntSize(sw, sh),
+                    dstOffset = IntOffset(ox, oy),
+                    dstSize = IntSize(side, side)
+                )
             }
         }
     } else {

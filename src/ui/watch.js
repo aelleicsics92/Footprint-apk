@@ -22,6 +22,7 @@ const SRC_NAME = { sat: 'Satellite', topo: 'Topografica' };
 let sending = null; // {id, phase, done, total}
 const pendingAck = {}; // id area -> istante dell'invio, in attesa che l'orologio confermi
 let queue = [];
+const selected = new Set(); // mappe scelte nell'elenco
 let running = false;
 let repaint = null; // ridisegna la pagina se aperta
 let lastStatus = null;
@@ -163,6 +164,11 @@ export function openWatch() {
       const allBar = areas.length
         ? `<div style="display:flex;gap:8px;margin:10px 0 2px"><button class="btn primary" id="w-all" style="flex:1" ${toSend.length && info.nodes.length ? '' : 'disabled'}>Invia tutte${toSend.length ? ` (${toSend.length})` : ''}</button>${queue.length ? '<button class="btn" id="w-qclr">Svuota coda</button>' : ''}</div><small class="muted" style="display:block;margin:0 2px 4px">Le mappe già sul watch non vengono rimandate. L'invio va avanti in coda, anche se esci da questa pagina.</small>`
         : '';
+      for (const id of [...selected]) if (!areas.find((a) => a.id === id)) selected.delete(id);
+      const nSel = selected.size;
+      const selBar = areas.length
+        ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px;align-items:center"><button class="chip" id="w-selall">${nSel === areas.length ? 'Deseleziona tutte' : 'Seleziona tutte'}</button>${nSel ? `<b style="font-size:.9rem">${nSel} selezionate</b>` : '<small class="muted">Spunta le mappe per inviarle o eliminarle insieme</small>'}</div>${nSel ? `<div style="display:flex;gap:8px;margin:0 0 8px"><button class="btn primary" id="w-selsend" style="flex:1" ${info.nodes.length ? '' : 'disabled'}>Invia selezione</button><button class="btn" id="w-seldel" style="flex:1;color:#c0392b" ${info.nodes.length ? '' : 'disabled'}>Elimina dal Watch</button></div>` : ''}<button class="chip" id="w-delall" style="color:#c0392b;margin:0 0 10px" ${info.nodes.length ? '' : 'disabled'}>Elimina tutte le mappe dal Watch</button>`
+        : '';
       const list = areas.length
         ? `<div class="list">${areas
             .map((a) => {
@@ -174,12 +180,12 @@ export function openWatch() {
               const prog = mine ? (sending.phase === 'prep' ? `Preparo ${Math.round((sending.done / (sending.total || 1)) * 100)}%` : 'Invio in corso...') : '';
               const sent = st && st.maps && st.maps[a.id] != null;
               const can = !!sr && info.nodes.length > 0 && !queued;
-              return `<div class="set-row col" style="gap:8px"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${queued ? 'In coda' : sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !queued ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
+              return `<div class="set-row col" style="gap:8px"><label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer"><input type="checkbox" data-sel="${a.id}" ${selected.has(a.id) ? 'checked' : ''} style="width:22px;height:22px;margin-top:2px;flex:none"><div class="ti"><b>${esc(a.name)}</b><small>${sr ? `circa ${fmtSize(est)} sul watch${sr === 'sat' ? ', con i nomi' : ''}` : 'Solo sentieri: scarica anche Satellite o Topografica'}</small></div></label><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:.78rem;font-weight:600;padding:4px 11px;border-radius:10px;color:${col};background:${bg}">${lab}</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="chip" data-send="${a.id}" ${can ? '' : 'disabled'}>${queued ? 'In coda' : sent ? 'Reinvia al Watch' : 'Invia al Watch'}</button>${sent ? `<button class="chip" data-del="${a.id}" style="color:#c0392b" ${info.nodes.length && !queued ? '' : 'disabled'}>Elimina dal Watch</button>` : ''}</span></div>${prog ? `<div data-prog="${a.id}" style="font-size:.8rem;color:#b7791f">${prog}</div>` : ''}</div>`;
             })
             .join('')}</div>`
         : `<div class="empty" style="padding:26px 14px"><p>Nessuna mappa offline sul telefono.</p></div>`;
       return `<div style="padding:0 14px">${storage}
-        <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${allBar}${list}
+        <div class="sec-h" style="padding-left:0">MAPPE SUL TELEFONO</div>${allBar}${selBar}${list}
         <button class="btn primary big" id="w-dl" style="margin-top:14px">+ Scarica nuova mappa</button>
         <p class="muted" style="margin:10px 2px;font-size:.82rem;line-height:1.5">L'invio va via Bluetooth (circa 1 MB al minuto): per le zone grandi tieni il watch vicino. Con il satellite sono inclusi i nomi di paesi, monti e acque (la preparazione richiede qualche minuto). Puoi eliminarle dal watch con «Elimina dal Watch».</p></div>`;
     };
@@ -310,6 +316,48 @@ export function openWatch() {
         toast(`${n} mappe in coda`);
         paintPane();
         runQueue();
+      } else if (e.target.closest('#w-selall')) {
+        if (selected.size === areas.length) selected.clear(); else areas.forEach((a) => selected.add(a.id));
+        paintPane();
+      } else if (e.target.closest('#w-selsend')) {
+        const st = info.status;
+        let n = 0, skip = 0;
+        for (const a of areas) {
+          if (!selected.has(a.id)) continue;
+          if (!pickSource(a, MAP_SRC) || (st && st.maps && st.maps[a.id] != null) || isQueued(a.id)) { skip++; continue; }
+          queue.push(a);
+          n++;
+        }
+        selected.clear();
+        toast(n ? `${n} mappe in coda${skip ? `, ${skip} già presenti` : ''}` : 'Le mappe scelte sono già sul watch');
+        paintPane();
+        runQueue();
+      } else if (e.target.closest('#w-seldel')) {
+        const ids = areas.filter((a) => selected.has(a.id)).map((a) => a.id);
+        if (ids.length && (await confirmBox(`Eliminare <b>${ids.length}</b> mappe dal watch? Restano sul telefono.`, { ok: 'Elimina' }))) {
+          try {
+            await sendCmd({ op: 'delmap', ids });
+            if (info.status && info.status.maps) ids.forEach((i) => delete info.status.maps[i]);
+            ids.forEach((i) => delete pendingAck[i]);
+            selected.clear();
+            toast('Richiesta inviata: il watch elimina le mappe');
+          } catch (err) {
+            toast('Non riuscito: ' + ((err && err.message) || err));
+          }
+          paintPane();
+        }
+      } else if (e.target.closest('#w-delall')) {
+        if (await confirmBox('Eliminare <b>tutte</b> le mappe dal watch? Restano sul telefono.', { ok: 'Elimina tutte' })) {
+          try {
+            await sendCmd({ op: 'clearmaps' });
+            if (info.status) info.status.maps = {};
+            for (const k of Object.keys(pendingAck)) delete pendingAck[k];
+            toast('Richiesta inviata: il watch elimina tutte le mappe');
+          } catch (err) {
+            toast('Non riuscito: ' + ((err && err.message) || err));
+          }
+          paintPane();
+        }
       } else if (e.target.closest('#w-qclr')) {
         queue = [];
         paintPane();
@@ -338,6 +386,12 @@ export function openWatch() {
       }
     });
     pg.body.addEventListener('change', (e) => {
+      const cb = e.target.closest && e.target.closest('[data-sel]');
+      if (cb) {
+        if (cb.checked) selected.add(cb.dataset.sel); else selected.delete(cb.dataset.sel);
+        paintPane();
+        return;
+      }
       const k = e.target && e.target.dataset && e.target.dataset.k;
       if (!k) return;
       let v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
