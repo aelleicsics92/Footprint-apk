@@ -85,6 +85,7 @@ object AppState {
     var menuGroup by mutableIntStateOf(-1)
     var iconScale by mutableFloatStateOf(1f)
     var haptic by mutableIntStateOf(2)
+    var wristWake by mutableStateOf(true)
     var confirmId: String? = null
     var confirmTs = 0L
     var recConfirm = 0L
@@ -109,6 +110,7 @@ object AppState {
         iconScale = sp.getFloat("iconScale", 1f)
         mapSrc = sp.getString("mapSrc", "sat") ?: "sat"
         haptic = sp.getInt("haptic", 2)
+        wristWake = sp.getBoolean("wristWake", true)
         showSaved = sp.getBoolean("showSaved", true)
         icons.clear()
         icons.addAll((sp.getString("icons", null) ?: "").split(",").filter { it.isNotBlank() }.ifEmpty { Labels.defaults })

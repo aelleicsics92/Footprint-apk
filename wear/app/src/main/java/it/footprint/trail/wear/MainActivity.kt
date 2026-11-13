@@ -15,6 +15,7 @@ import androidx.wear.ambient.AmbientLifecycleObserver
 class MainActivity : ComponentActivity() {
 
     private val compass by lazy { CompassSensor(this) }
+    private val wrist by lazy { WristWake(this) { } }
     private lateinit var ambientObserver: AmbientLifecycleObserver
 
     private val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
@@ -22,11 +23,13 @@ class MainActivity : ComponentActivity() {
             AppState.ambient = true
             AppState.shownHeading = AppState.heading
             compass.start(true)
+            if (AppState.wristWake) wrist.start()
         }
 
         override fun onExitAmbient() {
             AppState.ambient = false
             compass.start(false)
+            wrist.stop()
         }
 
         override fun onUpdateAmbient() {
@@ -53,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         compass.stop()
+        wrist.stop()
         super.onStop()
     }
 

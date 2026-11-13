@@ -389,7 +389,7 @@ function openWaypointList() {
 }
 
 // ---------- mappe offline ----------
-let covMap = null, covRects = {}, covHl = null, covView = null; const covSel = new Set();
+let covMap = null, covRects = {}, covHl = null, covView = null, covOnPick = null; const covSel = new Set();
 function covHighlight(ids, fit = true) {
   const set = ids instanceof Set ? ids : new Set(ids ? [ids] : []);
   for (const [k, r] of Object.entries(covRects)) r.setStyle(set.has(k) ? { color: '#0b4d2a', weight: 3, fillColor: '#1f8a4c', fillOpacity: 0.6 } : { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: set.size ? 0.3 : 0.7 });
@@ -450,6 +450,11 @@ function drawCoverage(el, areas) {
     if (n - s < mn) { const c = (n + s) / 2; n = c + mn / 2; s = c - mn / 2; }
     if (e - w < mn) { const c = (e + w) / 2; e = c + mn / 2; w = c - mn / 2; }
     covRects[a.id] = L.rectangle([[s, w], [n, e]], { color: '#12372a', weight: 1.2, fillColor: '#3f7a4a', fillOpacity: 0.7 }).bindTooltip(esc(a.name), { sticky: true }).addTo(covMap);
+    const rc = covRects[a.id]; let lpT = 0, lpDone = false;
+    rc.on('mousedown touchstart', () => { lpDone = false; clearTimeout(lpT); lpT = setTimeout(() => { lpDone = true; covOnPick && covOnPick(a.id, 'long'); }, 500); });
+    rc.on('mouseup touchend dragstart', () => clearTimeout(lpT));
+    covMap.on('movestart', () => clearTimeout(lpT));
+    rc.on('click', (ev) => { L.DomEvent.stopPropagation(ev); if (lpDone) { lpDone = false; return; } covOnPick && covOnPick(a.id, 'tap'); });
   }
   setTimeout(() => { if (covMap) { covMap.invalidateSize(); if (covView) covMap.setView(covView.c, covView.z, { animate: false }); else if (covHl && covRects[covHl]) covHighlight(covHl); else covMap.fitBounds(it.getBounds(), { padding: [4, 4] }); if (covSel.size) covHighlight(covSel, false); upd(); } }, 320);
 }
@@ -501,6 +506,15 @@ function openOffline() {
       bar.querySelector('#of-del').onclick = async () => {
         if (!oIds.size) return toast('Nessuna mappa selezionata');
         if (await confirmBox(`Eliminare <b>${oIds.size}</b> mappe offline?`, { ok: 'Elimina', danger: true })) { for (const id of [...oIds]) await deleteArea(id); toast('Eliminate'); covHl = null; setSel(false); draw(); }
+      };
+      covOnPick = (id, kind) => {
+        if (kind === 'long') { if (!oSel) setSel(true); oIds.add(id); if (navigator.vibrate) navigator.vibrate(30); draw(); return; }
+        if (oSel) { oIds.has(id) ? oIds.delete(id) : oIds.add(id); draw(); return; }
+        covHl = covHl === id ? null : id;
+        pg.body.querySelectorAll('[data-row]').forEach((r) => (r.style.background = r.dataset.row === covHl ? '#fff1cf' : ''));
+        covHighlight(covHl, false);
+        const rw = pg.body.querySelector(`[data-row="${id}"]`);
+        if (covHl && rw) rw.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       };
       pg.body.querySelectorAll('[data-row]').forEach((row) => {
         let t = 0, lp = false;

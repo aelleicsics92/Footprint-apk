@@ -353,7 +353,8 @@ object Controls {
                 MI("theme", "Tema", if (AppState.theme == 0) "neon" else "rosso notte"),
                 MI("tscale", "Dettaglio mappa", "${AppState.tileScale}x"),
                 MI("iconScale", "Dimensione icone", when (AppState.iconScale) { 0.7f -> "piccole"; 1.35f -> "grandi"; else -> "medie" }),
-                MI("haptic", "Vibrazione", when (AppState.haptic) { 0 -> "spenta"; 1 -> "debole"; 3 -> "forte"; else -> "normale" })
+                MI("haptic", "Vibrazione", when (AppState.haptic) { 0 -> "spenta"; 1 -> "debole"; 3 -> "forte"; else -> "normale" }),
+                MI("wristWake", "Risveglio col polso", onOff(AppState.wristWake))
             )
             else -> listOf(
                 MI("clearMaps", "Cancella mappe", tileSize()),
@@ -402,6 +403,10 @@ object Controls {
                 val v = listOf(0.7f, 1f, 1.35f)
                 AppState.iconScale = v[(v.indexOf(AppState.iconScale) + 1) % v.size]
                 AppState.putFloat("iconScale", AppState.iconScale)
+            }
+            "wristWake" -> {
+                AppState.wristWake = !AppState.wristWake
+                AppState.putBool("wristWake", AppState.wristWake)
             }
             "haptic" -> {
                 AppState.haptic = (AppState.haptic + 1) % 4
